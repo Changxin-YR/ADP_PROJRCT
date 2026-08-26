@@ -65,7 +65,7 @@ def create_data_exchange_blueprint(settings: Settings, auth_store: Any, exchange
 
     @blueprint.get("/imports")
     def imports() -> Response | tuple[Response, int]:
-        return protect(lambda: jsonify(ok({"items": service.list_imports(user())})))
+        return protect(lambda: jsonify(ok(service.list_imports(user(), page=request.args.get("page", 1, type=int), page_size=request.args.get("page_size", 50, type=int)))))
 
     @blueprint.post("/imports/preview")
     def preview() -> Response | tuple[Response, int]:

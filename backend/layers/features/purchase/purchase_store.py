@@ -162,6 +162,7 @@ class MySqlPurchaseStore:
                 notify_work_item_created(
                     connection,
                     organization_id=after["organization_id"],
+                    area_id=after.get("area_id"),
                     module_code="purchase",
                     action_code="approve",
                     object_type="purchase:order",

@@ -186,6 +186,6 @@ class Settings:
         }
         if "super_admin" in role_codes:
             return self.session_super_admin_limit
-        if role_codes.intersection({"field_worker", "farmer", "operator"}):
+        if role_codes.intersection({"breed_worker", "field_worker", "farmer", "operator"}):
             return self.session_field_worker_limit
         return self.session_default_limit

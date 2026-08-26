@@ -6,10 +6,9 @@ from typing import Any
 
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.features.production.daily_operation_rules import normalize_daily_operation_payload
+from backend.layers.features.production.production_validation import require_stock_measurement, validate_batch_seed, validate_loss_reason
 from backend.layers.common.files.evidence import evidence_from_payload
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
-
-
 RESOURCES = {
     "batches", "samplings", "transfers", "losses", "harvests",
     "feed-plans", "feed-tasks", "feed-logs", "daily-operations",
@@ -17,7 +16,7 @@ RESOURCES = {
 HIGH_RISK = {"transfers", "losses", "harvests"}
 COMMON_FIELDS = {
     "organization_id", "farm_id", "area_id", "code", "name", "pond_id", "batch_id",
-    "target_pond_id", "quantity", "weight_kg", "happened_at", "note", "payload",
+    "target_pond_id", "quantity", "weight_kg", "happened_at", "note", "reason", "payload",
     "evidence_attachment_ids", "material_id", "assigned_user_id", "planned_at",
     "feed_plan_id", "feed_task_id", "material_issue_request_id",
 }
@@ -35,29 +34,23 @@ RESERVED = {"id", "status", "row_version", "version", "allowed_actions", "create
 
 # DECIMAL(18,3) 上限：批次 1e18 等超界数量在服务层直接拒绝（BUG-M4-02）。
 MAX_PRODUCTION_QUANTITY = Decimal("999999999999999.999")
-
-
 class ProductionService:
     def __init__(self, store: Any) -> None:
         self.store = store
-
     @staticmethod
     def resource(value: str) -> str:
         if value not in RESOURCES:
             raise DomainError("PRODUCTION_RESOURCE_NOT_FOUND", "生产业务类型不存在", 404)
         return value
-
     @staticmethod
     def can(user: dict[str, Any], resource: str, action: str) -> bool:
         permissions = set(user.get("permissions") or [])
         code = resource.replace("-", "_")
         return f"production.{action}" in permissions or f"production.{code}.{action}" in permissions
-
     @classmethod
     def require(cls, user: dict[str, Any], resource: str, action: str) -> None:
         if not cls.can(user, resource, action):
             raise DomainError("FORBIDDEN", "当前账号没有生产业务权限", 403)
-
     @classmethod
     def result(cls, row: dict[str, Any], user: dict[str, Any], resource: str) -> dict[str, Any]:
         actions = {
@@ -72,7 +65,6 @@ class ProductionService:
             if hasattr(value, "isoformat"):
                 result[key] = value.isoformat()
         return result
-
     @staticmethod
     def _clean(resource: str, payload: Any, *, allow_version: bool = False) -> dict[str, Any]:
         if not isinstance(payload, dict):
@@ -141,13 +133,7 @@ class ProductionService:
 
     def _validate_batches(self, clean: dict[str, Any], *, creating: bool) -> None:
         self._positive(clean, "initial_quantity", "initial_weight_kg")
-        if clean.get("initial_quantity") not in (None, ""):
-            try:
-                quantity = Decimal(str(clean["initial_quantity"]))
-            except InvalidOperation as exc:
-                raise DomainError("PRODUCTION_VALUE_INVALID", "放苗数量格式无效", 400) from exc
-            if quantity <= 0:
-                raise DomainError("PRODUCTION_QUANTITY_INVALID", "放苗数量必须大于 0", 400)
+        validate_batch_seed(clean, creating=creating)
         self._validate_batch_dates(clean)
 
     @staticmethod
@@ -180,9 +166,10 @@ class ProductionService:
             self._positive(clean, "quantity", "weight_kg")
             if resource == "feed-plans":
                 self._validate_feed_plan(clean)
-            if resource in {"transfers", "losses", "harvests", "feed-logs"} and clean.get("quantity") not in (None, ""):
-                if Decimal(str(clean["quantity"])) <= 0:
-                    raise DomainError("PRODUCTION_QUANTITY_INVALID", "业务数量必须大于 0", 400)
+            if resource in {"transfers", "losses", "harvests", "feed-logs"}:
+                require_stock_measurement(clean, resource)
+            if resource == "losses":
+                validate_loss_reason(clean)
         if resource == "daily-operations":
             self._normalize_daily_operation(clean, current_payload=None)
         if resource == "transfers" and clean.get("pond_id") == clean.get("target_pond_id"):
@@ -224,9 +211,10 @@ class ProductionService:
         self._positive(clean, "quantity", "weight_kg", "initial_quantity", "initial_weight_kg")
         if resource == "batches":
             self._validate_batches({**current, **clean}, creating=False)
-        elif resource in {"transfers", "losses", "harvests", "feed-logs"} and clean.get("quantity") not in (None, ""):
-            if Decimal(str(clean["quantity"])) <= 0:
-                raise DomainError("PRODUCTION_QUANTITY_INVALID", "业务数量必须大于 0", 400)
+        elif resource in {"transfers", "losses", "harvests", "feed-logs"}:
+            require_stock_measurement({**current, **clean}, resource)
+        if resource == "losses":
+            validate_loss_reason({**current, **clean})
         if resource == "feed-plans":
             self._validate_feed_plan({**current, **clean})
         if resource == "daily-operations":
@@ -249,9 +237,10 @@ class ProductionService:
         self._positive(clean, "quantity", "weight_kg", "initial_quantity", "initial_weight_kg")
         if resource == "batches":
             self._validate_batches({**current, **clean}, creating=False)
-        elif resource in {"transfers", "losses", "harvests", "feed-logs"} and clean.get("quantity") not in (None, ""):
-            if Decimal(str(clean["quantity"])) <= 0:
-                raise DomainError("PRODUCTION_QUANTITY_INVALID", "业务数量必须大于 0", 400)
+        elif resource in {"transfers", "losses", "harvests", "feed-logs"}:
+            require_stock_measurement({**current, **clean}, resource)
+        if resource == "losses":
+            validate_loss_reason({**current, **clean})
         if resource == "daily-operations":
             self._normalize_daily_operation(clean, current_payload=current.get("payload") if isinstance(current.get("payload"), dict) else None)
         row = self.store.create_correction(
@@ -261,14 +250,23 @@ class ProductionService:
     def submit(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "manage")
+        current = self._current(user, resource, record_id)
+        if resource in {"transfers", "losses", "harvests", "feed-logs"}:
+            require_stock_measurement(current, resource)
+        if resource == "losses":
+            validate_loss_reason(current)
         if resource == "feed-plans":
-            self._validate_feed_plan(self._current(user, resource, record_id), submitting=True)
+            self._validate_feed_plan(current, submitting=True)
         return self._transition(user, resource, record_id, payload, "draft", "submitted")
 
     def verify(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "verify")
         current = self._current(user, resource, record_id)
+        if resource in {"transfers", "losses", "harvests", "feed-logs"}:
+            require_stock_measurement(current, resource)
+        if resource == "losses":
+            validate_loss_reason(current)
         evidence = evidence_from_payload(payload, current.get("evidence_attachment_ids"))
         if resource in HIGH_RISK and not evidence:
             raise DomainError("EVIDENCE_REQUIRED", "转塘、损耗和出塘核验必须上传现场凭据", 400)

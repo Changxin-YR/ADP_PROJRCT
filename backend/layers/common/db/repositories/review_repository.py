@@ -4,6 +4,26 @@ from typing import Any
 
 
 class ReviewRepository:
+    @staticmethod
+    def _validate_grant_ids(cursor: Any, *, role_ids: list[int], scope_ids: list[int]) -> None:
+        """Only active roles and data scopes may be assigned to an account."""
+        if role_ids:
+            placeholders = ",".join(["%s"] * len(role_ids))
+            cursor.execute(
+                f"SELECT COUNT(*) AS total FROM roles WHERE id IN ({placeholders}) AND status='active'",
+                tuple(role_ids),
+            )
+            if int((cursor.fetchone() or {}).get("total", 0)) != len(set(role_ids)):
+                raise ValueError("角色不存在或已停用")
+        if scope_ids:
+            placeholders = ",".join(["%s"] * len(scope_ids))
+            cursor.execute(
+                f"SELECT COUNT(*) AS total FROM data_scopes WHERE id IN ({placeholders}) AND status='active'",
+                tuple(scope_ids),
+            )
+            if int((cursor.fetchone() or {}).get("total", 0)) != len(set(scope_ids)):
+                raise ValueError("数据范围不存在或已停用")
+
     def is_admin(self, connection: Any, *, user_id: int) -> bool:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -66,6 +86,7 @@ class ReviewRepository:
                 auto_scope_id = self._resolve_scope_id(cursor, desired_scope_type, application.get("area_id"))
                 if auto_scope_id and auto_scope_id not in resolved_scope_ids:
                     resolved_scope_ids.append(auto_scope_id)
+            self._validate_grant_ids(cursor, role_ids=role_ids, scope_ids=resolved_scope_ids)
             cursor.execute("UPDATE users SET status = 'active' WHERE id = %s", (application["user_id"],))
             cursor.executemany("INSERT IGNORE INTO user_roles (user_id, role_id, granted_by) VALUES (%s, %s, %s)", [(application["user_id"], role_id, reviewer_id) for role_id in role_ids])
             cursor.executemany("INSERT IGNORE INTO user_data_scopes (user_id, data_scope_id, granted_by) VALUES (%s, %s, %s)", [(application["user_id"], scope_id, reviewer_id) for scope_id in resolved_scope_ids])
@@ -107,6 +128,7 @@ class ReviewRepository:
 
     def create_user(self, connection: Any, *, phone: str, login_name: str | None, name: str, password_hash: str, role_ids: list[int], scope_ids: list[int], assigned_by: int) -> dict[str, Any]:
         with connection.cursor() as cursor:
+            self._validate_grant_ids(cursor, role_ids=role_ids, scope_ids=scope_ids)
             cursor.execute("INSERT INTO users (phone, login_name, name, password_hash, status) VALUES (%s, %s, %s, %s, 'must_change_password')", (phone, login_name, name, password_hash))
             user_id = int(cursor.lastrowid)
             cursor.executemany("INSERT INTO user_roles (user_id, role_id, granted_by) VALUES (%s, %s, %s)", [(user_id, role_id, assigned_by) for role_id in role_ids])
@@ -234,6 +256,7 @@ class ReviewRepository:
                 raise ValueError("账号不存在")
             if int(user_id) == int(operator_id):
                 raise ValueError("不能修改当前登录账号自身的权限")
+            self._validate_grant_ids(cursor, role_ids=role_ids, scope_ids=scope_ids)
             cursor.execute("DELETE FROM user_roles WHERE user_id = %s", (user_id,))
             cursor.execute("DELETE FROM user_data_scopes WHERE user_id = %s", (user_id,))
             cursor.executemany(

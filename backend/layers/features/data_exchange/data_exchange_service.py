@@ -76,9 +76,12 @@ class DataExchangeService:
             "imported_by": int(user["id"]),
         })
 
-    def list_imports(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def list_imports(self, user: dict[str, Any], *, page: int = 1, page_size: int = 50) -> dict[str, Any]:
         self.require(user, "data_exchange.view")
-        return [self._decorate(row) for row in self.store.list_imports(user)]
+        result = self.store.list_imports(user, page=page, page_size=page_size)
+        if isinstance(result, list):
+            return {"items": [self._decorate(row) for row in result], "page": 1, "page_size": len(result), "total": len(result), "has_next": False}
+        return {**result, "items": [self._decorate(row) for row in result.get("items", [])]}
 
     def confirm(self, user: dict[str, Any], batch_id: int) -> dict[str, Any]:
         self.require(user, "data_exchange.import")

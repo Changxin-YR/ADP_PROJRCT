@@ -117,7 +117,7 @@ def test_batch_stock_is_reconciled_from_append_only_facts() -> None:
     batch = create_verified(service, "batches", {"code": "B-001", "name": "春季虾批次", "pond_id": 10, "species": "南美白对虾", "initial_quantity": 1000, "initial_weight_kg": 20})
     evidence = {"evidence_attachment_ids": [91]}
     create_verified(service, "transfers", {"code": "TR-001", "name": "转塘", "batch_id": batch["id"], "pond_id": 10, "target_pond_id": 11, "quantity": 200, "weight_kg": 4, **evidence})
-    create_verified(service, "losses", {"code": "LS-001", "name": "死亡损耗", "batch_id": batch["id"], "pond_id": 11, "quantity": 10, "weight_kg": 0.2, **evidence})
+    create_verified(service, "losses", {"code": "LS-001", "name": "死亡损耗", "batch_id": batch["id"], "pond_id": 11, "quantity": 10, "weight_kg": 0.2, "reason": "现场发现死鱼", **evidence})
     create_verified(service, "harvests", {"code": "HV-001", "name": "首批起捕", "batch_id": batch["id"], "pond_id": 10, "quantity": 300, "weight_kg": 6, **evidence})
 
     result = service.reconcile(user(1, "production.view"), batch["id"])
@@ -229,7 +229,7 @@ def test_verified_record_creates_linked_correction_without_mutating_original() -
 def test_high_risk_production_verification_requires_evidence_and_separate_actor() -> None:
     service = ProductionService(FakeProductionStore())
     manager = user(1, "production.view", "production.manage", "production.verify")
-    row = service.create(manager, "losses", {"code": "LS-002", "name": "损耗", "batch_id": 1, "pond_id": 10, "quantity": 5})
+    row = service.create(manager, "losses", {"code": "LS-002", "name": "损耗", "batch_id": 1, "pond_id": 10, "quantity": 5, "reason": "现场发现死鱼"})
     row = service.submit(manager, "losses", row["id"], {"expected_version": 1})
 
     with pytest.raises(DomainError, match="EVIDENCE_REQUIRED"):
@@ -237,7 +237,7 @@ def test_high_risk_production_verification_requires_evidence_and_separate_actor(
     with pytest.raises(DomainError, match="SELF_APPROVAL_FORBIDDEN"):
         service.verify(manager, "losses", row["id"], {"expected_version": 2, "evidence_attachment_ids": [9]})
 
-    second = service.create(user(3, "production.manage"), "losses", {"code": "LS-003", "name": "损耗", "batch_id": 1, "pond_id": 10, "quantity": 5})
+    second = service.create(user(3, "production.manage"), "losses", {"code": "LS-003", "name": "损耗", "batch_id": 1, "pond_id": 10, "quantity": 5, "reason": "现场发现死鱼"})
     submitter = user(4, "production.manage", "production.verify")
     second = service.submit(submitter, "losses", second["id"], {"expected_version": 1})
     with pytest.raises(DomainError, match="SELF_APPROVAL_FORBIDDEN"):

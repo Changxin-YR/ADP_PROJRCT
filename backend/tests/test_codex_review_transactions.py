@@ -159,7 +159,7 @@ def test_purchase_order_import_calculates_total_without_runtime_name_error() -> 
     ])
     entity_type, entity_id = import_purchase_order(cursor, {
         "warehouse_id": 1, "supplier_id": 4, "material_id": 5,
-        "quantity": "2", "unit_price": "3.00", "code": "PO-IMPORT", "name": "测试采购",
+        "quantity": "2", "unit_price": "3.00", "due_date": "2026-09-16", "code": "PO-IMPORT", "name": "测试采购",
     }, organization_id=1, user={"id": 9, "data_scopes": []}, user_id=9)
     assert (entity_type, entity_id) == ("purchase:orders", 77)
     assert Decimal("6.00") in cursor.statements[-1][1]
@@ -172,7 +172,7 @@ def test_sales_order_import_calculates_total_without_runtime_name_error() -> Non
     ])
     entity_type, entity_id = import_sales_order(cursor, {
         "batch_id": 1, "customer_id": 5, "quantity": "2", "unit_price": "3.00",
-        "code": "SO-IMPORT", "name": "测试销售",
+        "sold_at": "2026-08-24", "due_date": "2026-09-16", "code": "SO-IMPORT", "name": "测试销售",
     }, organization_id=1, user={"id": 9, "data_scopes": []}, user_id=9)
     assert (entity_type, entity_id) == ("sales:orders", 77)
     assert Decimal("6.00") in cursor.statements[-1][1]

@@ -50,6 +50,7 @@ class MySqlPondStatusStore:
                 notify_work_item_created(
                     connection,
                     organization_id=pond["organization_id"],
+                    area_id=pond.get("area_id"),
                     module_code="master_data",
                     action_code="verify",
                     object_type="master:pond_status_change",

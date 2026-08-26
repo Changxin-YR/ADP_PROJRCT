@@ -15,6 +15,8 @@ from backend.layers.common.files.evidence import validate_bound_evidence
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 from backend.layers.features.production.production_service import FIELDS
 from backend.layers.features.production.production_material_control import require_material_issue
+from backend.layers.features.production.production_relations import validate_relations
+from backend.layers.features.production.production_scope import scope_defaults
 from backend.layers.features.production.production_filters import apply_record_filters
 from backend.layers.features.production.production_stock_locking import lock_batch_anchors
 DOC_TYPES = {
@@ -77,30 +79,7 @@ class MySqlProductionStore:
             items = [self._decode(row) or {} for row in cursor.fetchall()]
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
 
-    @staticmethod
-    def _scope_defaults(cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
-        result = dict(payload)
-        if result.get("pond_id"):
-            cursor.execute("SELECT organization_id,farm_id,area_id FROM ponds WHERE id=%s", (result["pond_id"],))
-            pond = cursor.fetchone()
-            if pond is None:
-                raise DomainError("POND_NOT_FOUND", "塘口不存在", 400)
-            for key in ("organization_id", "farm_id", "area_id"):
-                result[key] = int(pond[key])
-        if result.get("target_pond_id"):
-            cursor.execute("SELECT organization_id,area_id FROM ponds WHERE id=%s", (result["target_pond_id"],))
-            target = cursor.fetchone()
-            if target is None:
-                raise DomainError("TARGET_POND_NOT_FOUND", "转入塘口不存在", 400)
-            if result.get("organization_id") and int(target["organization_id"]) != int(result["organization_id"]):
-                raise DomainError("PRODUCTION_SCOPE_INVALID", "来源与目标塘口必须属于同一企业", 400)
-            result["_target_area_id"] = int(target["area_id"])
-        if (assignee := result.get("assigned_user_id")) not in (None, ""):
-            try: assignee = int(assignee)
-            except (TypeError, ValueError) as exc: raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "指派作业员不存在或已停用", 400) from exc
-            cursor.execute("SELECT id FROM users WHERE id=%s AND status='active'", (assignee,))
-            if cursor.fetchone() is None: raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "指派作业员不存在或已停用", 400)
-        return result
+    _scope_defaults = staticmethod(scope_defaults)
     @staticmethod
     def require_write_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
         scopes = require_active_scope(user)
@@ -118,10 +97,13 @@ class MySqlProductionStore:
         if "payload" in clean: clean["payload_json"] = json.dumps(clean.pop("payload"), ensure_ascii=False, default=str)
         if "evidence_attachment_ids" in clean: clean["evidence_attachment_ids_json"] = json.dumps(clean.pop("evidence_attachment_ids"))
         return clean
+
+    _validate_relations = staticmethod(validate_relations)
+
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         table, doc_type = self._table(resource)
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            scoped = {**self._scope_defaults(cursor, payload), "created_by": user_id}
+            scoped = {**self._scope_defaults(cursor, payload, resource), "created_by": user_id}
             self.require_write_scope(user, scoped)
             clean = self._db_payload(resource, scoped)
             if not all(clean.get(key) for key in ("organization_id", "farm_id", "area_id", "pond_id")):
@@ -154,7 +136,7 @@ class MySqlProductionStore:
                 raise DomainError("VERSION_CONFLICT", "数据已被修改，请刷新后重试", 409)
             copied = {key: before[key] for key in FIELDS[resource] if before.get(key) is not None and key != "evidence_attachment_ids"}
             copied.update(payload)
-            scoped = self._scope_defaults(cursor, copied)
+            scoped = self._scope_defaults(cursor, copied, resource)
             self.require_write_scope(user, scoped)
             clean = self._db_payload(resource, scoped)
             clean["correction_of_id"] = record_id
@@ -179,7 +161,7 @@ class MySqlProductionStore:
             before = self._get(cursor, resource, record_id, lock=True)
             if before is None:
                 raise DomainError("PRODUCTION_RECORD_NOT_FOUND", "生产记录不存在", 404)
-            scoped = self._scope_defaults(cursor, {**before, **payload})
+            scoped = self._scope_defaults(cursor, {**before, **payload}, resource)
             self.require_write_scope(user, scoped)
             effective = dict(payload)
             if "pond_id" in payload:
@@ -209,6 +191,7 @@ class MySqlProductionStore:
             if before is None:
                 raise DomainError("PRODUCTION_RECORD_NOT_FOUND", "生产记录不存在", 404)
             if status == "verified":
+                validate_relations(cursor, resource, before)
                 lock_batch_anchors(cursor, resource, before)
             if status == "verified" and resource == "feed-logs":
                 self.require_material_issue(cursor, before)
@@ -230,7 +213,7 @@ class MySqlProductionStore:
             source_key = f"production:{resource}:{record_id}:verify"
             if status == "submitted":
                 cursor.execute("INSERT INTO work_items (organization_id,module_code,action_code,object_type,object_id,object_ref,source_key,title,status,target_version) VALUES (%s,'production','verify',%s,%s,%s,%s,%s,'pending',%s) ON DUPLICATE KEY UPDATE status='pending',target_version=VALUES(target_version),completed_by=NULL,completed_at=NULL", (after["organization_id"], f"production:{resource}", record_id, f"{resource}:{record_id}", source_key, f"核验生产记录：{after['name']}", after["row_version"]))
-                notify_work_item_created(connection, organization_id=after["organization_id"], module_code="production", action_code="verify", object_type=f"production:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", source_key=source_key, title=f"核验生产记录：{after['name']}", permission_codes=["production.verify"])
+                notify_work_item_created(connection, organization_id=after["organization_id"], area_id=after.get("area_id"), module_code="production", action_code="verify", object_type=f"production:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", source_key=source_key, title=f"核验生产记录：{after['name']}", permission_codes=["production.verify"])
             else:
                 self._post_stock(cursor, resource, after or {}, user_id)
                 cursor.execute("UPDATE work_items SET status='completed',completed_by=%s,completed_at=CURRENT_TIMESTAMP,completion_note='生产记录核验完成',row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, source_key))

@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+
+import pytest
+
 from backend.app import create_app
 from backend.config.settings import Settings
+from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from fake_auth_store import FakeAuthStore
 
 
@@ -91,6 +95,37 @@ def test_fifth_wrong_password_locks_account_for_fifteen_minutes() -> None:
         headers={"X-CSRF-Token": token},
     )
     assert locked.get_json()["code"] == "AUTH_LOCKED"
+
+
+def test_lock_expiry_starts_a_new_failed_password_window() -> None:
+    store = FakeAuthStore()
+    user = store.add_user(phone="13800000011", login_name="expired-lock", password="Correct9!", status="active")
+    user["failed_login_count"] = 5
+    user["locked_until"] = datetime.now(timezone.utc) - timedelta(seconds=1)
+    client = create_app(_settings(), store=store).test_client()
+
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"identifier": "expired-lock", "password": "Wrong9!"},
+        headers={"X-CSRF-Token": _csrf(client)},
+    )
+
+    assert response.status_code == 401
+    assert response.get_json()["code"] == "AUTH_INVALID_CREDENTIALS"
+    assert store.get_user_by_id(user["id"])["failed_login_count"] == 1
+    assert store.get_user_by_id(user["id"])["locked_until"] is None
+
+
+def test_must_change_password_session_cannot_use_current_user_without_override() -> None:
+    store = FakeAuthStore()
+    user = store.add_user(phone="13800000012", login_name="must-change-service", password="TempPass9!", status="must_change_password")
+    service = AuthService(store, _settings())
+    login = service.login("must-change-service", "TempPass9!", ip="127.0.0.1", user_agent="pytest")
+
+    with pytest.raises(AuthServiceError, match="首次登录必须修改密码") as caught:
+        service.current_user(login["session_token"])
+    assert caught.value.code == "PASSWORD_CHANGE_REQUIRED"
+    assert service.current_user(login["session_token"], allow_password_change=True)["id"] == user["id"]
 
 
 def test_disabled_account_cannot_login() -> None:

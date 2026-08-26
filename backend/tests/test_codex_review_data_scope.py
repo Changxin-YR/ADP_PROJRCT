@@ -175,7 +175,7 @@ def test_financial_import_enforces_source_order_area(importer: Any, id_field: st
     with pytest.raises(DomainError, match="授权范围"):
         importer(
             cursor,
-            {id_field: 5, "code": "FIN-OUT", "amount": 10, "happened_at": "2026-08-24"},
+            {id_field: 5, "code": "FIN-OUT", "amount": 10, "happened_at": "2026-08-24", "payment_method": "bank_transfer", "receipt_method": "bank_transfer"},
             organization_id=1,
             user={"id": 7, "data_scopes": [{"scope_type": "area", "area_id": 2}]},
             user_id=7,

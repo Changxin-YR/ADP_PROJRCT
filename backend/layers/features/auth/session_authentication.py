@@ -8,8 +8,16 @@ from backend.layers.features.auth.auth_contracts import AuthServiceError, public
 
 
 class AuthSessionServiceMixin:
-    def current_user(self, session_token: str | None, *, request_id: str | None = None) -> dict[str, Any]:
+    def current_user(
+        self,
+        session_token: str | None,
+        *,
+        request_id: str | None = None,
+        allow_password_change: bool = False,
+    ) -> dict[str, Any]:
         user, _ = self.current_session(session_token, request_id=request_id)
+        if user.get("status") == "must_change_password" and not allow_password_change:
+            raise AuthServiceError("PASSWORD_CHANGE_REQUIRED", "首次登录必须修改密码后才能访问业务功能", 403)
         return user
 
     def current_session(

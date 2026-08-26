@@ -32,31 +32,37 @@ class AuthAdminStoreMixin:
     def create_managed_user(self, payload: dict[str, Any], *, password_hash: str) -> dict[str, Any]:
         try:
             with self.transaction() as connection:
-                return self.review.create_user(
+                result = self.review.create_user(
                     connection, phone=payload["phone"], login_name=payload.get("login_name"),
                     name=payload["name"], password_hash=password_hash,
                     role_ids=[int(item) for item in payload["role_ids"]],
                     scope_ids=[int(item) for item in payload["scope_ids"]],
                     assigned_by=int(payload["assigned_by"]),
                 )
+                self.audit.write(
+                    connection, user_id=int(payload["assigned_by"]), action="create_managed_user",
+                    object_type="user", object_id=int(result["id"]), object_ref=f"user:{result['id']}",
+                    result="success", ip_address=None, module_code="account", after=result,
+                )
+                return result
         except IntegrityError as exc:
             if exc.args and exc.args[0] == 1062:
                 raise StoreError("PHONE_EXISTS", "该手机号或登录名已注册，无法重复创建账号", 409) from exc
             raise StoreError("USER_CREATE_FAILED", "账号创建失败", 409) from exc
 
-    def set_user_status(self, user_id: int, status: str) -> None:
+    def set_user_status(self, user_id: int, status: str, *, operator_id: int | None = None) -> None:
         with self.transaction() as connection:
             self.review.set_user_status(connection, user_id=user_id, status=status)
-            self.audit.write(connection, user_id=None, action="set_user_status", object_type="user", object_id=user_id, result="success", ip_address=None, detail_json=json.dumps({"status": status}))
+            self.audit.write(connection, user_id=operator_id, action="set_user_status", object_type="user", object_id=user_id, result="success", ip_address=None, detail_json=json.dumps({"status": status}))
 
     def list_users(self, status: str | None = None, keyword: str | None = None, *, page: int = 1, page_size: int = 20) -> dict[str, Any]:
         with self.transaction() as connection:
             return self.review.list_users(connection, status=status, keyword=keyword, page=page, page_size=page_size)
 
-    def reset_password(self, user_id: int, *, password_hash: str) -> None:
+    def reset_password(self, user_id: int, *, password_hash: str, operator_id: int | None = None) -> None:
         with self.transaction() as connection:
             self.review.reset_password(connection, user_id=user_id, password_hash=password_hash)
-            self.audit.write(connection, user_id=None, action="reset_password", object_type="user", object_id=user_id, result="success", ip_address=None)
+            self.audit.write(connection, user_id=operator_id, action="reset_password", object_type="user", object_id=user_id, result="success", ip_address=None)
 
     def list_registration_options(self) -> dict[str, Any]:
         with self.transaction() as connection:

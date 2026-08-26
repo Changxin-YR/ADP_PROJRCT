@@ -56,20 +56,24 @@ def _fetch(cursor: Any, sql: str, params: tuple[Any, ...] = ()) -> dict[str, Any
 
 
 def _pond(cursor: Any, organization_id: int, pond_id: int | None) -> dict[str, Any]:
-    row = _fetch(cursor, "SELECT organization_id,farm_id,area_id FROM ponds WHERE id=%s", (pond_id,)) if pond_id else None
+    row = _fetch(cursor, "SELECT organization_id,farm_id,area_id,status FROM ponds WHERE id=%s", (pond_id,)) if pond_id else None
     if row is None or int(row["organization_id"]) != organization_id:
         from backend.layers.common.governance.lifecycle import DomainError
 
         raise DomainError("POND_NOT_FOUND", "塘口不存在或不属于当前企业", 400)
+    if row.get("status") is not None and row.get("status") != "verified":
+        raise DomainError("POND_NOT_VERIFIED", "业务只能引用已核验塘口", 409)
     return row
 
 
 def _batch(cursor: Any, organization_id: int, batch_id: int | None) -> dict[str, Any]:
-    row = _fetch(cursor, "SELECT id,organization_id,farm_id,area_id,pond_id,species FROM production_batches WHERE id=%s", (batch_id,)) if batch_id else None
+    row = _fetch(cursor, "SELECT id,organization_id,farm_id,area_id,pond_id,species,status FROM production_batches WHERE id=%s", (batch_id,)) if batch_id else None
     if row is None or int(row["organization_id"]) != organization_id:
         from backend.layers.common.governance.lifecycle import DomainError
 
         raise DomainError("BATCH_NOT_FOUND", "批次不存在或不属于当前企业", 400)
+    if row.get("status") is not None and row.get("status") != "verified":
+        raise DomainError("BATCH_NOT_VERIFIED", "业务只能引用已核验批次", 409)
     return row
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import date
 
 from backend.layers.common.governance.lifecycle import DomainError
 
@@ -25,7 +26,7 @@ class Template:
     importable: bool = False
 
     def public(self) -> dict[str, object]:
-        return {**asdict(self), "fields": [asdict(field) for field in self.fields], "updated_at": "2026-08-17"}
+        return {**asdict(self), "fields": [asdict(field) for field in self.fields], "updated_at": date.today().isoformat()}
 
 
 CODE = Field("code", "业务编号", True, example="CODE-001")
@@ -48,8 +49,8 @@ TEMPLATES = (
     _template("samplings", "规格抽样", "塘口与批次", CODE, Field("batch_id", "批次ID", True, "integer"), QTY, DATE),
     _template("losses", "损耗记录", "塘口与批次", CODE, Field("batch_id", "批次ID", True, "integer"), QTY, DATE, Field("reason", "原因", True)),
     _template("transfers", "转塘记录", "塘口与批次", CODE, Field("batch_id", "批次ID", True, "integer"), Field("target_pond_id", "目标塘口ID", True, "integer"), QTY, DATE),
-    _template("feed-plans", "喂养计划", "日常养殖", CODE, NAME, Field("pond_id", "塘口ID", True, "integer"), QTY),
-    _template("feed-logs", "喂养记录", "日常养殖", CODE, Field("pond_id", "塘口ID", True, "integer"), Field("material_id", "饲料ID", True, "integer"), QTY, DATE),
+    _template("feed-plans", "喂养计划", "日常养殖", CODE, NAME, Field("pond_id", "塘口ID", True, "integer"), Field("batch_id", "批次ID", True, "integer"), Field("material_id", "饲料ID", True, "integer"), QTY, Field("planned_at", "计划时间", True, "datetime", "2026-08-26 08:00")),
+    _template("feed-logs", "喂养记录", "日常养殖", CODE, Field("pond_id", "塘口ID", True, "integer"), Field("batch_id", "批次ID", True, "integer"), Field("material_id", "饲料ID", True, "integer"), Field("feed_task_id", "投喂任务ID", True, "integer"), Field("material_issue_request_id", "领料申请ID", True, "integer"), QTY, DATE),
     _template("feed-tasks", "派工任务", "日常养殖", CODE, NAME, Field("assignee_id", "作业员ID", True, "integer"), Field("pond_id", "塘口ID", False, "integer", "1"), DATE),
     _template("daily-operations", "日常作业", "日常养殖", CODE, NAME, Field("pond_id", "塘口ID", True, "integer"), DATE),
     _template("materials", "物料档案", "主数据", CODE, NAME, Field("category", "分类", True), Field("specification", "规格"), Field("unit", "单位", True), Field("safety_stock", "安全库存", False, "number", "100")),
@@ -61,13 +62,13 @@ TEMPLATES = (
     _template("scraps", "报损报废记录", "物料与仓储", CODE, NAME, WAREHOUSE_ID, Field("material_id", "物料ID", True, "integer"), QTY, DATE, Field("reason", "原因", True)),
     _template("suppliers", "供应商", "采购与付款", CODE, NAME, Field("contact_name", "联系人"), Field("phone", "电话")),
     _template("purchase-orders", "采购明细", "采购与付款", CODE, NAME, Field("supplier_id", "供应商ID", True, "integer"), Field("material_id", "物料ID", True, "integer"), WAREHOUSE_ID, QTY, Field("unit_price", "单价", True, "positive"), Field("due_date", "付款到期日", True, "date", "2026-09-16")),
-    _template("payments", "付款记录", "采购与付款", CODE, Field("payable_id", "应付ID", True, "integer"), AMOUNT, DATE),
+    _template("payments", "付款记录", "采购与付款", CODE, Field("payable_id", "应付ID", True, "integer"), AMOUNT, DATE, Field("payment_method", "付款方式", True, "", "bank_transfer", allowed=("bank_transfer", "cash", "check", "digital_wallet", "other"))),
     _template("customers", "客户", "销售与收款", CODE, NAME, Field("contact_name", "联系人"), Field("phone", "电话")),
     _template("sales-orders", "销售明细", "销售与收款", CODE, Field("customer_id", "客户ID", True, "integer"), Field("batch_id", "批次ID", True, "integer"), QTY, Field("unit_price", "单价", True, "positive"), Field("unit", "单位", False, "", "kg", allowed=("kg", "jin", "tail")), Field("sold_at", "销售日期", False, "date", "2026-08-17"), Field("due_date", "收款到期日", False, "date", "2026-09-16")),
     _template("harvests", "出塘记录", "销售与收款", CODE, Field("batch_id", "批次ID", True, "integer"), QTY, DATE),
     _template("customer-receipts", "收款记录", "销售与收款", CODE, Field("receivable_id", "应收ID", True, "integer"), AMOUNT, DATE, Field("receipt_method", "收款方式", False, "", "bank_transfer", allowed=("bank_transfer", "cash", "check", "digital_wallet", "other"))),
     _template("expenses", "费用登记", "成本与经营", CODE, NAME, Field("category_code", "费用类别", True), AMOUNT, DATE),
-    _template("assets", "设备资产", "成本与经营", CODE, NAME, Field("asset_type", "资产类别", True, "", "equipment", allowed=("equipment", "infrastructure", "lease")), Field("category_code", "成本分类", False), AMOUNT, DATE),
+    _template("assets", "设备资产", "成本与经营", CODE, NAME, Field("asset_type", "资产类别", True, "", "equipment", allowed=("equipment", "infrastructure", "lease")), Field("category_code", "成本分类", True), AMOUNT, Field("salvage_value", "预计残值", True, "positive", "0"), Field("useful_life_months", "使用寿命（月）", True, "integer", "60"), Field("purchase_date", "购买日期", True, "date", "2026-08-17"), Field("depreciation_start_date", "折旧开始日", True, "date", "2026-08-17")),
     _template("leases", "租赁合同", "成本与经营", CODE, NAME, Field("category_code", "成本分类", False), AMOUNT, DATE),
     _template("cost-adjustments", "成本调整", "成本与经营", CODE, Field("source_id", "原成本ID", True, "integer"), AMOUNT, Field("reason", "调整原因", True)),
     _template("business-settings", "基础参数", "系统管理", CODE, NAME, Field("group_code", "参数分组", True), Field("value_text", "参数值", True)),

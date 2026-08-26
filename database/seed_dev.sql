@@ -38,7 +38,7 @@ SELECT r.id, p.id
 FROM roles AS r
 JOIN permissions AS p
   ON (
-    (r.code = 'super_admin' AND p.code IN ('auth.review', 'auth.user.manage', 'auth.session.view', 'workbench.enter'))
+    (r.code = 'super_admin' AND p.code IN ('auth.review', 'auth.user.manage', 'auth.session.view', 'auth.role.manage', 'workbench.enter'))
     OR (r.code = 'breed_manager' AND p.code IN ('auth.review', 'auth.user.manage', 'workbench.enter'))
     OR (r.code IN ('breed_worker', 'warehouse_manager', 'purchaser', 'finance_staff', 'sales_staff')
         AND p.code = 'workbench.enter')
@@ -48,6 +48,10 @@ LEFT JOIN role_permissions AS existing
  AND existing.permission_id = p.id
 WHERE existing.role_id IS NULL
   AND r.status = 'active';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.code = 'attachment.manage'
+WHERE r.code = 'breed_worker' AND r.status = 'active';
 
 -- 与迁移 023 保持一致：收缩过度授权（幂等，重复执行 seed 不回补）。
 DELETE rp FROM role_permissions rp

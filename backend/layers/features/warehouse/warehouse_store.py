@@ -223,6 +223,7 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
                 notify_work_item_created(
                     connection,
                     organization_id=after["organization_id"],
+                    area_id=after.get("area_id"),
                     module_code="warehouse",
                     action_code="verify",
                     object_type=f"warehouse:{resource}",
@@ -290,7 +291,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
             )
             items = list(cursor.fetchall())
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
-
     def list_alerts(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         return list_alerts(self, user)
     def handle_alert(self, user: dict[str, Any], alert_key: str, **context: Any) -> dict[str, Any]:

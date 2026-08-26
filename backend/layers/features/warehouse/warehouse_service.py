@@ -7,8 +7,6 @@ from typing import Any
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.common.files.evidence import evidence_from_payload
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
-
-
 RESOURCES = {"receipts", "issue-requests", "issues", "returns", "transfers", "stocktakes", "scraps"}
 EVIDENCE_REQUIRED = {"receipts", "stocktakes", "scraps"}
 FIELDS = {
@@ -18,7 +16,6 @@ FIELDS = {
     "production_date", "expiry_date", "location", "reason", "override_reason", "happened_at",
     "evidence_attachment_ids", "note", "correction_reason",
 }
-
 
 class WarehouseService:
     def __init__(self, store: Any) -> None:
@@ -31,8 +28,13 @@ class WarehouseService:
         return value
 
     @staticmethod
-    def require(user: dict[str, Any], action: str) -> None:
-        if f"warehouse.{action}" not in set(user.get("permissions") or []):
+    def require(user: dict[str, Any], action: str, resource: str | None = None) -> None:
+        permissions = set(user.get("permissions") or [])
+        if f"warehouse.{action}" in permissions:
+            return
+        if resource == "issue-requests" and f"production.{action}" in permissions:
+            return
+        if f"warehouse.{action}" not in permissions:
             raise DomainError("FORBIDDEN", "当前账号没有仓储业务权限", 403)
 
     @classmethod
@@ -47,8 +49,10 @@ class WarehouseService:
         if resource == "transfers" and row.get("status") == "submitted":
             actions = ["view", "edit", "dispatch", "cancel"]
         permissions = set(user.get("permissions") or [])
+        issue_request_manage = resource == "issue-requests" and "production.manage" in permissions
+        issue_request_verify = resource == "issue-requests" and "production.verify" in permissions
         verification_actions = {"verify", "dispatch", "receive", "cancel"}
-        actions = [item for item in actions if item == "view" or f"warehouse.{'verify' if item in verification_actions else 'manage'}" in permissions]
+        actions = [item for item in actions if item == "view" or (f"warehouse.{'verify' if item in verification_actions else 'manage'}" in permissions) or (issue_request_verify if item in verification_actions else issue_request_manage)]
         result = {**row, "version": int(row.get("row_version", 1)), "allowed_actions": actions}
         for key, value in list(result.items()):
             if hasattr(value, "isoformat"):
@@ -94,30 +98,30 @@ class WarehouseService:
         return parse_expected_version(payload)
 
     def list_records(self, user: dict[str, Any], resource: str, **query: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "view")
+        resource = self.resource(resource); self.require(user, "view", resource)
         page = self.store.list_records(resource, user=user, **query)
         return {**page, "items": [self.result(row, user, resource) for row in page["items"]]}
 
     def get(self, user: dict[str, Any], resource: str, record_id: int) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "view")
+        resource = self.resource(resource); self.require(user, "view", resource)
         return self.result(self.current(user, resource, record_id), user, resource)
 
     def create(self, user: dict[str, Any], resource: str, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "manage"); clean = self.clean(payload)
+        resource = self.resource(resource); self.require(user, "manage", resource); clean = self.clean(payload)
         if not all(str(clean.get(key, "")).strip() for key in ("code", "name")) or not clean.get("warehouse_id") or not clean.get("material_id"):
             raise DomainError("WAREHOUSE_REQUIRED_FIELDS", "单号、名称、仓库和物料不能为空", 400)
         self._validate(resource, clean)
         return self.result(self.store.create_record(resource, clean, user=user, user_id=int(user["id"])), user, resource)
 
     def update(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "manage"); current = self.current(user, resource, record_id)
+        resource = self.resource(resource); self.require(user, "manage", resource); current = self.current(user, resource, record_id)
         require_editable(str(current["status"])); expected = self.expected(payload)
         verify_version(expected_version=expected, current_version=int(current["row_version"]))
         clean = self.clean(payload, version=True); self._validate(resource, {**current, **clean})
         return self.result(self.store.update_record(resource, record_id, clean, expected_version=expected, user=user, user_id=int(user["id"])), user, resource)
 
     def correct(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "manage"); current = self.current(user, resource, record_id)
+        resource = self.resource(resource); self.require(user, "manage", resource); current = self.current(user, resource, record_id)
         if current["status"] != "verified":
             raise DomainError("INVALID_STATE_TRANSITION", "仅已核验仓储单据可以发起更正", 409)
         expected = self.expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
@@ -176,7 +180,7 @@ class WarehouseService:
         return self._transition(user, resource, record_id, payload, "draft", "submitted")
 
     def verify(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "verify"); current = self.current(user, resource, record_id)
+        resource = self.resource(resource); self.require(user, "verify", resource); current = self.current(user, resource, record_id)
         if resource == "transfers":
             raise DomainError("TRANSFER_DISPATCH_REQUIRED", "调拨单必须先发出并进入在途，再办理接收", 409)
         evidence = evidence_from_payload(payload, current.get("evidence_attachment_ids"))
@@ -187,7 +191,7 @@ class WarehouseService:
         return self._transition(user, resource, record_id, payload, "submitted", "verified", evidence=evidence)
 
     def _transition(self, user: dict[str, Any], resource: str, record_id: int, payload: Any, before: str, after: str, *, evidence: list[int] | None = None) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "verify" if after == "verified" else "manage")
+        resource = self.resource(resource); self.require(user, "verify" if after == "verified" else "manage", resource)
         current = self.current(user, resource, record_id)
         if current["status"] != before:
             raise DomainError("INVALID_STATE_TRANSITION", "当前状态不允许执行该操作", 409)
@@ -195,7 +199,7 @@ class WarehouseService:
         return self.result(self.store.set_status(resource, record_id, after, expected_version=expected, user=user, user_id=int(user["id"]), evidence_attachment_ids=evidence), user, resource)
 
     def dispatch(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "verify")
+        resource = self.resource(resource); self.require(user, "verify", resource)
         if resource != "transfers":
             raise DomainError("TRANSFER_RESOURCE_REQUIRED", "只有调拨单可以办理发出", 404)
         current = self.current(user, resource, record_id)
@@ -207,7 +211,7 @@ class WarehouseService:
         return self.result(self.store.dispatch_transfer(record_id, expected_version=expected, user_id=int(user["id"])), user, resource)
 
     def receive(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "verify")
+        resource = self.resource(resource); self.require(user, "verify", resource)
         if resource != "transfers":
             raise DomainError("TRANSFER_RESOURCE_REQUIRED", "只有调拨单可以办理接收", 404)
         current = self.current(user, resource, record_id)
@@ -230,7 +234,7 @@ class WarehouseService:
         return self.result(row, user, resource)
 
     def cancel_transfer(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "verify")
+        resource = self.resource(resource); self.require(user, "verify", resource)
         if resource != "transfers":
             raise DomainError("TRANSFER_RESOURCE_REQUIRED", "只有调拨单可以办理取消", 404)
         current = self.current(user, resource, record_id)
@@ -244,7 +248,7 @@ class WarehouseService:
         return self.result(row, user, resource)
 
     def delete(self, user: dict[str, Any], resource: str, record_id: int) -> dict[str, Any]:
-        resource = self.resource(resource); self.require(user, "manage"); current = self.current(user, resource, record_id)
+        resource = self.resource(resource); self.require(user, "manage", resource); current = self.current(user, resource, record_id)
         require_deletable(str(current["status"]), has_references=bool(current.get("has_references")))
         return self.result(self.store.delete_draft(resource, record_id, user_id=int(user["id"])), user, resource)
 

@@ -126,6 +126,7 @@ def set_receipt_status(store: Any, record_id: int, status: str, *, expected_vers
             notify_work_item_created(
                 connection,
                 organization_id=after["organization_id"],
+                area_id=after.get("area_id"),
                 module_code="finance",
                 action_code="verify",
                 object_type="sales:receipt",

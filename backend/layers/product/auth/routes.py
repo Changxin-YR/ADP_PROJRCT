@@ -121,7 +121,11 @@ def create_auth_blueprint(settings: Settings, store: Any) -> Blueprint:
     def change_password() -> tuple[Response, int] | Response:
         try:
             csrf_required()
-            user = auth_service.current_user(session_token(), request_id=getattr(g, "request_id", None))
+            user = auth_service.current_user(
+                session_token(),
+                request_id=getattr(g, "request_id", None),
+                allow_password_change=True,
+            )
             payload = json_object()
             validate_password(payload.get("new_password", ""), payload.get("confirm_password"))
             auth_service.change_password(

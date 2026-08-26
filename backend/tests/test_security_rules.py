@@ -39,6 +39,11 @@ def test_password_hash_uses_one_way_scrypt_verification() -> None:
     assert password_hash.startswith("scrypt:")
 
 
+def test_breed_worker_uses_field_worker_session_limit() -> None:
+    settings = Settings.from_env({"SESSION_DEFAULT_LIMIT": "2", "SESSION_FIELD_WORKER_LIMIT": "3"})
+    assert settings.session_limit_for_user({"status": "active", "roles": [{"code": "breed_worker"}]}) == 3
+
+
 def test_unified_response_contains_contract_fields() -> None:
     success = ok(data={"status": "pending"}, message="已提交")
     error = fail(code="VALIDATION_ERROR", message="字段有误", status=400)

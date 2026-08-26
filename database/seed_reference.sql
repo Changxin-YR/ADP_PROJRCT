@@ -32,7 +32,7 @@ INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id
 FROM roles AS r
 JOIN permissions AS p ON (
-  (r.code = 'super_admin' AND p.code IN ('auth.review', 'auth.user.manage', 'auth.session.view', 'workbench.enter'))
+  (r.code = 'super_admin' AND p.code IN ('auth.review', 'auth.user.manage', 'auth.session.view', 'auth.role.manage', 'workbench.enter'))
   OR (r.code = 'breed_manager' AND p.code = 'workbench.enter')
   OR (r.code IN ('breed_worker', 'warehouse_manager', 'purchaser', 'finance_staff', 'sales_staff')
       AND p.code = 'workbench.enter')
@@ -40,6 +40,10 @@ JOIN permissions AS p ON (
 LEFT JOIN role_permissions AS existing ON existing.role_id = r.id AND existing.permission_id = p.id
 WHERE existing.role_id IS NULL
   AND r.status = 'active';
+
+INSERT IGNORE INTO role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM roles r JOIN permissions p ON p.code = 'attachment.manage'
+WHERE r.code = 'breed_worker' AND r.status = 'active';
 
 INSERT INTO areas (organization_id, farm_id, code, name, parent_id, status, sort_order)
 SELECT organization.id, farm.id, seed.code, seed.name, NULL, 'verified', seed.sort_order

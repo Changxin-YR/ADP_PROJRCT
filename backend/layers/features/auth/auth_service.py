@@ -48,9 +48,13 @@ class AuthService(AuthSessionServiceMixin):
     def _reject_inactive_account(self, user: dict[str, Any], ip: str, request_id: str | None) -> None:
         """拒绝锁定、停用和已注销账号；通过时不做任何事。"""
         locked_until = user.get("locked_until")
-        if locked_until and self._utc(locked_until) > datetime.now(timezone.utc):
-            self._audit_login_denied(user=user, ip=ip, request_id=request_id, reason="account_locked")
-            raise self._locked_error(locked_until)
+        if locked_until:
+            now = datetime.now(timezone.utc)
+            if self._utc(locked_until) > now:
+                self._audit_login_denied(user=user, ip=ip, request_id=request_id, reason="account_locked")
+                raise self._locked_error(locked_until)
+            # Expired locks start a fresh failure window instead of inheriting the threshold count.
+            self.store.reset_failed_login(user["id"])
         if user["status"] == "disabled":
             self._audit_login_denied(user=user, ip=ip, request_id=request_id, reason="account_disabled")
             raise AuthServiceError("ACCOUNT_DISABLED", "账号当前不可登录", 403)

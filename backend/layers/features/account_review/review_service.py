@@ -22,8 +22,8 @@ class ReviewStore(Protocol):
     def reject_application(self, application_id: int, *, reviewer_id: int, reason: str) -> dict[str, Any]: ...
     def create_managed_user(self, payload: dict[str, Any], *, password_hash: str) -> dict[str, Any]: ...
     def list_users(self, status: str | None = None, keyword: str | None = None, *, page: int = 1, page_size: int = 20) -> dict[str, Any]: ...
-    def set_user_status(self, user_id: int, status: str) -> None: ...
-    def reset_password(self, user_id: int, *, password_hash: str) -> None: ...
+    def set_user_status(self, user_id: int, status: str, *, operator_id: int | None = None) -> None: ...
+    def reset_password(self, user_id: int, *, password_hash: str, operator_id: int | None = None) -> None: ...
     def get_user_by_id(self, user_id: int) -> dict[str, Any] | None: ...
     def list_registration_options(self) -> dict[str, Any]: ...
     def list_roles_with_permissions(self) -> dict[str, Any]: ...
@@ -141,12 +141,14 @@ class ReviewService:
         self.require_admin(reviewer_id)
         if status not in {"active", "disabled"}:
             raise ReviewServiceError("VALIDATION_ERROR", "状态只能是 active 或 disabled", 400)
+        if int(user_id) == int(reviewer_id):
+            raise ReviewServiceError("SELF_STATUS_FORBIDDEN", "不能修改当前登录账号自身状态", 400)
         user = self.store.get_user_by_id(user_id)
         if user is None:
             raise ReviewServiceError("USER_NOT_FOUND", "账号不存在", 404)
         if user.get("status") == "retired":
             raise ReviewServiceError("USER_RETIRED_IMMUTABLE", "已注销账号仅可查看，不能恢复或停用", 409)
-        self.store.set_user_status(user_id, status)
+        self.store.set_user_status(user_id, status, operator_id=reviewer_id)
 
     def reset_password(self, reviewer_id: int, user_id: int, temporary_password: str) -> None:
         self.require_admin(reviewer_id)
@@ -159,7 +161,7 @@ class ReviewService:
             raise ReviewServiceError("USER_STATE_NOT_RESETTABLE", "当前账号状态不允许重置密码", 409)
         try:
             validate_password(temporary_password)
-            self.store.reset_password(user_id, password_hash=hash_password(temporary_password))
+            self.store.reset_password(user_id, password_hash=hash_password(temporary_password), operator_id=reviewer_id)
         except ValueError as exc:
             raise ReviewServiceError("PASSWORD_RESET_FAILED", str(exc), 409) from exc
 

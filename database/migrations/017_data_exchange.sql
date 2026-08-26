@@ -66,7 +66,7 @@ INSERT IGNORE INTO role_permissions (role_id,permission_id)
 SELECT r.id,p.id FROM roles r CROSS JOIN permissions p
 WHERE r.status='active' AND (
   (r.code='super_admin' AND p.code IN ('data_exchange.view','data_exchange.import','data_exchange.export','attachment.manage')) OR
-  (r.code IN ('breed_manager','warehouse_manager','purchaser','finance','sales_staff') AND p.code IN ('data_exchange.view','data_exchange.export','attachment.manage'))
+  (r.code IN ('breed_manager','breed_worker','warehouse_manager','purchaser','finance','sales_staff') AND p.code IN ('data_exchange.view','data_exchange.export','attachment.manage'))
 );
 
 DELIMITER $$

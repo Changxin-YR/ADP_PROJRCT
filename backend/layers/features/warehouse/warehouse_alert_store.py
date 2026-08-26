@@ -12,6 +12,30 @@ def _fingerprint(row: dict[str, Any]) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _collapse_low_stock_alerts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Compare safety stock with warehouse/material totals, not individual lots."""
+    totals: dict[tuple[int, int], Any] = {}
+    thresholds: dict[tuple[int, int], Any] = {}
+    for row in rows:
+        if row.get("alert_type") != "low_stock":
+            continue
+        key = (int(row["warehouse_id"]), int(row["material_id"]))
+        totals[key] = totals.get(key, 0) + row.get("current_quantity", 0)
+        thresholds[key] = row.get("safety_stock", 0)
+    emitted: set[tuple[int, int]] = set()
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        if row.get("alert_type") != "low_stock":
+            result.append(row)
+            continue
+        key = (int(row["warehouse_id"]), int(row["material_id"]))
+        if totals[key] >= thresholds[key] or key in emitted:
+            continue
+        emitted.add(key)
+        result.append({**row, "current_quantity": totals[key]})
+    return result
+
+
 def list_alerts(store: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
     where, values = store._area_where(user, "w"); scope = f"{where} AND" if where else "WHERE"
     with get_connection(store.settings) as connection, connection.cursor() as cursor:
@@ -35,7 +59,45 @@ def list_alerts(store: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
                 ORDER BY FIELD(severity,'high','medium'),l.expiry_date""",
             tuple(values),
         )
-        rows = list(cursor.fetchall())
+        rows = _collapse_low_stock_alerts(list(cursor.fetchall()))
+        scope_sql, scope_values = store._area_where(user, "w")
+        scope_predicate = f" AND {scope_sql[6:]}" if scope_sql else ""
+        cursor.execute(
+            f"""SELECT d.organization_id,d.warehouse_id,d.inventory_lot_id,d.material_id,m.name AS material_name,
+                       l.lot_no,w.name AS warehouse_name,m.safety_stock,
+                       COALESCE((SELECT SUM(g.quantity_delta) FROM inventory_ledger g
+                                 WHERE g.warehouse_id=d.warehouse_id AND g.material_id=d.material_id
+                                   AND g.inventory_lot_id=d.inventory_lot_id
+                                   AND NOT (g.source_type='stocktake' AND g.source_id=d.id)),0) AS book_quantity,
+                       d.quantity AS actual_quantity,d.quantity-COALESCE((SELECT SUM(g.quantity_delta) FROM inventory_ledger g
+                                 WHERE g.warehouse_id=d.warehouse_id AND g.material_id=d.material_id
+                                   AND g.inventory_lot_id=d.inventory_lot_id
+                                   AND NOT (g.source_type='stocktake' AND g.source_id=d.id)),0) AS difference_quantity,
+                       'stocktake_difference' AS alert_type,'medium' AS severity
+                FROM warehouse_documents d JOIN warehouses w ON w.id=d.warehouse_id
+                JOIN materials m ON m.id=d.material_id JOIN inventory_lots l ON l.id=d.inventory_lot_id
+                WHERE d.document_type='stocktake' AND d.status='verified'{scope_predicate}
+                  AND d.quantity<>COALESCE((SELECT SUM(g.quantity_delta) FROM inventory_ledger g
+                                 WHERE g.warehouse_id=d.warehouse_id AND g.material_id=d.material_id
+                                   AND g.inventory_lot_id=d.inventory_lot_id
+                                   AND NOT (g.source_type='stocktake' AND g.source_id=d.id)),0)
+                ORDER BY d.id DESC""",
+            tuple(scope_values),
+        )
+        rows.extend(list(cursor.fetchall()))
+        cursor.execute(
+            f"""SELECT l.organization_id,w.id AS warehouse_id,l.id AS inventory_lot_id,m.id AS material_id,
+                       m.name AS material_name,l.lot_no,w.name AS warehouse_name,m.safety_stock,
+                       COALESCE(SUM(g.quantity_delta),0) AS current_quantity,
+                       MAX(g.happened_at) AS last_activity,'inactive' AS alert_type,'low' AS severity
+                FROM inventory_lots l JOIN materials m ON m.id=l.material_id
+                JOIN inventory_ledger g ON g.inventory_lot_id=l.id JOIN warehouses w ON w.id=g.warehouse_id
+                {scope_sql if scope_sql else ''}{' AND' if scope_sql else 'WHERE'} l.status='available'
+                GROUP BY l.organization_id,w.id,l.id,m.id,m.name,m.safety_stock,l.lot_no,w.name
+                HAVING current_quantity>0 AND (last_activity IS NULL OR last_activity<DATE_SUB(CURRENT_DATE,INTERVAL 90 DAY))""",
+            tuple(scope_values),
+        )
+        rows.extend(list(cursor.fetchall()))
         for row in rows:
             row["alert_key"] = f"{row['warehouse_id']}:{row['inventory_lot_id']}:{row['alert_type']}"
             row["condition_fingerprint"] = _fingerprint(row)

@@ -66,14 +66,18 @@ class MySqlDataExchangeStore:
             self._audit(connection, int(payload["imported_by"]), "preview_import", batch_id, after=row)
             return row
 
-    def list_imports(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def list_imports(self, user: dict[str, Any], *, page: int = 1, page_size: int = 50) -> dict[str, Any]:
         organizations = self._organizations(user)
         where, params = ("", ()) if organizations is None else (f" WHERE organization_id IN ({','.join(['%s'] * len(organizations))})", tuple(organizations))
         if organizations == set():
-            return []
+            return {"items": [], "page": max(1, int(page)), "page_size": max(1, min(100, int(page_size))), "total": 0, "has_next": False}
+        page = max(1, int(page)); page_size = min(100, max(1, int(page_size)))
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM data_import_batches{where} ORDER BY id DESC LIMIT 200", params)
-            return [self._decode(row) or {} for row in cursor.fetchall()]
+            cursor.execute(f"SELECT COUNT(*) AS total FROM data_import_batches{where}", params)
+            total = int((cursor.fetchone() or {}).get("total", 0))
+            cursor.execute(f"SELECT * FROM data_import_batches{where} ORDER BY id DESC LIMIT %s OFFSET %s", params + (page_size, (page - 1) * page_size))
+            items = [self._decode(row) or {} for row in cursor.fetchall()]
+        return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
 
     def get_import(self, batch_id: int, user: dict[str, Any]) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
@@ -136,7 +140,6 @@ class MySqlDataExchangeStore:
         "cost:entries": ("cost_entries", False), "cost:assets": ("cost_assets", False),
         "cost:adjustments": ("cost_entries", False),
     }
-
     def revoke_import(self, batch_id: int, user: dict[str, Any]) -> dict[str, Any]:
         """撤销已导入批次：事务删除该批次创建的草稿并置 undone；被引用或已流转→409。"""
         with get_connection(self.settings) as connection, connection.cursor() as cursor:

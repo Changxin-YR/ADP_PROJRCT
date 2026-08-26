@@ -130,7 +130,7 @@ class MySqlSalesStore:
             after = self._order(cursor, record_id) or {}; key = f"sales:order:{record_id}:approve"
             if status == "submitted":
                 cursor.execute("INSERT INTO work_items (organization_id,module_code,action_code,object_type,object_id,object_ref,source_key,title,status,target_version) VALUES (%s,'sales','approve','sales:order',%s,%s,%s,%s,'pending',%s) ON DUPLICATE KEY UPDATE status='pending',target_version=VALUES(target_version)", (after["organization_id"], record_id, f"order:{record_id}", key, f"审批销售单：{after['name']}", after["row_version"]))
-                notify_work_item_created(connection, organization_id=after["organization_id"], module_code="sales", action_code="approve", object_type="sales:order", object_id=record_id, object_ref=f"order:{record_id}", source_key=key, title=f"审批销售单：{after['name']}", permission_codes=["sales.verify"])
+                notify_work_item_created(connection, organization_id=after["organization_id"], area_id=after.get("area_id"), module_code="sales", action_code="approve", object_type="sales:order", object_id=record_id, object_ref=f"order:{record_id}", source_key=key, title=f"审批销售单：{after['name']}", permission_codes=["sales.verify"])
             else: cursor.execute("UPDATE work_items SET status='completed',completed_by=%s,completed_at=CURRENT_TIMESTAMP,completion_note='销售审批完成',row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, key))
             self._audit(connection, user_id, status, "order", record_id, before=before, after=after); return after
 
@@ -246,7 +246,7 @@ class MySqlSalesStore:
             after = self._delivery(cursor, record_id) or {}; key = f"sales:delivery:{record_id}:verify"
             if status == "submitted":
                 cursor.execute("INSERT INTO work_items (organization_id,module_code,action_code,object_type,object_id,object_ref,source_key,title,status,target_version) VALUES (%s,'sales','verify','sales:delivery',%s,%s,%s,%s,'pending',%s) ON DUPLICATE KEY UPDATE status='pending',target_version=VALUES(target_version)", (after["organization_id"], record_id, f"delivery:{record_id}", key, f"核验销售交付：{after['name']}", after["row_version"]))
-                notify_work_item_created(connection, organization_id=after["organization_id"], module_code="sales", action_code="verify", object_type="sales:delivery", object_id=record_id, object_ref=f"delivery:{record_id}", source_key=key, title=f"核验销售交付：{after['name']}", permission_codes=["sales.verify"])
+                notify_work_item_created(connection, organization_id=after["organization_id"], area_id=after.get("area_id"), module_code="sales", action_code="verify", object_type="sales:delivery", object_id=record_id, object_ref=f"delivery:{record_id}", source_key=key, title=f"核验销售交付：{after['name']}", permission_codes=["sales.verify"])
             else:
                 post_delivery(cursor, after, order); cursor.execute("UPDATE work_items SET status='completed',completed_by=%s,completed_at=NOW(),completion_note='交付核验完成',row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, key))
             self._audit(connection, user_id, status, "delivery", record_id, before=before, after=after); return after

@@ -12,6 +12,8 @@ from backend.layers.features.warehouse.warehouse_ledger_store import WarehouseLe
 from backend.layers.features.warehouse.warehouse_service import WarehouseService
 from backend.layers.features.warehouse.warehouse_store import MySqlWarehouseStore
 from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
+from backend.layers.features.data_exchange.template_catalog import get_template
+from backend.layers.features.data_exchange.importers_finance import import_payment, import_purchase_order, import_sales_order
 from test_master_data_api import FakeMasterStore
 from test_production_flow import FakeProductionStore, user
 
@@ -182,3 +184,117 @@ def test_warehouse_master_listing_can_include_disabled_rows() -> None:
     store = Store()
     WarehouseService(store).warehouses({"id": 1, "permissions": ["warehouse.view"], "data_scopes": []}, include_disabled=True)
     assert store.include_disabled is True
+
+
+def test_import_templates_match_required_business_fields() -> None:
+    feed_plan = {field.key for field in get_template("feed-plans").fields}
+    assert {"batch_id", "material_id", "planned_at", "quantity"}.issubset(feed_plan)
+    payment = {field.key for field in get_template("payments").fields}
+    assert "payment_method" in payment
+    assert get_template("payments").fields[[field.key for field in get_template("payments").fields].index("payment_method")].required is True
+
+
+def test_production_scope_defaults_require_verified_pond() -> None:
+    class Cursor:
+        def execute(self, sql: str, _params: tuple[object, ...]) -> None:
+            self.sql = sql
+
+        @staticmethod
+        def fetchone() -> dict[str, object]:
+            return {"organization_id": 1, "farm_id": 1, "area_id": 2, "status": "draft"}
+
+    with pytest.raises(DomainError, match="POND_NOT_VERIFIED"):
+        from backend.layers.features.production.production_store import MySqlProductionStore
+        MySqlProductionStore._scope_defaults(Cursor(), {"pond_id": 3})
+
+
+def test_warehouse_update_rejects_blank_code_and_name() -> None:
+    service = WarehouseService(type("Store", (), {})())
+    user = {"id": 1, "permissions": ["warehouse.manage"], "data_scopes": []}
+    with pytest.raises(DomainError, match="WAREHOUSE_REQUIRED_FIELDS"):
+        service.update_warehouse(user, 1, {"code": ""})
+    with pytest.raises(DomainError, match="WAREHOUSE_REQUIRED_FIELDS"):
+        service.update_warehouse(user, 1, {"name": "   "})
+def test_feed_log_requires_positive_quantity_or_weight() -> None:
+    service = ProductionService(FakeProductionStore())
+    with pytest.raises(DomainError, match="PRODUCTION_QUANTITY_REQUIRED"):
+        service.create(user(1, "production.manage"), "feed-logs", {
+            "code": "FL-ZERO", "name": "空投喂", "pond_id": 10, "batch_id": 1, "material_id": 7,
+        })
+def test_loss_requires_positive_quantity_or_weight_and_reason() -> None:
+    service = ProductionService(FakeProductionStore())
+    with pytest.raises(DomainError, match="PRODUCTION_QUANTITY_REQUIRED"):
+        service.create(user(1, "production.manage"), "losses", {
+            "code": "LS-ZERO", "name": "空损耗", "pond_id": 10, "batch_id": 1,
+        })
+    with pytest.raises(DomainError, match="PRODUCTION_LOSS_REASON_REQUIRED"):
+        service.create(user(1, "production.manage"), "losses", {
+            "code": "LS-NO-REASON", "name": "无原因损耗", "pond_id": 10, "batch_id": 1, "quantity": 1,
+        })
+def test_batch_requires_initial_quantity_or_weight() -> None:
+    with pytest.raises(DomainError, match="PRODUCTION_QUANTITY_REQUIRED"):
+        ProductionService(FakeProductionStore()).create(user(1, "production.manage"), "batches", {
+            "code": "B-NO-STOCK", "name": "空批次", "pond_id": 10, "species": "草鱼",
+        })
+def test_batch_status_cannot_start_in_closed_state() -> None:
+    with pytest.raises(DomainError, match="PRODUCTION_BATCH_STATUS_INVALID"):
+        ProductionService(FakeProductionStore()).create(user(1, "production.manage"), "batches", {
+            "code": "B-CLOSED", "name": "关闭批次", "pond_id": 10, "species": "草鱼",
+            "initial_quantity": 10, "batch_status": "closed",
+        })
+def test_transfer_receive_scope_includes_target_area() -> None:
+    with pytest.raises(DomainError, match="DATA_SCOPE_FORBIDDEN"):
+        WarehouseService._scope(
+            {"id": 7, "data_scopes": [{"scope_type": "area", "area_id": 2}]},
+            {"area_id": 2, "_target_area_id": 3, "created_by": 7},
+        )
+def test_production_scope_defaults_rejects_mismatched_batch_pond() -> None:
+    class Cursor:
+        def __init__(self) -> None:
+            self.rows = [
+                {"organization_id": 1, "farm_id": 1, "area_id": 2, "pond_status": "farming", "status": "verified"},
+                {"organization_id": 1, "farm_id": 1, "area_id": 2, "pond_id": 99, "status": "verified"},
+            ]
+        def execute(self, _sql: str, _params: tuple[object, ...]) -> None: return None
+        def fetchone(self) -> dict[str, object] | None: return self.rows.pop(0)
+    with pytest.raises(DomainError, match="PRODUCTION_RELATION_INVALID"):
+        MySqlProductionStore._scope_defaults(Cursor(), {"pond_id": 10, "batch_id": 8})
+def test_feed_issue_capacity_excludes_already_verified_feed_logs() -> None:
+    from backend.layers.features.production.production_material_control import require_material_issue
+    class Cursor:
+        sql = ""
+        def execute(self, sql: str, _params: tuple[object, ...]) -> None: self.sql = sql
+        @staticmethod
+        def fetchone() -> dict[str, object]: return {"request_id": 5, "issued_quantity": 50, "consumed_quantity": 40}
+    cursor = Cursor()
+    require_material_issue(cursor, {"id": 9, "material_issue_request_id": 5, "material_id": 7, "pond_id": 3, "quantity": 20})
+    assert "consumed_quantity" in cursor.sql
+    assert "production_documents f" in cursor.sql
+def test_feed_log_relation_validation_rejects_a_non_task_reference() -> None:
+    class Cursor:
+        def execute(self, _sql: str, _params: tuple[object, ...]) -> None: return None
+        @staticmethod
+        def fetchone() -> None: return None
+    with pytest.raises(DomainError, match="FEED_TASK_RELATION_INVALID"):
+        MySqlProductionStore._validate_relations(Cursor(), "feed-logs", {
+            "id": 9, "organization_id": 1, "batch_id": 3, "pond_id": 10, "feed_task_id": 4,
+        })
+def test_low_stock_alerts_aggregate_all_lots_of_one_material() -> None:
+    from backend.layers.features.warehouse.warehouse_alert_store import _collapse_low_stock_alerts
+
+    rows = [
+        {"warehouse_id": 1, "material_id": 7, "inventory_lot_id": 11, "alert_type": "low_stock", "current_quantity": 30, "safety_stock": 50},
+        {"warehouse_id": 1, "material_id": 7, "inventory_lot_id": 12, "alert_type": "low_stock", "current_quantity": 40, "safety_stock": 50},
+    ]
+    assert _collapse_low_stock_alerts(rows) == []
+def test_breed_worker_permission_covers_issue_request_creation() -> None:
+    WarehouseService.require({"permissions": ["production.manage"]}, "manage", "issue-requests")
+def test_feed_records_require_a_farming_pond() -> None:
+    class Cursor:
+        def execute(self, _sql: str, _params: tuple[object, ...]) -> None: return None
+        @staticmethod
+        def fetchone() -> dict[str, object]:
+            return {"organization_id": 1, "farm_id": 1, "area_id": 2, "pond_status": "build", "status": "verified"}
+    with pytest.raises(DomainError, match="POND_NOT_READY"):
+        from backend.layers.features.production.production_store import MySqlProductionStore
+        MySqlProductionStore._scope_defaults(Cursor(), {"pond_id": 3}, "feed-logs")

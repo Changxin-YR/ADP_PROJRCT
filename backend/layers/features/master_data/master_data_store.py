@@ -201,6 +201,7 @@ class MySqlMasterDataStore:
                 notify_work_item_created(
                     connection,
                     organization_id=after.get("organization_id"),
+                    area_id=after.get("area_id"),
                     module_code="master_data",
                     action_code="verify",
                     object_type=f"master:{resource}",

@@ -26,6 +26,9 @@ ATTACHMENT_TARGETS = {
     "production:feed-tasks": ("production_documents", "document_type='feed_task'", None),
     "production:feed-logs": ("production_documents", "document_type='feed_log'", None),
     "production:daily-operations": ("production_documents", "document_type='daily_operation'", None),
+    "master:ponds": ("ponds", None, None),
+    "purchase:order": ("purchase_orders", None, None),
+    "sales:order": ("sales_orders", None, None),
     "purchase:payment": (
         "purchase_payments p",
         None,

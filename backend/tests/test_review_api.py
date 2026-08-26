@@ -3,8 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+import pytest
+
 from backend.app import create_app
 from backend.config.settings import Settings
+from backend.layers.features.account_review.review_service import ReviewService, ReviewServiceError
 from test_auth_api import FakeAuthStore
 
 
@@ -60,12 +63,14 @@ class FakeReviewStore(FakeAuthStore):
         items = [u for u in self.users if (status is None or u["status"] == status) and (not keyword or keyword in u["name"] or keyword in u["phone"])]
         return {"items": items[(page - 1) * page_size: page * page_size], "page": page, "page_size": page_size, "total": len(items), "has_next": page * page_size < len(items)}
 
-    def set_user_status(self, user_id: int, status: str) -> None:
+    def set_user_status(self, user_id: int, status: str, *, operator_id: int | None = None) -> None:
+        del operator_id
         user = self.get_user_by_id(user_id)
         assert user is not None
         user["status"] = status
 
-    def reset_password(self, user_id: int, *, password_hash: str) -> None:
+    def reset_password(self, user_id: int, *, password_hash: str, operator_id: int | None = None) -> None:
+        del operator_id
         user = self.get_user_by_id(user_id)
         assert user is not None
         user["password_hash"] = password_hash
@@ -267,3 +272,77 @@ def test_reset_password_revokes_sessions_and_requires_first_change() -> None:
     assert store.get_user_by_id(user["id"])["status"] == "must_change_password"
     assert all(item["status"] == "revoked" for item in store.sessions.values() if item["user_id"] == user["id"])
     assert "TempPass9!" not in response.get_data(as_text=True)
+
+
+def test_admin_cannot_disable_or_enable_own_account() -> None:
+    store = FakeReviewStore()
+    admin = store.add_user(phone="13800000030", login_name="self-admin", password="AdminPass9!", status="active")
+    _grant_super_admin(store, admin, "auth.user.manage")
+    service = ReviewService(store, _settings())
+
+    with pytest.raises(ReviewServiceError, match="当前登录账号") as caught:
+        service.set_status(admin["id"], admin["id"], "disabled")
+    assert caught.value.code == "SELF_STATUS_FORBIDDEN"
+
+
+def test_admin_status_and_password_audit_keep_operator_identity() -> None:
+    from backend.layers.common.db.repositories.auth_admin_store import AuthAdminStoreMixin
+
+    class Audit:
+        def __init__(self) -> None:
+            self.events: list[dict[str, Any]] = []
+
+        def write(self, _connection: object, **event: Any) -> None:
+            self.events.append(event)
+
+    class Review:
+        @staticmethod
+        def set_user_status(_connection: object, **_kwargs: Any) -> None:
+            return None
+
+        @staticmethod
+        def reset_password(_connection: object, **_kwargs: Any) -> None:
+            return None
+
+        @staticmethod
+        def create_user(_connection: object, **_kwargs: Any) -> dict[str, Any]:
+            return {"id": 9, "status": "must_change_password"}
+
+    class Store(AuthAdminStoreMixin):
+        def __init__(self) -> None:
+            self.audit = Audit()
+            self.review = Review()
+
+        def transaction(self):
+            from contextlib import contextmanager
+
+            @contextmanager
+            def context():
+                yield object()
+
+            return context()
+
+    store = Store()
+    store.set_user_status(3, "disabled", operator_id=7)
+    store.reset_password(3, password_hash="hash", operator_id=7)
+    store.create_managed_user(
+        {"phone": "13800000099", "name": "审计用户", "role_ids": [3], "scope_ids": [1], "assigned_by": 7},
+        password_hash="hash",
+    )
+    assert [event["user_id"] for event in store.audit.events] == [7, 7, 7]
+    assert store.audit.events[-1]["action"] == "create_managed_user"
+
+
+def test_disabled_data_scope_cannot_be_granted() -> None:
+    from backend.layers.common.db.repositories.review_repository import ReviewRepository
+
+    class Cursor:
+        def execute(self, _sql: str, _params: tuple[int, ...]) -> None:
+            return None
+
+        @staticmethod
+        def fetchone() -> dict[str, int]:
+            return {"total": 0}
+
+    with pytest.raises(ValueError, match="数据范围不存在或已停用"):
+        ReviewRepository._validate_grant_ids(Cursor(), role_ids=[], scope_ids=[99])

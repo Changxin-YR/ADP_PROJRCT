@@ -15,6 +15,7 @@ def notify_work_item_created(
     source_key: str,
     title: str,
     permission_codes: list[str],
+    area_id: int | None = None,
 ) -> None:
     """待办生成时同步写入未读通知（最小实现，BUG-006）。
 
@@ -31,8 +32,13 @@ def notify_work_item_created(
         organization_id = int(organization_id)
     except (TypeError, ValueError):
         return
-    placeholders = ",".join(["%s"] * len(permission_codes))
     with connection.cursor() as cursor:
+        placeholders = ",".join(["%s"] * len(permission_codes))
+        area_clause = ""
+        area_params: list[Any] = []
+        if area_id:
+            area_clause = " AND (ds.scope_type <> 'area' OR ds.area_id = %s)"
+            area_params.append(area_id)
         cursor.execute(
             f"""
             SELECT DISTINCT u.id
@@ -49,11 +55,11 @@ def notify_work_item_created(
                   INNER JOIN data_scopes ds ON ds.id = uds.data_scope_id AND ds.status = 'active'
                   LEFT JOIN areas a ON a.id = ds.area_id
                   LEFT JOIN farms f ON f.id = a.farm_id
-                  WHERE ds.scope_type = 'farm'
-                     OR COALESCE(a.organization_id, f.organization_id) = %s
+                  WHERE (ds.scope_type = 'farm' AND r.code = 'super_admin')
+                     OR (COALESCE(a.organization_id, f.organization_id) = %s{area_clause})
               )
             """,
-            (*permission_codes, organization_id),
+            (*permission_codes, organization_id, *area_params),
         )
         recipients = [int(row["id"]) for row in cursor.fetchall()]
         dedup_key = f"work_item:{source_key}"[:191]
@@ -68,7 +74,7 @@ def notify_work_item_created(
                     title = VALUES(title), body = VALUES(body), level = VALUES(level),
                     occurrence_count = occurrence_count + 1,
                     last_occurred_at = CURRENT_TIMESTAMP,
-                    status = IF(status = 'closed', 'unread', status)
+                    status = IF(status IN ('closed', 'read'), 'unread', status)
                 """,
                 (
                     recipient,

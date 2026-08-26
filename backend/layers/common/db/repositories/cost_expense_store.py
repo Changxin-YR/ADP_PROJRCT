@@ -121,6 +121,7 @@ class MySqlCostExpenseStore:
                 notify_work_item_created(
                     connection,
                     organization_id=after["organization_id"],
+                    area_id=after.get("area_id"),
                     module_code="cost",
                     action_code="verify",
                     object_type="cost:entry",
@@ -136,6 +137,7 @@ class MySqlCostExpenseStore:
                 notify_work_item_created(
                     connection,
                     organization_id=after["organization_id"],
+                    area_id=after.get("area_id"),
                     module_code="cost",
                     action_code="confirm",
                     object_type="cost:entry",
