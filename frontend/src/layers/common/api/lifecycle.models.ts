@@ -1,4 +1,4 @@
-export type RecordAction = 'view' | 'edit' | 'delete' | 'submit' | 'approve' | 'verify' | 'confirm' | 'correct' | 'reverse' | 'depreciate' | 'dispatch' | 'receive' | 'cancel' | 'handle'
+export type RecordAction = 'view' | 'edit' | 'delete' | 'submit' | 'approve' | 'verify' | 'confirm' | 'correct' | 'reverse' | 'depreciate' | 'dispatch' | 'receive' | 'cancel' | 'handle' | 'archive'
 
 export interface LifecycleRecord {
   status: string

@@ -28,23 +28,18 @@ MAX_MASTER_QUANTITY = Decimal("999999999999999.999")
 STOCK_QUANTITY_SOURCES = {"estimated", "manual", "measured", "sampled", "corrected"}
 CREATE_POND_STATUSES = {"build", "stocked"}
 ALL_POND_STATUSES = set(POND_STATUS_TRANSITIONS) | set().union(*POND_STATUS_TRANSITIONS.values())
-
-
 class MasterDataService:
     def __init__(self, store: Any) -> None:
         self.store = store
-
     @staticmethod
     def can(user: dict[str, Any], resource: str, action: str) -> bool:
         permissions = set(user.get("permissions") or [])
         resource_code = resource.replace("-", "_")
         return f"master_data.{action}" in permissions or f"master_data.{resource_code}.{action}" in permissions
-
     @classmethod
     def require(cls, user: dict[str, Any], resource: str, action: str) -> None:
         if not cls.can(user, resource, action):
             raise DomainError("FORBIDDEN", "当前账号没有主数据权限", 403)
-
     @staticmethod
     def resource(value: str) -> str:
         if value not in RESOURCES:
@@ -60,13 +55,13 @@ class MasterDataService:
             "verified": ["view"],
             "archived": ["view"],
         }.get(status, ["view"])
+        if status == "verified" and cls.can(user, resource, "manage"): actions = [*actions, "archive"]
         actions = [action for action in actions if action == "view" or cls.can(user, resource, "verify" if action == "verify" else "manage")]
         normalized = {**row, "version": int(row.get("row_version", row.get("version", 1))), "allowed_actions": actions}
         for key, value in list(normalized.items()):
             if hasattr(value, "isoformat"):
                 normalized[key] = value.isoformat()
         return normalized
-
     def list_records(self, user: dict[str, Any], resource: str, **query: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "view")
@@ -93,7 +88,6 @@ class MasterDataService:
     @staticmethod
     def _normalize(row: dict[str, Any]) -> dict[str, Any]:
         return {key: value.isoformat() if hasattr(value, "isoformat") else value for key, value in row.items()}
-
     def create(self, user: dict[str, Any], resource: str, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "manage")
@@ -107,7 +101,6 @@ class MasterDataService:
             self._validate_ponds_fields(clean, creating=True)
         self._validate_business_fields(resource, clean)
         return self.result(self.store.create_record(resource, clean, user_id=int(user["id"])), user, resource)
-
     @staticmethod
     def _validate_ponds_fields(clean: dict[str, Any], *, creating: bool = False) -> None:
         """塘口字段预校验：非法值一律 400，不落库产生 500（BUG-M4-01/02/04、BUG-007）。"""
@@ -276,6 +269,12 @@ class MasterDataService:
         current = self._current(user, resource, record_id)
         require_deletable(str(current["status"]), has_references=bool(current.get("has_references")))
         return self.result(self.store.delete_draft(resource, record_id, user_id=int(user["id"])), user, resource)
+
+    def archive(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
+        resource = self.resource(resource); self.require(user, resource, "manage"); current = self._current(user, resource, record_id)
+        if current["status"] != "verified": raise DomainError("INVALID_STATE_TRANSITION", "仅已核验主数据可以归档", 409)
+        expected = self._expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
+        return self.result(self.store.set_status(resource, record_id, "archived", expected_version=expected, user_id=int(user["id"])), user, resource)
 
     def request_pond_status_change(self, user: dict[str, Any], pond_id: int, payload: Any) -> dict[str, Any]:
         self.require(user, "ponds", "manage")

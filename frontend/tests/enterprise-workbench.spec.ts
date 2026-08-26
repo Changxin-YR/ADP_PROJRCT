@@ -136,6 +136,27 @@ describe('enterprise workbench data sources', () => {
     expect(wrapper.get('a').attributes('href')).toBe('/ponds/7')
   })
 
+  it('keeps notification object identity, supports closing, and paginates history', async () => {
+    const fetch = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path.includes('/auth/csrf')) return response({ csrf_token: 'csrf' })
+      if (path.includes('/notifications/9')) return response({ notification: { id: 9, title: '库存预警', module_code: 'warehouse', status: 'closed', close_conclusion: '已处理' } })
+      if (path.includes('/notifications?')) return response({ items: [{ id: 9, title: '库存预警', body: '请处理', module_code: 'warehouse', object_type: 'warehouse:alerts', object_id: 12, object_ref: 'alerts:12', level: 'high', status: 'unread', occurrence_count: 1 }], page: 2, page_size: 100, total: 101, has_next: false })
+      return response({ items: [], page: 1, page_size: 100, total: 0, has_next: false })
+    })
+    vi.stubGlobal('fetch', fetch)
+    vi.stubGlobal('prompt', vi.fn(() => '已处理'))
+    const wrapper = mount(QueuePage, { props: { mode: 'messages' }, global: { stubs: { AppShell: { template: '<main><slot /></main>' }, RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' }, Teleport: true } } })
+    await flushPromises()
+
+    expect(wrapper.get('a').attributes('href')).toBe('/warehouse/alerts')
+    expect(wrapper.text()).toContain('关闭')
+    await wrapper.findAll('button').find((button) => button.text() === '关闭')!.trigger('click')
+    await flushPromises()
+    expect(fetch).toHaveBeenCalledWith('/api/v1/notifications/9', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ status: 'closed', conclusion: '已处理' }) }))
+    expect(fetch.mock.calls.some(([input]) => String(input).includes('/notifications?include_history=true&page=1&page_size=100'))).toBe(true)
+  })
+
   it('renders unavailable production metrics without fake zeroes', async () => {
     vi.stubGlobal('fetch', vi.fn(() => response({ date_label: '2026年08月17日', availability: { production: false }, kpis: { ponds: null, active_batches: null, current_stock: null, todo_open: 2 }, pond_status: [], todos: [], alerts: [], recent_batches: [] })))
     const wrapper = mount(WorkbenchDashboardPage, { global: { stubs: { AppShell: { template: '<main><slot /></main>' }, RouterLink: true } } })

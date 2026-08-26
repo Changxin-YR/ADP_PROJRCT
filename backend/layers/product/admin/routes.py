@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
@@ -65,6 +66,8 @@ def create_admin_blueprint(settings: Settings, store: Any) -> Blueprint:
                 action_code=request.args.get("action_code") or None,
                 object_type=request.args.get("object_type") or None,
                 result=request.args.get("result") or None,
+                created_from=date.fromisoformat(request.args["created_from"]) if request.args.get("created_from") else None,
+                created_to=(date.fromisoformat(request.args["created_to"]) + timedelta(days=1)) if request.args.get("created_to") else None,
                 request_id=request.args.get("request_id") or None,
                 page=page,
                 page_size=page_size,

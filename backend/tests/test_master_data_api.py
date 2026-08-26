@@ -138,6 +138,17 @@ def test_unsubmitted_unreferenced_draft_can_be_deleted() -> None:
     assert response.status_code == 200
 
 
+def test_verified_master_record_can_be_archived_by_a_different_operator() -> None:
+    store = FakeMasterStore()
+    store.rows["materials"] = {1: {"id": 1, "code": "MAT-ARCHIVE", "name": "停用物料", "status": "verified", "row_version": 3, "created_by": 2, "has_references": True}}
+    service = MasterDataService(store)
+
+    archived = service.archive({"id": 3, "permissions": ["master_data.manage"], "data_scopes": []}, "materials", 1, {"expected_version": 3})
+
+    assert archived["status"] == "archived"
+    assert archived["version"] == 4
+
+
 def test_unknown_or_server_owned_master_fields_are_rejected() -> None:
     client = logged_in_client()
 

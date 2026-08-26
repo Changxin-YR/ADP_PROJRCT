@@ -22,7 +22,7 @@ export interface AuditLogRecord {
 
 export interface AuditLogList { items: AuditLogRecord[]; page: number; page_size: number; total: number; has_next: boolean }
 
-export function getAuditLogs(query: { action_code?: string; module_code?: string; object_type?: string; result?: string; page?: number; page_size?: number } = {}): Promise<AuditLogList> {
+export function getAuditLogs(query: { user_id?: string | number; action_code?: string; module_code?: string; object_type?: string; result?: string; created_from?: string; created_to?: string; page?: number; page_size?: number } = {}): Promise<AuditLogList> {
   const params = new URLSearchParams({ page: String(query.page ?? 1), page_size: String(query.page_size ?? 100) })
   for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== '') params.set(key, String(value))
   return api.get(`/api/v1/admin/audit-logs?${params.toString()}`)

@@ -4383,6 +4383,21 @@
         ]
       }
     },
+    "/api/v1/master-data/{resource}/{record_id}/archive": {
+      "post": {
+        "tags": ["master-data"],
+        "summary": "归档主数据",
+        "description": "归档已核验主数据，历史业务引用保留且不再作为新业务可选项。",
+        "operationId": "master_data_archive_record_post_api_v1_master_data_resource_record_id_archive",
+        "parameters": [
+          {"name": "record_id", "in": "path", "required": true, "schema": {"type": "integer", "minimum": 1}},
+          {"name": "resource", "in": "path", "required": true, "schema": {"type": "string"}}
+        ],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MutationRequest"}}}},
+        "responses": {"200": {"description": "成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SuccessEnvelope"}}}}, "default": {"$ref": "#/components/responses/ErrorResponse"}},
+        "security": [{"CookieAuth": [], "CsrfToken": []}]
+      }
+    },
     "/api/v1/master-data/ponds/{pond_id}/status-changes": {
       "post": {
         "tags": [

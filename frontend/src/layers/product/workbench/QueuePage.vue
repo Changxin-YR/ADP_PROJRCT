@@ -23,10 +23,16 @@ interface QueueEntry {
   handledAt?: string | null
   handledNote?: string | null
   canComplete?: boolean
+  objectType?: string | null
+  objectId?: number | null
 }
 
 const source = ref<QueueEntry[]>([])
 const loadError = ref('')
+const page = ref(1)
+const total = ref(0)
+const hasNext = ref(false)
+const pageSize = 100
 const isBackendHandled = (item: QueueEntry) => props.mode === 'messages'
   ? ['read', 'closed'].includes(String(item.backendStatus))
   : ['completed', 'cancelled'].includes(String(item.backendStatus))
@@ -37,27 +43,32 @@ function modulePath(moduleCode: string, objectType?: string | null, objectId?: n
   if (objectId && objectType === 'master:pond_status_change') return `/ponds/${objectId}`
   if (objectId && objectType === 'master:ponds') return `/ponds/${objectId}`
   if (objectId && objectType === 'production:batches') return `/batches/${objectId}`
+  if (objectId && objectType?.startsWith('warehouse:')) return `/warehouse/${objectType.slice('warehouse:'.length).replace('receipts', 'in').replace('issues', 'out')}`
+  if (objectId && objectType === 'purchase:order') return '/purchase/orders'
+  if (objectId && objectType === 'sales:order') return '/sales/orders'
   const paths: Record<string, string> = { warehouse: '/warehouse/alerts', cost: '/cost/expenses', sales: '/sales/receivables', daily_farming: '/feeding/tasks', workbench: '/workbench' }
   return paths[moduleCode] ?? '/workbench'
 }
 
 function mapWorkItem(item: WorkItemRecord): QueueEntry {
   const priority = item.priority === 'critical' || item.priority === 'high' ? '高' : item.priority === 'normal' ? '中' : '低'
-  return { id: `work-item-${item.id}`, backendId: item.id, backendKind: 'work_item', backendStatus: item.status, rowVersion: item.row_version, handledAt: item.completed_at ?? item.cancelled_at, handledNote: item.completion_note ?? item.cancel_reason, title: item.title, detail: item.detail ?? '', time: item.due_at ?? '', source: item.module_code, tone: priority === '高' ? 'rose' : priority === '中' ? 'amber' : 'teal', to: modulePath(item.module_code, item.object_type, item.object_id), level: priority, canComplete: item.handling_mode === 'manual' }
+  return { id: `work-item-${item.id}`, backendId: item.id, backendKind: 'work_item', backendStatus: item.status, rowVersion: item.row_version, handledAt: item.completed_at ?? item.cancelled_at, handledNote: item.completion_note ?? item.cancel_reason, title: item.title, detail: item.detail ?? '', time: item.due_at ?? '', source: item.module_code, tone: priority === '高' ? 'rose' : priority === '中' ? 'amber' : 'teal', to: modulePath(item.module_code, item.object_type, item.object_id), level: priority, canComplete: item.handling_mode === 'manual', objectType: item.object_type, objectId: item.object_id }
 }
 
 function mapNotification(item: NotificationRecord): QueueEntry {
   const priority = item.level === 'critical' || item.level === 'high' ? '高' : item.level === 'normal' ? '中' : '低'
-  return { id: `notification-${item.id}`, backendId: item.id, backendKind: 'notification', backendStatus: item.status, handledAt: item.read_at ?? item.closed_at, handledNote: item.close_conclusion, title: item.title, detail: item.body ?? '', time: item.last_occurred_at ?? '', source: item.module_code, tone: priority === '高' ? 'rose' : priority === '中' ? 'amber' : 'blue', to: modulePath(item.module_code), level: priority }
+  return { id: `notification-${item.id}`, backendId: item.id, backendKind: 'notification', backendStatus: item.status, handledAt: item.closed_at ?? item.read_at, handledNote: item.close_conclusion, title: item.title, detail: item.body ?? '', time: item.last_occurred_at ?? '', source: item.module_code, tone: priority === '高' ? 'rose' : priority === '中' ? 'amber' : 'blue', to: modulePath(item.module_code, item.object_type, item.object_id), level: priority, objectType: item.object_type, objectId: item.object_id }
 }
 
-async function loadBackendQueue() {
+async function loadBackendQueue(targetPage = page.value) {
   loadError.value = ''
   try {
     if (props.mode === 'messages') {
-      source.value = (await getNotifications(true)).items.map(mapNotification)
+      const result = await getNotifications(true, targetPage, pageSize)
+      page.value = result.page; total.value = result.total; hasNext.value = result.has_next; source.value = result.items.map(mapNotification)
     } else {
-      source.value = (await getWorkItems(true)).items.map(mapWorkItem)
+      const result = await getWorkItems(true, targetPage, pageSize)
+      page.value = result.page; total.value = result.total; hasNext.value = result.has_next; source.value = result.items.map(mapWorkItem)
     }
   } catch (error) {
     source.value = []
@@ -70,6 +81,7 @@ onMounted(() => { void loadBackendQueue() })
 const toasts = ref<{ id: number; text: string }[]>([])
 function toast(text: string) { const id = Date.now() + Math.random(); toasts.value.push({ id, text }); setTimeout(() => { toasts.value = toasts.value.filter((item) => item.id !== id) }, 3000) }
 async function refresh() { await loadBackendQueue(); toast(`已刷新：当前 ${entries.value.length} 条未处理 · ${handledEntries.value.length} 条已处理` + (props.mode === 'messages' ? ' · 历史记录已保留' : '')) }
+async function changePage(target: number) { if (target < 1 || (target > page.value && !hasNext.value)) return; await loadBackendQueue(target) }
 
 const handling = ref(false)
 async function markHandled(item: QueueEntry) {
@@ -93,6 +105,16 @@ async function markHandled(item: QueueEntry) {
   } finally { handling.value = false }
 }
 
+async function closeNotification(item: QueueEntry) {
+  if (item.backendKind !== 'notification' || !item.backendId || handling.value) return
+  const conclusion = window.prompt('请输入处理结论')?.trim()
+  if (!conclusion) return
+  handling.value = true
+  try { await updateNotification(item.backendId, 'closed', conclusion); await loadBackendQueue(); toast('消息已关闭，处理结论已保留') }
+  catch { toast('消息关闭失败，请刷新后重试') }
+  finally { handling.value = false }
+}
+
 const handledLabel = computed(() => (props.mode === 'messages' ? '已读消息' : '已完成待办'))
 const handledVerb = computed(() => (props.mode === 'messages' ? '已读' : '已完成'))
 </script>
@@ -110,7 +132,7 @@ const handledVerb = computed(() => (props.mode === 'messages' ? '已读' : '已�
       </div>
     </div>
 
-    <div v-if="loadError" class="page-card table-empty" role="alert">{{ loadError }}<div style="margin-top:12px"><button class="ghost-action" type="button" @click="loadBackendQueue">重新加载</button></div></div>
+    <div v-if="loadError" class="page-card table-empty" role="alert">{{ loadError }}<div style="margin-top:12px"><button class="ghost-action" type="button" @click="loadBackendQueue()">重新加载</button></div></div>
 
     <section class="kpi-grid" aria-label="处理概览">
       <article class="page-card kpi-card kpi--rose"><div class="kpi-card__top"><span>未处理 · 高优先级</span></div><strong>{{ entries.filter((item) => item.level === '高').length }}</strong><small>建议当日处理完毕</small></article>
@@ -137,13 +159,22 @@ const handledVerb = computed(() => (props.mode === 'messages' ? '已读' : '已�
           <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
             <StatusBadge :label="item.level === '高' ? '高优先级' : item.level === '中' ? '中优先级' : '低优先级'" :tone="item.tone" />
             <RouterLink class="table-action-btn" :to="item.to" style="text-decoration:none;display:inline-block">去处理</RouterLink>
-            <button v-if="props.mode === 'messages' || item.canComplete" class="table-action-btn" type="button" :disabled="handling" :aria-busy="handling" @click="markHandled(item)">{{ props.mode === 'messages' ? '已读' : '完成' }}</button>
+            <template v-if="props.mode === 'messages'">
+              <button class="table-action-btn" type="button" :disabled="handling" :aria-busy="handling" @click="markHandled(item)">已读</button>
+              <button class="table-action-btn" type="button" :disabled="handling" @click="closeNotification(item)">关闭</button>
+            </template>
+            <button v-else-if="item.canComplete" class="table-action-btn" type="button" :disabled="handling" :aria-busy="handling" @click="markHandled(item)">完成</button>
           </div>
         </div>
         <div v-if="!entries.length" class="table-empty" style="padding:34px 10px">
           {{ props.mode === 'messages' ? '太好了，当前没有未读消息与预警' : '当前没有待处理任务' }}
           <div style="margin-top:12px"><button class="ghost-action" type="button" @click="refresh">↻ 刷新确认</button></div>
         </div>
+      </div>
+      <div v-if="total > pageSize || page > 1" style="display:flex;justify-content:center;gap:12px;align-items:center;padding-top:18px">
+        <button class="ghost-action" type="button" :disabled="page <= 1 || handling" @click="changePage(page - 1)">上一页</button>
+        <span>第 {{ page }} 页 · 共 {{ total }} 条</span>
+        <button class="ghost-action" type="button" :disabled="!hasNext || handling" @click="changePage(page + 1)">下一页</button>
       </div>
     </section>
 

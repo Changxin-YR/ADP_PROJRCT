@@ -7,7 +7,7 @@ import type { MasterField, MasterRecord, MasterResource } from '../../common/api
 
 // 写操作防重复提交：busy + disabled + 防抖（BUG-M2-05/BUG-M4-09）
 const submitting = ref(false)
-import { createMasterRecord, deleteMasterDraft, listMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
+import { archiveMasterRecord, createMasterRecord, deleteMasterDraft, listMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
 
 const props = defineProps<{
   resource: MasterResource
@@ -27,7 +27,7 @@ const dialogError = ref('')
 const formOpen = ref(false)
 const editing = ref<MasterRecord | null>(null)
 const form = reactive<Record<string, string | number>>({})
-const confirmAction = ref<'delete' | 'submit' | 'verify' | null>(null)
+const confirmAction = ref<'delete' | 'submit' | 'verify' | 'archive' | null>(null)
 const actionTarget = ref<MasterRecord | null>(null)
 const lifecycleNames: Record<string, string> = { draft: '草稿', submitted: '待核验', verified: '已核验', archived: '已归档' }
 const lifecycleTones = { 草稿: 'slate', 待核验: 'amber', 已核验: 'teal', 已归档: 'slate' } as const
@@ -86,7 +86,7 @@ async function save() {
   finally { submitting.value = false }
 }
 
-function ask(action: 'delete' | 'submit' | 'verify', row: MasterRecord) {
+function ask(action: 'delete' | 'submit' | 'verify' | 'archive', row: MasterRecord) {
   actionTarget.value = row
   confirmAction.value = action
   dialogError.value = ''
@@ -106,7 +106,9 @@ async function confirm() {
     } else {
       const result = action === 'submit'
         ? await submitMasterRecord(props.resource, row.id, row.version)
-        : await verifyMasterRecord(props.resource, row.id, row.version)
+        : action === 'verify'
+          ? await verifyMasterRecord(props.resource, row.id, row.version)
+          : await archiveMasterRecord(props.resource, row.id, row.version)
       replace(result.record)
     }
     confirmAction.value = null
@@ -119,7 +121,7 @@ function handleAction(action: string, raw: Record<string, unknown>) {
   const row = rows.value.find((item) => item.id === Number(raw.id))
   if (!row) return
   if (action === 'edit') openForm(row)
-  else if (action === 'delete' || action === 'submit' || action === 'verify') ask(action, row)
+  else if (action === 'delete' || action === 'submit' || action === 'verify' || action === 'archive') ask(action, row)
 }
 
 onMounted(load)
@@ -160,8 +162,8 @@ onMounted(load)
 
     <div v-if="confirmAction && actionTarget" class="modal-overlay" role="dialog" aria-modal="true" aria-label="主数据操作确认" @click.self="confirmAction = null" @keydown.esc="confirmAction = null">
       <div class="modal-panel" style="width:min(480px,100%)">
-        <div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验并锁定' : confirmAction === 'submit' ? '提交核验' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div>
-        <p class="section-subtitle">{{ confirmAction === 'verify' ? `核验「${actionTarget.name}」后将永久只读，只能查看。` : confirmAction === 'submit' ? `提交「${actionTarget.name}」后仍可编辑，待办将跟随最新版本。` : `仅在「${actionTarget.name}」未提交且无业务引用时允许删除。` }}</p>
+        <div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验并锁定' : confirmAction === 'submit' ? '提交核验' : confirmAction === 'archive' ? '归档主数据' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div>
+        <p class="section-subtitle">{{ confirmAction === 'verify' ? `核验「${actionTarget.name}」后将永久只读，只能查看。` : confirmAction === 'submit' ? `提交「${actionTarget.name}」后仍可编辑，待办将跟随最新版本。` : confirmAction === 'archive' ? `归档「${actionTarget.name}」后将停止作为新业务的可选主数据，历史单据仍会保留。` : `仅在「${actionTarget.name}」未提交且无业务引用时允许删除。` }}</p>
         <p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p>
         <div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">取消</button><button class="primary-action" type="button" data-testid="master-confirm" :disabled="submitting" :aria-busy="submitting" @click="confirm">{{ submitting ? '处理中…' : '确认' }}</button></div>
       </div>

@@ -86,11 +86,14 @@ export interface NotificationRecord {
   closed_at?: string | null
   close_conclusion?: string | null
   occurrence_count: number
+  object_type?: string | null
+  object_id?: number | null
+  object_ref?: string | null
 }
 
 export interface GovernanceList<T> { items: T[]; page: number; page_size: number; total: number; has_next: boolean }
 
-export function getWorkItems(includeHistory = true): Promise<GovernanceList<WorkItemRecord>> { return api.get(`/api/v1/work-items?include_history=${includeHistory ? 'true' : 'false'}&page_size=100`) }
+export function getWorkItems(includeHistory = true, page = 1, pageSize = 100): Promise<GovernanceList<WorkItemRecord>> { return api.get(`/api/v1/work-items?include_history=${includeHistory ? 'true' : 'false'}&page=${page}&page_size=${pageSize}`) }
 export function transitionWorkItem(id: number, action: 'claim' | 'start' | 'complete' | 'cancel', expectedVersion: number, note?: string): Promise<{ work_item: WorkItemRecord }> { return api.patch(`/api/v1/work-items/${id}`, { action, expected_version: expectedVersion, note }) }
-export function getNotifications(includeHistory = true): Promise<GovernanceList<NotificationRecord>> { return api.get(`/api/v1/notifications?include_history=${includeHistory ? 'true' : 'false'}&page_size=100`) }
+export function getNotifications(includeHistory = true, page = 1, pageSize = 100): Promise<GovernanceList<NotificationRecord>> { return api.get(`/api/v1/notifications?include_history=${includeHistory ? 'true' : 'false'}&page=${page}&page_size=${pageSize}`) }
 export function updateNotification(id: number, status: 'read' | 'closed', conclusion?: string): Promise<{ notification: NotificationRecord }> { return api.patch(`/api/v1/notifications/${id}`, { status, conclusion }) }

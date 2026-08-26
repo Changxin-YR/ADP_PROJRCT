@@ -88,6 +88,10 @@ def create_master_data_blueprint(settings: Settings, auth_store: Any, master_sto
         except (CsrfError, AuthServiceError, DomainError) as error:
             return error_response(error)
 
+    @blueprint.post("/<resource>/<int:record_id>/archive")
+    def archive_record(resource: str, record_id: int) -> tuple[Response, int] | Response:
+        return write(service.archive, resource, record_id)
+
     @blueprint.post("/ponds/<int:pond_id>/status-changes/<int:request_id>/verify")
     def verify_pond_status_change(pond_id: int, request_id: int) -> tuple[Response, int] | Response:
         try:

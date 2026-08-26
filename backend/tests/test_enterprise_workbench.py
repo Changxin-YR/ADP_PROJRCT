@@ -113,6 +113,34 @@ def test_finance_permissions_expose_finance_work_items() -> None:
     assert "finance" in modules
 
 
+def test_area_scoped_work_items_carry_area_filter_for_unassigned_items() -> None:
+    class Governance:
+        def __init__(self) -> None:
+            self.kwargs: dict[str, Any] = {}
+
+        def list_work_items(self, _connection: Any, **kwargs: Any) -> dict[str, Any]:
+            self.kwargs = kwargs
+            return {"items": [], "page": 1, "page_size": 20, "total": 0, "has_next": False}
+
+    class Transaction:
+        def __enter__(self) -> object:
+            return object()
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    governance = Governance()
+    store = object.__new__(MySqlAuthStore)
+    store.governance = governance
+    store.transaction = lambda: Transaction()
+    user = {"id": 9, "permissions": ["production.view"], "roles": [], "data_scopes": [{"scope_type": "area", "area_id": 7}]}
+
+    store.list_work_items(user=user)
+
+    assert governance.kwargs["allow_unassigned"] is False
+    assert governance.kwargs["allowed_area_ids"] == [7]
+
+
 def test_real_mysql_workbench_uses_scoped_business_facts_and_role_matrix() -> None:
     with disposable_database("adp_workbench", through=18) as database:
         settings = settings_for(database)

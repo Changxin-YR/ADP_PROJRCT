@@ -80,8 +80,9 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
         allow_unassigned = "super_admin" in roles or any(item.get("scope_type") == "farm" for item in scopes)
+        area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
-            return self.governance.list_work_items(connection, user_id=int(user["id"]), allowed_modules=modules, allow_unassigned=allow_unassigned, status=status, include_history=include_history, page=page, page_size=page_size)
+            return self.governance.list_work_items(connection, user_id=int(user["id"]), allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, status=status, include_history=include_history, page=page, page_size=page_size)
 
     @staticmethod
     def _work_item_modules(permissions: set[str]) -> list[str]:
@@ -99,8 +100,9 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
         allow_unassigned = "super_admin" in roles or any(item.get("scope_type") == "farm" for item in scopes)
+        area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
-            result = self.governance.transition_work_item(connection, item_id=item_id, user_id=user_id, allowed_modules=modules, allow_unassigned=allow_unassigned, action=action, expected_version=expected_version, note=note)
+            result = self.governance.transition_work_item(connection, item_id=item_id, user_id=user_id, allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, action=action, expected_version=expected_version, note=note)
             before_status = result.pop("_audit_before_status", None)
             self.audit.write(
                 connection,

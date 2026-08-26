@@ -9,6 +9,7 @@ const labels: Record<RecordAction, string> = {
   approve: '审批', verify: '核验', confirm: '确认', correct: '更正', reverse: '冲销',
   depreciate: '计提折旧',
   dispatch: '发出', receive: '接收', cancel: '取消', handle: '处理',
+  archive: '归档',
 }
 // 防双击重复触发：一次点击后短暂锁定所有按钮，等待父级打开弹窗或发起请求
 const locked = ref<RecordAction | null>(null)

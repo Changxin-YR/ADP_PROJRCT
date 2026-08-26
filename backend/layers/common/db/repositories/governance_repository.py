@@ -7,6 +7,33 @@ from typing import Any
 class GovernanceRepository:
     """SQL access for append-only audit queries and shared governance records."""
 
+    @staticmethod
+    def _area_scope_sql(area_ids: list[int] | None) -> tuple[str, list[Any]]:
+        if not area_ids:
+            return "", []
+        placeholders = ",".join(["%s"] * len(area_ids))
+        params: list[Any] = [*area_ids]
+        predicate = f"""
+            AND (
+                (wi.object_type = 'master:areas' AND EXISTS (SELECT 1 FROM areas x WHERE x.id=wi.object_id AND x.id IN ({placeholders})))
+                OR (wi.object_type = 'master:pond-groups' AND EXISTS (SELECT 1 FROM pond_groups x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:ponds' AND EXISTS (SELECT 1 FROM ponds x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:pond_status_change' AND EXISTS (SELECT 1 FROM ponds p WHERE p.id=wi.object_id AND p.area_id IN ({placeholders})))
+                OR (wi.object_type LIKE 'production:%' AND wi.object_type <> 'production:batches' AND EXISTS (SELECT 1 FROM production_documents x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'production:batches' AND EXISTS (SELECT 1 FROM production_batches x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type LIKE 'warehouse:%' AND EXISTS (SELECT 1 FROM warehouse_documents x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'purchase:order' AND EXISTS (SELECT 1 FROM purchase_orders x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'purchase:payment' AND EXISTS (SELECT 1 FROM purchase_payments x JOIN purchase_payables py ON py.id=x.payable_id JOIN purchase_orders po ON po.id=py.purchase_order_id WHERE x.id=wi.object_id AND po.area_id IN ({placeholders})))
+                OR (wi.object_type = 'sales:order' AND EXISTS (SELECT 1 FROM sales_orders x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'sales:delivery' AND EXISTS (SELECT 1 FROM sales_deliveries x JOIN sales_orders so ON so.id=x.sales_order_id WHERE x.id=wi.object_id AND so.area_id IN ({placeholders})))
+                OR (wi.object_type = 'sales:receipt' AND EXISTS (SELECT 1 FROM sales_receipts x JOIN sales_receivables sr ON sr.id=x.receivable_id JOIN sales_orders so ON so.id=sr.sales_order_id WHERE x.id=wi.object_id AND so.area_id IN ({placeholders})))
+                OR (wi.object_type = 'cost:asset' AND EXISTS (SELECT 1 FROM cost_assets x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'cost:entry' AND EXISTS (SELECT 1 FROM cost_entries x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'cost:settlement' AND EXISTS (SELECT 1 FROM cost_settlements x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+            )
+        """
+        return predicate, params * 15
+
     def list_audit_logs(
         self,
         connection: Any,
@@ -70,6 +97,7 @@ class GovernanceRepository:
         user_id: int,
         allowed_modules: list[str] | None = None,
         allow_unassigned: bool = True,
+        allowed_area_ids: list[int] | None = None,
         status: str | None = None,
         include_history: bool = True,
         page: int = 1,
@@ -85,6 +113,10 @@ class GovernanceRepository:
             else:
                 conditions.append(f"wi.module_code IN ({','.join(['%s'] * len(allowed_modules))})")
                 params.extend(allowed_modules)
+        area_sql, area_params = self._area_scope_sql(allowed_area_ids)
+        if area_sql:
+            conditions.append(area_sql.strip()[4:].strip())
+            params.extend(area_params)
         if status:
             conditions.append("wi.status = %s")
             params.append(status)
@@ -123,6 +155,7 @@ class GovernanceRepository:
         user_id: int,
         allowed_modules: list[str],
         allow_unassigned: bool,
+        allowed_area_ids: list[int] | None = None,
         action: str,
         expected_version: int | None = None,
         note: str | None = None,
@@ -131,7 +164,8 @@ class GovernanceRepository:
         if action not in allowed:
             raise ValueError("不支持的待办操作")
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM work_items WHERE id = %s FOR UPDATE", (item_id,))
+            area_sql, area_params = self._area_scope_sql(allowed_area_ids)
+            cursor.execute(f"SELECT wi.* FROM work_items wi WHERE wi.id = %s{area_sql} FOR UPDATE", (item_id, *area_params))
             item = cursor.fetchone()
             if item is None:
                 raise ValueError("待办不存在")
