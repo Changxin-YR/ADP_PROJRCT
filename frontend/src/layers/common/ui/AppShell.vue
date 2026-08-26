@@ -26,6 +26,8 @@ const visibleGroups = computed<NavGroup[]>(() => navGroups
     items: group.items.filter((item) => !item.requiredPermission || hasPermission(session.user.value, item.requiredPermission)),
   }))
   .filter((group) => group.items.length > 0))
+const helpPermissions = ['master_data.view', 'production.view', 'warehouse.view', 'purchase.view', 'cost.view', 'data_exchange.view']
+const visibleHelpSections = computed(() => helpSections.filter((_section, index) => !helpPermissions[index] || hasPermission(session.user.value, helpPermissions[index])))
 const groupActive = (group: NavGroup) => group.items.some((item) => activePath.value === item.to || activePath.value.startsWith(`${item.to}/`))
 const overrides = ref<Record<string, boolean>>({})
 const isOpen = (group: NavGroup) => overrides.value[group.code] ?? groupActive(group)
@@ -235,7 +237,7 @@ const signOutOpen = ref(false)
             <ActionButton variant="quiet" compact icon="close" label="关闭使用帮助" @click="helpOpen = false" />
           </div>
           <div class="help-sections">
-            <section v-for="section in helpSections" :key="section.title" class="help-section">
+            <section v-for="section in visibleHelpSections" :key="section.title" class="help-section">
               <strong>{{ section.title }}</strong>
               <p>{{ section.body }}</p>
             </section>

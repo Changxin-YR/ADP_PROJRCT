@@ -5,6 +5,8 @@ import { confirmImport, downloadImportErrors, getExchangeTemplates, getImportBat
 
 const templates = ref<ExchangeTemplate[]>([])
 const rows = ref<ImportBatch[]>([])
+const page = ref(1)
+const hasNext = ref(false)
 const dialog = ref(false)
 const organizationId = ref(1)
 const templateCode = ref('materials')
@@ -22,8 +24,8 @@ const statusTone: Record<string, string> = { invalid: 'status-badge--rose', read
 async function load() {
   error.value = ''
   try {
-    const [templateResult, importResult] = await Promise.all([getExchangeTemplates(), getImportBatches()])
-    templates.value = templateResult.items; rows.value = importResult.items
+    const [templateResult, importResult] = await Promise.all([getExchangeTemplates(), getImportBatches(page.value)])
+    templates.value = templateResult.items; rows.value = importResult.items; hasNext.value = importResult.has_next
     if (!importableTemplates.value.some((item) => item.code === templateCode.value)) templateCode.value = importableTemplates.value[0]?.code ?? ''
   } catch { error.value = '数据加载失败，请稍后重试' }
 }
@@ -60,6 +62,7 @@ async function revoke(batch: ImportBatch) {
   finally { busy.value = false }
 }
 onMounted(load)
+async function movePage(next: number) { if (next < 1 || (next > page.value && !hasNext.value)) return; page.value = next; await load() }
 </script>
 
 <template>
@@ -73,7 +76,8 @@ onMounted(load)
       <article class="page-card kpi-card"><div class="kpi-card__top"><span>已校验数据</span></div><strong>{{ totalRows }}<small> 行</small></strong><small>失败批次未写入</small></article>
     </section>
     <section class="page-card data-table-card"><table class="data-table"><thead><tr><th>批次 / 文件</th><th>模板</th><th>总行数</th><th>通过</th><th>错误</th><th>结果</th><th style="width:1%">操作</th></tr></thead>
-      <tbody><tr v-for="row in rows" :key="row.id"><td><strong>#{{ row.id }}</strong><small>{{ row.file_name }}</small></td><td>{{ row.template_name }} {{ row.template_version }}</td><td style="text-align:right">{{ row.total_rows }}</td><td style="text-align:right">{{ row.passed_rows }}</td><td style="text-align:right">{{ row.failed_rows }}</td><td><span class="status-badge" :class="statusTone[row.status]"><i />{{ statusLabel[row.status] }}</span></td><td><button v-if="row.failed_rows" class="table-action-btn" type="button" @click="errors(row)">错误明细</button><button v-if="row.status === 'imported'" class="table-action-btn" type="button" data-testid="import-revoke" :disabled="busy" @click="revoke(row)">撤销</button></td></tr><tr v-if="!rows.length"><td colspan="7" class="table-empty">暂无导入记录</td></tr></tbody>
+        <tbody><tr v-for="row in rows" :key="row.id"><td><strong>#{{ row.id }}</strong><small>{{ row.file_name }}</small></td><td>{{ row.template_name }} {{ row.template_version }}</td><td style="text-align:right">{{ row.total_rows }}</td><td style="text-align:right">{{ row.passed_rows }}</td><td style="text-align:right">{{ row.failed_rows }}</td><td><span class="status-badge" :class="statusTone[row.status]"><i />{{ statusLabel[row.status] }}</span></td><td><button v-if="row.failed_rows" class="table-action-btn" type="button" @click="errors(row)">错误明细</button><button v-if="row.status === 'imported'" class="table-action-btn" type="button" data-testid="import-revoke" :disabled="busy" @click="revoke(row)">撤销</button></td></tr><tr v-if="!rows.length"><td colspan="7" class="table-empty">暂无导入记录</td></tr></tbody>
+        <tfoot><tr><td colspan="7"><div class="pagination"><button type="button" class="ghost-action" :disabled="page <= 1 || busy" @click="movePage(page - 1)">上一页</button><span>第 {{ page }} 页</span><button type="button" class="ghost-action" :disabled="!hasNext || busy" @click="movePage(page + 1)">下一页</button></div></td></tr></tfoot>
     </table></section>
 
     <Teleport to="body"><div v-if="dialog" class="modal-overlay" role="dialog" aria-modal="true" aria-label="批量导入向导" @keydown.esc="dialog = false"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">Import wizard</p><h2>批量导入</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="dialog = false">×</button></div>

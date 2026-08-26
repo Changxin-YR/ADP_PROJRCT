@@ -16,7 +16,8 @@ export interface Attachment { id: number; original_name: string; storage_name: s
 
 const api = createApiClient()
 export const getExchangeTemplates = () => api.get<{ items: ExchangeTemplate[] }>('/api/v1/data-exchange/templates')
-export const getImportBatches = () => api.get<{ items: ImportBatch[] }>('/api/v1/data-exchange/imports')
+export interface ImportBatchPage { items: ImportBatch[]; page: number; page_size: number; total: number; has_next: boolean }
+export const getImportBatches = (page = 1, pageSize = 50) => api.get<ImportBatchPage>(`/api/v1/data-exchange/imports?page=${page}&page_size=${pageSize}`)
 export const confirmImport = (id: number) => api.post<{ batch: ImportBatch }>(`/api/v1/data-exchange/imports/${id}/confirm`, {})
 export const revokeImport = (id: number) => api.post<{ batch: ImportBatch }>(`/api/v1/data-exchange/imports/${id}/revoke`, {})
 export const getAttachments = (entityType: string, entityId: number) => api.get<{ items: Attachment[] }>(`/api/v1/data-exchange/attachments?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`)

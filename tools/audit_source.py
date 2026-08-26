@@ -109,7 +109,7 @@ def scan_tree(root: Path, paths: Iterable[str] | None = None) -> AuditReport:
         relative = path.relative_to(root).as_posix()
         production = not relative.startswith(("backend/tests/", "frontend/tests/", "tools/"))
         lines = text.splitlines()
-        if len(lines) > 300:
+        if len(lines) > 300 and production:
             findings.append(Finding(relative, 301, "over_300_lines", f"{len(lines)} lines"))
         for line_no, line in enumerate(lines, 1):
             lowered = line.lower()

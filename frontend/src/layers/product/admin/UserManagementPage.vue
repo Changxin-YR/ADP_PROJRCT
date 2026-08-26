@@ -15,14 +15,16 @@ const options = ref<AdminOptions>({ roles: [], areas: [], data_scopes: [] })
 const users = ref<ManagedUser[]>([])
 const error = ref(''); const success = ref(''); const submitting = ref(false); const loading = ref(false); const busyUserId = ref<number | null>(null)
 const statusFilter = ref(''); const keyword = ref('')
+const page = ref(1); const hasNext = ref(false); const total = ref(0)
 
 async function loadOptions() {
   try { options.value = await getAdminOptions() } catch (reason) { error.value = reason instanceof ApiError ? reason.message : '角色和数据范围加载失败' }
 }
-async function loadUsers() {
+async function loadUsers(targetPage = page.value) {
   loading.value = true
-  try { users.value = (await getUsers(statusFilter.value, keyword.value)).items } catch (reason) { error.value = reason instanceof ApiError ? reason.message : '用户列表加载失败' } finally { loading.value = false }
+  try { const result = await getUsers(statusFilter.value, keyword.value, targetPage); users.value = result.items; page.value = result.page; hasNext.value = result.has_next; total.value = result.total } catch (reason) { error.value = reason instanceof ApiError ? reason.message : '用户列表加载失败' } finally { loading.value = false }
 }
+function searchUsers() { page.value = 1; void loadUsers(1) }
 onMounted(() => { void loadOptions(); void loadUsers() })
 
 async function submit() {
@@ -131,7 +133,7 @@ function statusLabel(status: string): string { return ({ active: '正常', disab
       <button class="primary-button" type="submit" :disabled="submitting">{{ submitting ? '创建中…' : '创建账号' }}</button>
     </form>
     <section class="user-management-list" aria-labelledby="user-list-title">
-      <div class="list-heading"><h3 id="user-list-title">现有账号</h3><div><input v-model="keyword" aria-label="搜索姓名、手机号或账号" placeholder="搜索姓名/手机号/账号" @keyup.enter="loadUsers" /><select v-model="statusFilter" aria-label="按状态筛选" @change="loadUsers"><option value="">全部状态</option><option value="active">正常</option><option value="disabled">已停用</option><option value="must_change_password">待首次改密</option><option value="retired">已注销</option></select><button type="button" class="secondary-action compact-action" @click="loadUsers">查询</button></div></div>
+      <div class="list-heading"><h3 id="user-list-title">现有账号</h3><div><input v-model="keyword" aria-label="搜索姓名、手机号或账号" placeholder="搜索姓名/手机号/账号" @keyup.enter="searchUsers" /><select v-model="statusFilter" aria-label="按状态筛选" @change="searchUsers"><option value="">全部状态</option><option value="active">正常</option><option value="disabled">已停用</option><option value="must_change_password">待首次改密</option><option value="retired">已注销</option></select><button type="button" class="secondary-action compact-action" @click="searchUsers">查询</button></div></div>
       <p v-if="loading" class="page-notice">账号加载中…</p>
       <div v-for="user in users" :key="user.id" class="user-row">
         <div class="user-identity"><strong>{{ user.name }}</strong><span>{{ user.phone }}<template v-if="user.login_name"> · {{ user.login_name }}</template></span></div>
@@ -147,6 +149,7 @@ function statusLabel(status: string): string { return ({ active: '正常', disab
         </div>
       </div>
       <p v-if="!users.length && !loading" class="empty-state">暂无账号</p>
+      <div class="pagination" aria-label="账号列表分页"><span>第 {{ page }} 页 · 共 {{ total }} 个账号</span><span><button type="button" class="compact-action" :disabled="page <= 1 || loading" @click="loadUsers(page - 1)">上一页</button><button type="button" class="compact-action" :disabled="!hasNext || loading" @click="loadUsers(page + 1)">下一页</button></span></div>
     </section>
 
     <Teleport to="body">

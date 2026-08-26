@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AuthLayout from './AuthLayout.vue'
 import FormField from '../../common/ui/FormField.vue'
-import { changePassword, getCurrentUser } from '../../features/auth/public'
+import { changePassword, getCurrentUser, logout } from '../../features/auth/public'
 import { createSessionStore } from '../../common/session/session.store'
 import { ApiError } from '../../common/api/errors'
 
@@ -36,6 +36,11 @@ async function submit() {
     }
   finally { submitting.value = false }
 }
+async function switchAccount() {
+  try { await logout() } catch { /* the local session is still cleared */ }
+  session.clear()
+  await router.replace('/auth/login')
+}
 </script>
 
 <template>
@@ -49,6 +54,7 @@ async function submit() {
       <FormField id="new-password" label="新密码" hint="至少 8 位，并包含字母和数字"><div class="password-control"><input id="new-password" v-model="newPassword" :type="showNew ? 'text' : 'password'" autocomplete="new-password" /><button type="button" class="password-toggle" @click="showNew = !showNew">{{ showNew ? '隐藏' : '显示' }}</button></div></FormField>
       <FormField id="confirm-password" label="确认新密码"><div class="password-control"><input id="confirm-password" v-model="confirmPassword" :type="showConfirm ? 'text' : 'password'" autocomplete="new-password" /><button type="button" class="password-toggle" @click="showConfirm = !showConfirm">{{ showConfirm ? '隐藏' : '显示' }}</button></div></FormField>
       <button class="primary-button" type="submit" :disabled="submitting">{{ submitting ? '保存中…' : '保存新密码' }}</button>
+      <button class="secondary-action" type="button" :disabled="submitting" @click="switchAccount">退出并切换账号</button>
     </form>
   </AuthLayout>
 </template>
