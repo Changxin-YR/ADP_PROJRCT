@@ -23,13 +23,13 @@ const labels: Record<PondStatus, string> = { build: '筹建', stocked: '已放�
 const tones: Record<PondStatus, 'teal' | 'blue' | 'amber' | 'slate'> = { build: 'slate', stocked: 'blue', farming: 'teal', rest: 'amber', clean: 'blue', rebuild: 'slate' }
 const lifecycleNames: Record<string, string> = { draft: '草稿', submitted: '待核验', verified: '已核验', archived: '已归档' }
 // 塘口扩展字段（BUG-007）：API 字段名与 backend-fixer 约定为 aerator_count/stocking_spec/current_spec/stock_quantity/stock_quantity_source
-const STOCK_SOURCE_VALUES = ['system_estimated', 'manual_entry', 'field_measured', 'sampling', 'manual_correction']
+const STOCK_SOURCE_VALUES = ['estimated', 'manual', 'measured', 'sampled', 'corrected']
 const stockSourceOptions = [
-  { value: 'system_estimated', label: '系统估算' },
-  { value: 'manual_entry', label: '人工录入' },
-  { value: 'field_measured', label: '现场实测' },
-  { value: 'sampling', label: '抽样' },
-  { value: 'manual_correction', label: '人工修正' },
+  { value: 'estimated', label: '系统估算' },
+  { value: 'manual', label: '人工录入' },
+  { value: 'measured', label: '现场实测' },
+  { value: 'sampled', label: '抽样' },
+  { value: 'corrected', label: '人工修正' },
 ]
 const stockSourceLabels: Record<string, string> = Object.fromEntries(stockSourceOptions.map((item) => [item.value, item.label]))
 const fields: MasterField[] = [

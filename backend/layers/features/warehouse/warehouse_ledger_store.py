@@ -79,8 +79,12 @@ class WarehouseLedgerPoster:
 
     @staticmethod
     def _validate_return(cursor: Any, row: dict[str, Any]) -> None:
-        cursor.execute("SELECT id FROM warehouse_documents WHERE id=%s FOR UPDATE", (row["source_document_id"],))
-        cursor.fetchone()
+        cursor.execute("SELECT organization_id,warehouse_id,material_id,document_type,status FROM warehouse_documents WHERE id=%s FOR UPDATE", (row["source_document_id"],))
+        source = cursor.fetchone()
+        if source is None or source.get("document_type") != "issue" or source.get("status") != "verified" or any(
+            int(source.get(key) or 0) != int(row.get(key) or 0) for key in ("organization_id", "warehouse_id", "material_id")
+        ):
+            raise DomainError("WAREHOUSE_RETURN_SOURCE_INVALID", "退库必须回到原出库单的同一企业、仓库和物料", 409)
         cursor.execute(
             "SELECT COALESCE(-SUM(quantity_delta),0) AS issued FROM inventory_ledger WHERE source_type='issue' AND source_id=%s AND inventory_lot_id=%s",
             (row["source_document_id"], row["inventory_lot_id"]),

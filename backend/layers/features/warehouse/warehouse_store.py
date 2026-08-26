@@ -88,6 +88,11 @@ class MySqlWarehouseStore:
         material = cursor.fetchone()
         if material is None or int(material["organization_id"]) != int(result["organization_id"]):
             raise DomainError("WAREHOUSE_MATERIAL_INVALID", "物料不存在、未核验或不属于当前企业", 400)
+        if result.get("inventory_lot_id"):
+            cursor.execute("SELECT organization_id,material_id FROM inventory_lots WHERE id=%s", (result["inventory_lot_id"],))
+            lot = cursor.fetchone()
+            if lot is None or int(lot["organization_id"]) != int(result["organization_id"]) or int(lot["material_id"]) != int(result["material_id"]):
+                raise DomainError("WAREHOUSE_LOT_INVALID", "库存批次不存在或不属于当前企业及物料", 400)
         return result
 
     @staticmethod
@@ -112,7 +117,13 @@ class MySqlWarehouseStore:
 
     def _get(self, cursor: Any, resource: str, record_id: int, *, lock: bool = False) -> dict[str, Any] | None:
         cursor.execute("SELECT * FROM warehouse_documents WHERE id=%s AND document_type=%s" + (" FOR UPDATE" if lock else ""), (record_id, DOC_TYPES[resource]))
-        return self._decode(cursor.fetchone())
+        row = self._decode(cursor.fetchone())
+        if row and row.get("target_warehouse_id"):
+            cursor.execute("SELECT area_id FROM warehouses WHERE id=%s", (row["target_warehouse_id"],))
+            target = cursor.fetchone()
+            if target:
+                row["_target_area_id"] = target["area_id"]
+        return row
 
     def get_record(self, resource: str, record_id: int) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:

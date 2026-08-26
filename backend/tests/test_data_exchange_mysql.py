@@ -226,8 +226,8 @@ def test_real_mysql_purchase_and_sales_order_imports_confirm_drafts(tmp_path: Pa
         service = DataExchangeService(MySqlDataExchangeStore(settings), tmp_path)
         user = actor()
         purchase = service.preview(user, organization_id=organization_id, template_code="purchase-orders", file_name="purchase.xlsx", content=workbook_with(
-            ["code", "supplier_id", "material_id", "warehouse_id", "quantity", "unit_price"],
-            [["PO-IMPORT-REAL", supplier_id, material_id, warehouse_id, 2, 3]],
+            ["code", "name", "supplier_id", "material_id", "warehouse_id", "quantity", "unit_price", "due_date"],
+            [["PO-IMPORT-REAL", "导入采购单", supplier_id, material_id, warehouse_id, 2, 3, "2026-09-16"]],
         ))
         assert purchase["status"] == "ready", purchase["errors"]
         service.confirm(user, purchase["id"])

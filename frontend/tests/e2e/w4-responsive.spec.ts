@@ -218,7 +218,7 @@ test.describe('W4 响应式矩阵（截图证据 → repair/w4_*）', () => {
     await page.fill('[data-testid="pond-stocking_spec"]', '5cm/尾')
     await page.fill('[data-testid="pond-current_spec"]', '400g/尾')
     await page.fill('[data-testid="pond-stock_quantity"]', '8000')
-    await page.selectOption('[data-testid="pond-stock_quantity_source"]', 'manual_entry')
+    await page.selectOption('[data-testid="pond-stock_quantity_source"]', 'manual')
     let postBody: Record<string, unknown> = {}
     const bodyPromise = page.waitForRequest((req) => req.url().includes('/api/v1/master-data/ponds') && req.method() === 'POST')
     await page.click('[data-testid="pond-save"]')
@@ -226,7 +226,7 @@ test.describe('W4 响应式矩阵（截图证据 → repair/w4_*）', () => {
     postBody = request.postDataJSON() as Record<string, unknown>
     expect(postBody).toMatchObject({
       name: '扩展字段塘', code: 'P-EXT-01', aerator_count: 6, stocking_spec: '5cm/尾',
-      current_spec: '400g/尾', stock_quantity: 8000, stock_quantity_source: 'manual_entry',
+      current_spec: '400g/尾', stock_quantity: 8000, stock_quantity_source: 'manual',
     })
     await expect(page.locator('.modal-overlay')).toHaveCount(0)
     // 详情页来源标识

@@ -23,7 +23,7 @@ const canRequestStatus = computed(() => pond.value?.can_request_status_change ??
 const canVerifyStatus = computed(() => pond.value?.can_verify_status_change ?? false)
 const pageNotice = ref('')
 // 塘口扩展字段（BUG-007）：存塘量来源标识
-const stockSourceLabels: Record<string, string> = { system_estimated: '系统估算', manual_entry: '人工录入', field_measured: '现场实测', sampling: '抽样', manual_correction: '人工修正' }
+const stockSourceLabels: Record<string, string> = { estimated: '系统估算', manual: '人工录入', measured: '现场实测', sampled: '抽样', corrected: '人工修正' }
 const stockSourceLabel = computed(() => pond.value?.stock_quantity_source ? (stockSourceLabels[pond.value.stock_quantity_source] ?? pond.value.stock_quantity_source) : '未标注')
 const stockQuantityText = computed(() => (pond.value?.stock_quantity ?? '') === '' || pond.value?.stock_quantity == null ? '—' : `${Number(pond.value.stock_quantity).toLocaleString()} 尾`)
 

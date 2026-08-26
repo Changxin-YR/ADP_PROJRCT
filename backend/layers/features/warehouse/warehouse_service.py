@@ -76,10 +76,17 @@ class WarehouseService:
         if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
             return
         allowed = {int(item["area_id"]) for item in scopes if item.get("area_id")}
-        if int(row.get("area_id") or 0) not in allowed:
+        actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
+        if actual and actual <= allowed:
+            return
+        if not actual:
             personal = any(item.get("scope_type") == "personal" for item in scopes)
             if not personal or int(row.get("created_by") or 0) != int(user["id"]):
                 raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的仓储记录", 403)
+            return
+        if any(item.get("scope_type") == "personal" for item in scopes) and int(row.get("created_by") or 0) == int(user["id"]):
+            return
+        raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的仓储记录", 403)
 
     @staticmethod
     def expected(payload: Any) -> int:

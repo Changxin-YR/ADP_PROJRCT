@@ -40,7 +40,7 @@ def _template(code: str, name: str, group: str, *fields: Field, importable: bool
     return Template(code, name, group, "1.0", fields or (CODE, NAME), importable)
 
 
-WAREHOUSE_ID = Field("warehouse_id", "仓库ID", False, "integer", "1")
+WAREHOUSE_ID = Field("warehouse_id", "仓库ID", True, "integer", "1")
 TEMPLATES = (
     _template("ponds", "塘口档案", "基础档案", CODE, NAME, Field("farm_id", "基地ID", True, "integer", "1"), Field("area_id", "区域ID", True, "integer", "1"), Field("capacity_mu", "面积（亩）", True, "positive", "12.5"), Field("species", "品种", True, example="草鱼")),
     _template("batches", "养殖批次", "塘口与批次", CODE, Field("species", "品种", True), Field("pond_id", "当前塘口ID", True, "integer"), DATE, QTY),
@@ -60,7 +60,7 @@ TEMPLATES = (
     _template("stocktakes", "盘点记录", "物料与仓储", CODE, NAME, WAREHOUSE_ID, Field("material_id", "物料ID", True, "integer"), QTY, DATE),
     _template("scraps", "报损报废记录", "物料与仓储", CODE, NAME, WAREHOUSE_ID, Field("material_id", "物料ID", True, "integer"), QTY, DATE, Field("reason", "原因", True)),
     _template("suppliers", "供应商", "采购与付款", CODE, NAME, Field("contact_name", "联系人"), Field("phone", "电话")),
-    _template("purchase-orders", "采购明细", "采购与付款", CODE, Field("supplier_id", "供应商ID", True, "integer"), Field("material_id", "物料ID", True, "integer"), WAREHOUSE_ID, QTY, Field("unit_price", "单价", True, "positive"), Field("due_date", "付款到期日", False, "date", "2026-09-16")),
+    _template("purchase-orders", "采购明细", "采购与付款", CODE, NAME, Field("supplier_id", "供应商ID", True, "integer"), Field("material_id", "物料ID", True, "integer"), WAREHOUSE_ID, QTY, Field("unit_price", "单价", True, "positive"), Field("due_date", "付款到期日", True, "date", "2026-09-16")),
     _template("payments", "付款记录", "采购与付款", CODE, Field("payable_id", "应付ID", True, "integer"), AMOUNT, DATE),
     _template("customers", "客户", "销售与收款", CODE, NAME, Field("contact_name", "联系人"), Field("phone", "电话")),
     _template("sales-orders", "销售明细", "销售与收款", CODE, Field("customer_id", "客户ID", True, "integer"), Field("batch_id", "批次ID", True, "integer"), QTY, Field("unit_price", "单价", True, "positive"), Field("unit", "单位", False, "", "kg", allowed=("kg", "jin", "tail")), Field("sold_at", "销售日期", False, "date", "2026-08-17"), Field("due_date", "收款到期日", False, "date", "2026-09-16")),
