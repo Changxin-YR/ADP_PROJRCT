@@ -1,0 +1,22 @@
+[Unit]
+Description=ADP Login Registration Flask API
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=adp
+Group=adp
+WorkingDirectory=/opt/adp/login-registration/实现文档/登陆注册
+EnvironmentFile=/etc/adp/auth.env
+ExecStart=/opt/adp-venv/bin/gunicorn --workers 2 --threads 2 --bind 127.0.0.1:5001 --access-logfile - --error-logfile - backend.app:app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

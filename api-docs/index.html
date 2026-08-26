@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADP API 文档</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="ADP API 首页"><span>ADP</span> 开放接口</a>
+    <nav aria-label="文档导航"><a href="#start">快速开始</a><a href="#governance">业务治理</a><a href="#reference">接口参考</a></nav>
+    <a class="spec-link" href="./openapi.json" download>下载 OpenAPI</a>
+  </header>
+  <main id="top">
+    <section class="intro" id="start">
+      <p class="eyebrow">ENTERPRISE AQUACULTURE API</p>
+      <h1>ADP 企业业务接口</h1>
+      <p>覆盖认证、主数据、生产、仓储、采购、销售、成本、附件和审计。提交后允许修订并保留版本，核验后只读。</p>
+      <div class="facts"><div><strong id="operation-count">--</strong><span>接口操作</span></div><div><strong>v1</strong><span>稳定版本</span></div><div><strong>Cookie + CSRF</strong><span>浏览器安全</span></div></div>
+    </section>
+    <section class="governance" id="governance">
+      <div><p class="section-no">01</p><h2>先建立会话，再进入业务</h2></div>
+      <ol><li><b>获取 CSRF</b><span>GET /api/v1/auth/csrf，保存会话 Cookie。</span></li><li><b>登录</b><span>POST /api/v1/auth/login，写请求同时传 X-CSRF-Token。</span></li><li><b>读取身份</b><span>GET /api/v1/auth/me，获取角色、能力码和数据范围。</span></li><li><b>执行业务</b><span>写操作提交 expected_version；409 时读取最新数据。</span></li></ol>
+    </section>
+    <section class="reference" id="reference">
+      <aside><p class="section-no">02</p><h2>接口参考</h2><label for="api-search">检索路径或操作</label><input id="api-search" type="search" placeholder="例如 verify 或 purchase" autocomplete="off" /><div id="tag-list" class="tags"></div></aside>
+      <div class="operations"><div class="operations-head"><span id="result-count">正在读取契约...</span><span class="legend"><i></i> 写操作需 CSRF</span></div><div id="operation-list" aria-live="polite"></div></div>
+    </section>
+  </main>
+  <footer><span>ADP API v1</span><span>所有正式数据保留审计链</span></footer>
+  <script src="./app.js"></script>
+</body>
+</html>
+

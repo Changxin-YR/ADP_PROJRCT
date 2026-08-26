@@ -1,0 +1,1266 @@
+{
+  "paths": {
+    "/api/v1/sales/deliveries": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_create_delivery_post_api_v1_sales_deliveries",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_deliveries_get_api_v1_sales_deliveries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/deliveries/{record_id}": {
+      "delete": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_delete_delivery_delete_api_v1_sales_deliveries_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_update_delivery_patch_api_v1_sales_deliveries_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/deliveries/{record_id}/cancel": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "取消",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_cancel_delivery_post_api_v1_sales_deliveries_record_id_cancel",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/deliveries/{record_id}/correct": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "创建更正单",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_correct_delivery_post_api_v1_sales_deliveries_record_id_correct",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/deliveries/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_submit_delivery_post_api_v1_sales_deliveries_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/deliveries/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_verify_delivery_post_api_v1_sales_deliveries_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/orders": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_create_order_post_api_v1_sales_orders",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_orders_get_api_v1_sales_orders",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/orders/{record_id}": {
+      "delete": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_delete_order_delete_api_v1_sales_orders_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_update_order_patch_api_v1_sales_orders_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/orders/{record_id}/approve": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "审批",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_approve_order_post_api_v1_sales_orders_record_id_approve",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/orders/{record_id}/cancel": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "取消",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_cancel_order_post_api_v1_sales_orders_record_id_cancel",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/orders/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_submit_order_post_api_v1_sales_orders_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_create_receipt_post_api_v1_sales_receipts",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_receipts_get_api_v1_sales_receipts",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts/{record_id}": {
+      "delete": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_delete_receipt_delete_api_v1_sales_receipts_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_update_receipt_patch_api_v1_sales_receipts_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts/{record_id}/cancel": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "取消",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_cancel_receipt_post_api_v1_sales_receipts_record_id_cancel",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts/{record_id}/reverse": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "冲销",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_reverse_receipt_post_api_v1_sales_receipts_record_id_reverse",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_submit_receipt_post_api_v1_sales_receipts_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receipts/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_verify_receipt_post_api_v1_sales_receipts_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sales/receivables": {
+      "get": {
+        "tags": [
+          "sales"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "sales_receivables_get_api_v1_sales_receivables",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    }
+  }
+}

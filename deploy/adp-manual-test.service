@@ -1,0 +1,23 @@
+[Unit]
+Description=ADP Isolated Manual Test API
+After=network.target mysqld.service
+Wants=mysqld.service
+
+[Service]
+Type=simple
+User=adp
+Group=adp
+WorkingDirectory=__ADP_TEST_RELEASE_PATH__
+EnvironmentFile=/etc/adp/manual-test.env
+ExecStart=__ADP_RUNTIME_PATH__/.venv/bin/gunicorn --workers 2 --threads 2 --bind 127.0.0.1:5003 --access-logfile - --error-logfile - backend.app:app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/adp/manual-test-20260817/attachments
+
+[Install]
+WantedBy=multi-user.target

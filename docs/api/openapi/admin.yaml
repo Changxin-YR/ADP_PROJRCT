@@ -1,0 +1,946 @@
+{
+  "paths": {
+    "/api/v1/admin/applications": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_applications_get_api_v1_admin_applications",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/applications/{application_id}/approve": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "审批",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_approve_post_api_v1_admin_applications_application_id_approve",
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/applications/{application_id}/reject": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "驳回",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_reject_post_api_v1_admin_applications_application_id_reject",
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/applications/{application_id}/review": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "更新记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_review_patch_api_v1_admin_applications_application_id_review",
+        "parameters": [
+          {
+            "name": "application_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_audit_logs_get_api_v1_admin_audit_logs",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/options": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_options_get_api_v1_admin_options",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_roles_get_api_v1_admin_roles",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/roles/{role_id}/copies": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_copy_role_post_api_v1_admin_roles_role_id_copies",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/roles/{role_id}/permissions": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_update_role_permissions_put_api_v1_admin_roles_role_id_permissions",
+        "parameters": [
+          {
+            "name": "role_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_create_user_post_api_v1_admin_users",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_users_get_api_v1_admin_users",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_delete_user_compatibility_delete_api_v1_admin_users_user_id",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/grants": {
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_update_grants_put_api_v1_admin_users_user_id_grants",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/password-reset": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "重置密码",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_reset_password_post_api_v1_admin_users_user_id_password_reset",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "重置密码",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_reset_password_post_api_v1_admin_users_user_id_reset_password",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/retire": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_retire_user_post_api_v1_admin_users_user_id_retire",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/status": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "更新记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "admin_set_status_patch_api_v1_admin_users_user_id_status",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    }
+  }
+}

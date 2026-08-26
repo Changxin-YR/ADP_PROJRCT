@@ -1,0 +1,5 @@
+.admin-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.back-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 10px;border:1px solid #bdd8d2;border-radius:9px;color:#39625c;background:rgba(255,255,255,.66);font-size:.67rem;font-weight:650;white-space:nowrap;transition:border-color .18s,background .18s,color .18s}
+.back-button:hover{border-color:#4f9f91;color:#2d7167;background:#f4fbf9}
+.back-button span{color:#398579;font-size:.9rem;line-height:1}
+@media(max-width:780px){.admin-heading-actions{justify-content:flex-start;width:100%}.admin-heading-actions .back-button,.admin-heading-actions .compact-action{flex:1}}

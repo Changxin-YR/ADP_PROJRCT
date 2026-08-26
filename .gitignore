@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.local/
+.worktrees/
+
+# Frontend
+node_modules/
+dist/
+playwright-report/
+test-results/
+coverage/
+
+# Runtime and secrets
+.env
+.env.*
+!.env.example
+*.cookie
+*.cookies
+*.log
+uploads/
+attachments/
+instance/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

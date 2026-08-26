@@ -1,0 +1,850 @@
+{
+  "paths": {
+    "/api/v1/purchase/orders": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_create_order_post_api_v1_purchase_orders",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_orders_get_api_v1_purchase_orders",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/orders/{record_id}": {
+      "delete": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_delete_order_delete_api_v1_purchase_orders_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_update_order_patch_api_v1_purchase_orders_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/orders/{record_id}/approve": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "审批",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_approve_order_post_api_v1_purchase_orders_record_id_approve",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/orders/{record_id}/cancel": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "取消",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_cancel_order_post_api_v1_purchase_orders_record_id_cancel",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/orders/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_submit_order_post_api_v1_purchase_orders_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payables": {
+      "get": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_payables_get_api_v1_purchase_payables",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_create_payment_post_api_v1_purchase_payments",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_payments_get_api_v1_purchase_payments",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments/{record_id}": {
+      "delete": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_delete_payment_delete_api_v1_purchase_payments_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_update_payment_patch_api_v1_purchase_payments_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments/{record_id}/cancel": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "取消",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_cancel_payment_post_api_v1_purchase_payments_record_id_cancel",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments/{record_id}/reverse": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "冲销",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_reverse_payment_post_api_v1_purchase_payments_record_id_reverse",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_submit_payment_post_api_v1_purchase_payments_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/purchase/payments/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "purchase"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "purchase_verify_payment_post_api_v1_purchase_payments_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    }
+  }
+}

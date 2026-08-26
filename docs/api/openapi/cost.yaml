@@ -1,0 +1,2065 @@
+{
+  "paths": {
+    "/api/v1/cost/allocation-rules": {
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_allocation_rules_get_api_v1_cost_allocation_rules",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "保存配置",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_save_allocation_rules_put_api_v1_cost_allocation_rules",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/allocations": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_run_allocation_post_api_v1_cost_allocations",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_create_asset_post_api_v1_cost_assets",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_list_assets_get_api_v1_cost_assets",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets/{record_id}": {
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询详情",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_asset_get_api_v1_cost_assets_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_delete_asset_delete_api_v1_cost_assets_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_update_asset_patch_api_v1_cost_assets_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets/{record_id}/confirm": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "确认入账",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_confirm_asset_post_api_v1_cost_assets_record_id_confirm",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets/{record_id}/depreciate": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "计提折旧",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_depreciate_asset_post_api_v1_cost_assets_record_id_depreciate",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_submit_asset_post_api_v1_cost_assets_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/assets/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_verify_asset_post_api_v1_cost_assets_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_create_entry_post_api_v1_cost_entries",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_entries_get_api_v1_cost_entries",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries/{entry_id}": {
+      "delete": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_delete_draft_delete_api_v1_cost_entries_entry_id",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_update_entry_patch_api_v1_cost_entries_entry_id",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries/{entry_id}/confirm": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "确认入账",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_confirm_entry_post_api_v1_cost_entries_entry_id_confirm",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries/{entry_id}/reverse": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "冲销",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_reverse_entry_post_api_v1_cost_entries_entry_id_reverse",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries/{entry_id}/submit": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_submit_entry_post_api_v1_cost_entries_entry_id_submit",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/entries/{entry_id}/verify": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_verify_entry_post_api_v1_cost_entries_entry_id_verify",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_create_expense_post_api_v1_cost_expenses",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_list_expenses_get_api_v1_cost_expenses",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses/{record_id}": {
+      "delete": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_delete_expense_delete_api_v1_cost_expenses_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询详情",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_expense_get_api_v1_cost_expenses_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_update_expense_patch_api_v1_cost_expenses_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses/{record_id}/confirm": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "确认入账",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_confirm_expense_post_api_v1_cost_expenses_record_id_confirm",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses/{record_id}/reverse": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "冲销",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_reverse_expense_post_api_v1_cost_expenses_record_id_reverse",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_submit_expense_post_api_v1_cost_expenses_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/expenses/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_verify_expense_post_api_v1_cost_expenses_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/reports/net": {
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_net_report_get_api_v1_cost_reports_net",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_create_settlement_post_api_v1_cost_settlements",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_list_settlements_get_api_v1_cost_settlements",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements/{record_id}": {
+      "delete": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "删除未提交草稿",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_delete_settlement_delete_api_v1_cost_settlements_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      },
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询详情",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_settlement_get_api_v1_cost_settlements_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "更新",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_update_settlement_patch_api_v1_cost_settlements_record_id",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements/{record_id}/confirm": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "确认入账",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_confirm_settlement_post_api_v1_cost_settlements_record_id_confirm",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements/{record_id}/reverse": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "冲销",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_reverse_settlement_post_api_v1_cost_settlements_record_id_reverse",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "提交核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_submit_settlement_post_api_v1_cost_settlements_record_id_submit",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/settlements/{record_id}/verify": {
+      "post": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "核验",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_verify_settlement_post_api_v1_cost_settlements_record_id_verify",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
+    "/api/v1/cost/structure": {
+      "get": {
+        "tags": [
+          "cost"
+        ],
+        "summary": "查询列表",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "cost_structure_get_api_v1_cost_structure",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": []
+          }
+        ]
+      }
+    }
+  }
+}

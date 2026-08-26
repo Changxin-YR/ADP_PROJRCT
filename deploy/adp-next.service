@@ -1,0 +1,22 @@
+[Unit]
+Description=ADP Green Flask API
+After=network.target mysqld.service
+Wants=mysqld.service
+
+[Service]
+Type=simple
+User=adp
+Group=adp
+WorkingDirectory=/opt/adp/slots/green
+EnvironmentFile=/etc/adp/next.env
+ExecStart=/opt/adp/slots/green/.venv/bin/gunicorn --workers 2 --threads 2 --bind 127.0.0.1:5002 --access-logfile - --error-logfile - backend.app:app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
