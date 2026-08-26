@@ -13,6 +13,7 @@ from backend.layers.common.governance.work_item_notifications import notify_work
 from backend.layers.features.master_data.master_data_service import MASTER_FIELDS
 from backend.layers.features.master_data.master_data_scope import validate_master_hierarchy
 from backend.layers.features.master_data.pond_status_store import MySqlPondStatusStore
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 SPECS = {
@@ -75,8 +76,8 @@ class MySqlMasterDataStore:
 
     @staticmethod
     def _scope_filter(user: dict[str, Any], resource: str) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
         if areas:
@@ -86,7 +87,9 @@ class MySqlMasterDataStore:
             if resource == "areas":
                 return f"id IN ({placeholders})", areas
             return f"area_id IN ({placeholders})", areas
-        return "created_by = %s", [int(user["id"])]
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return "created_by = %s", [int(user["id"])]
+        return "1=0", []
 
     def _defaults(self, cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
         result = dict(payload)

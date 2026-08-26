@@ -12,17 +12,16 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.revisions import build_revision, save_revision
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
 from backend.layers.common.files.evidence import validate_bound_evidence
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 from backend.layers.features.production.production_service import FIELDS
 from backend.layers.features.production.production_material_control import require_material_issue
 from backend.layers.features.production.production_filters import apply_record_filters
 from backend.layers.features.production.production_stock_locking import lock_batch_anchors
-
 DOC_TYPES = {
     "samplings": "sampling", "transfers": "transfer", "losses": "loss", "harvests": "harvest",
     "feed-plans": "feed_plan", "feed-tasks": "feed_task", "feed-logs": "feed_log",
     "daily-operations": "daily_operation",
 }
-
 class MySqlProductionStore:
     require_material_issue = staticmethod(require_material_issue)
     def __init__(self, settings: Any) -> None:
@@ -44,16 +43,17 @@ class MySqlProductionStore:
             if value is not None:
                 result[target] = value
         return result
-
     @staticmethod
     def _scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
         if areas:
             return f"area_id IN ({','.join(['%s'] * len(areas))})", areas
-        return "created_by = %s", [int(user["id"])]
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return "created_by = %s", [int(user["id"])]
+        return "1=0", []
 
     def list_records(self, resource: str, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, pond_id: Any = None, area_id: Any = None, **_: Any) -> dict[str, Any]:
         table, doc_type = self._table(resource)
@@ -103,12 +103,13 @@ class MySqlProductionStore:
         return result
     @staticmethod
     def require_write_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") in {"farm", "personal"} for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return
         allowed = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
         actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
-        if actual and actual <= allowed:
+        personal = any(item.get("scope_type") == "personal" for item in scopes)
+        if actual and actual <= allowed and (not personal or int(row.get("created_by") or 0) == int(user["id"])):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的生产记录", 403)
     @staticmethod
@@ -120,7 +121,7 @@ class MySqlProductionStore:
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         table, doc_type = self._table(resource)
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            scoped = self._scope_defaults(cursor, payload)
+            scoped = {**self._scope_defaults(cursor, payload), "created_by": user_id}
             self.require_write_scope(user, scoped)
             clean = self._db_payload(resource, scoped)
             if not all(clean.get(key) for key in ("organization_id", "farm_id", "area_id", "pond_id")):
@@ -295,6 +296,5 @@ class MySqlProductionStore:
             cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight_kg FROM batch_stock_records WHERE batch_id=%s", (batch_id,))
             totals = cursor.fetchone() or {}
         return {"batch_id": batch_id, "quantity": totals.get("quantity", Decimal("0")), "weight_kg": totals.get("weight_kg", Decimal("0")), "difference": Decimal("0")}
-
     def _audit(self, connection: Any, user_id: int, action: str, resource: str, record_id: int, *, before: Any = None, after: Any = None) -> None:
         self.audit.write(connection, user_id=user_id, action=f"{action}_production", object_type=f"production:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", result="success", ip_address=None, module_code="production", before=before, after=after)

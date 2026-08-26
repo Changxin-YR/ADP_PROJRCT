@@ -11,6 +11,7 @@ from backend.layers.common.files.malware_scanner import MalwareScanner
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.data_exchange.template_catalog import all_templates, get_template
 from backend.layers.features.data_exchange.workbooks import error_workbook, export_pdf_stream, export_workbook_stream, preview_workbook, template_workbook
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 class DataExchangeService:
@@ -28,11 +29,11 @@ class DataExchangeService:
     def scope(user: dict[str, Any], organization_id: int) -> None:
         if organization_id < 1:
             raise DomainError("ORGANIZATION_REQUIRED", "必须选择所属企业", 400)
-        scopes = user.get("data_scopes") or []
+        scopes = require_active_scope(user)
         roles = {str(item.get("code")) for item in user.get("roles") or [] if isinstance(item, dict)}
         if "super_admin" in roles and any(item.get("scope_type") == "farm" and not item.get("organization_id") for item in scopes):
             return
-        if scopes and organization_id not in {int(item["organization_id"]) for item in scopes if item.get("organization_id")}:
+        if not unrestricted(user) and organization_id not in {int(item["organization_id"]) for item in scopes if item.get("organization_id")}:
             raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问该企业的数据", 403)
 
     def templates(self, user: dict[str, Any]) -> list[dict[str, object]]:

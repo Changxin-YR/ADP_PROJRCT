@@ -6,6 +6,9 @@ const base = (resource: WarehouseResource) => `/api/v1/warehouse/${resource}`
 
 export const listWarehouseRecords = (resource: WarehouseResource) => api.get<WarehousePage>(base(resource))
 export const listWarehouseOptions = () => api.get<{ items: Array<{ id: number; code: string; name: string }> }>('/api/v1/warehouse/warehouses')
+export interface WarehouseMaster { id: number; organization_id: number; farm_id: number; area_id?: number | null; code: string; name: string; location?: string | null; status: 'active' | 'disabled' }
+export const createWarehouse = (payload: Record<string, unknown>) => api.post<{ warehouse: WarehouseMaster }>('/api/v1/warehouse/warehouses', payload)
+export const updateWarehouse = (id: number, payload: Record<string, unknown>) => api.patch<{ warehouse: WarehouseMaster }>(`/api/v1/warehouse/warehouses/${id}`, payload)
 export const createWarehouseRecord = (resource: WarehouseResource, payload: Record<string, unknown>) => api.post<{ record: WarehouseRecord }>(base(resource), payload)
 export const createWarehouseCorrection = (resource: WarehouseResource, id: number, payload: Record<string, unknown>) => api.post<{ record: WarehouseRecord }>(`${base(resource)}/${id}/corrections`, payload)
 export const updateWarehouseRecord = (resource: WarehouseResource, id: number, payload: Record<string, unknown>) => api.patch<{ record: WarehouseRecord }>(`${base(resource)}/${id}`, payload)

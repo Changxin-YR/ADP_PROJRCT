@@ -16,6 +16,7 @@ from backend.layers.features.sales import sales_receipt_reversal_store as revers
 from backend.layers.features.sales import sales_receipt_store as receipts
 from backend.layers.features.sales.sales_posting import post_delivery
 from backend.layers.features.sales.sales_source_control import harvest_root, require_order_evidence
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 ORDER_FIELDS = {"code", "name", "customer_id", "pond_id", "batch_id", "species", "quantity", "unit", "unit_price", "sold_at", "due_date", "note", "evidence_attachment_ids"}
@@ -36,18 +37,20 @@ class MySqlSalesStore:
 
     @staticmethod
     def _scope(user: dict[str, Any], alias: str = "o") -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes): return "", []
+        scopes = require_active_scope(user)
+        if unrestricted(user): return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        return (f"{alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas) if areas else (f"{alias}.created_by=%s", [int(user["id"])])
+        if areas: return f"{alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas
+        if any(item.get("scope_type") == "personal" for item in scopes): return f"{alias}.created_by=%s", [int(user["id"])]
+        return "1=0", []
 
     @staticmethod
     def _require_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes): return
+        scopes = require_active_scope(user)
+        if unrestricted(user): return
         areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
         if int(row.get("area_id") or 0) in areas: return
-        if any(item.get("scope_type") == "personal" for item in scopes) and int(row.get("created_by") or 0) == int(user["id"]): return
+        if any(item.get("scope_type") == "personal" for item in scopes) and not row.get("area_id") and int(row.get("created_by") or 0) == int(user["id"]): return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的销售记录", 403)
 
     @staticmethod

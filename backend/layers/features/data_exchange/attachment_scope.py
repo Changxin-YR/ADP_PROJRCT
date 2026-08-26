@@ -6,6 +6,7 @@ import pymysql
 
 from backend.layers.common.db.connection import get_connection
 from backend.layers.common.governance.lifecycle import DomainError
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 ATTACHMENT_TARGETS = {
@@ -43,8 +44,8 @@ ATTACHMENT_TARGETS = {
 
 
 def target_scope_allows(user: dict[str, Any], target: dict[str, Any]) -> bool:
-    scopes = user.get("data_scopes") or []
-    if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+    scopes = require_active_scope(user)
+    if unrestricted(user):
         return True
     allowed_areas = {
         int(item["area_id"])

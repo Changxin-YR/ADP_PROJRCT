@@ -113,9 +113,12 @@ def enforce_area_scope(user: dict[str, Any], area_id: int | None) -> None:
 
     if area_id is None:
         return  # 组织级记录（如整场费用）不受区域写入范围约束
-    scopes = user.get("data_scopes") or []
-    if not scopes or any(item.get("scope_type") in {"farm", "personal"} for item in scopes):
+    from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+    scopes = require_active_scope(user)
+    if unrestricted(user):
         return
+    if any(item.get("scope_type") == "personal" for item in scopes):
+        raise DomainError("DATA_SCOPE_FORBIDDEN", "仅本人数据范围不能通过批量导入写入区域业务", 403)
     allowed = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
     if int(area_id) not in allowed:
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的数据", 403)
@@ -125,9 +128,12 @@ def scoped_area_defaults(cursor: Any, user: dict[str, Any], organization_id: int
     """无区域列模板在单一区域账号下自动落入授权区域，避免生成不可见的组织级草稿。"""
     from backend.layers.common.governance.lifecycle import DomainError
 
-    scopes = user.get("data_scopes") or []
-    if not scopes or any(item.get("scope_type") in {"farm", "personal"} for item in scopes):
+    from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+    scopes = require_active_scope(user)
+    if unrestricted(user):
         return {}
+    if any(item.get("scope_type") == "personal" for item in scopes):
+        raise DomainError("DATA_SCOPE_FORBIDDEN", "仅本人数据范围不能通过批量导入推断区域", 403)
     areas = {
         int(item["area_id"])
         for item in scopes

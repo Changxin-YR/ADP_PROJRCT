@@ -1,10 +1,7 @@
 from __future__ import annotations
-
 import json
 from typing import Any
-
 import pymysql
-
 from backend.layers.common.audit.audit_logger import AuditLogger
 from backend.layers.common.db.connection import get_connection
 from backend.layers.common.governance.lifecycle import DomainError
@@ -15,20 +12,17 @@ from backend.layers.features.warehouse.warehouse_ledger_store import WarehouseLe
 from backend.layers.features.warehouse.warehouse_alert_store import handle_alert, list_alerts
 from backend.layers.features.warehouse.warehouse_service import FIELDS
 from backend.layers.features.warehouse.warehouse_transfer_store import cancel_transfer, dispatch_transfer, receive_transfer
-
-
+from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 DOC_TYPES = {
     "receipts": "receipt", "issue-requests": "issue_request", "issues": "issue",
     "returns": "return", "transfers": "transfer", "stocktakes": "stocktake", "scraps": "scrap",
 }
-
-
-class MySqlWarehouseStore:
+class MySqlWarehouseStore(WarehouseMasterStoreMixin):
     def __init__(self, settings: Any) -> None:
         self.settings = settings
         self.audit = AuditLogger()
         self.poster = WarehouseLedgerPoster()
-
     @staticmethod
     def _decode(row: dict[str, Any] | None) -> dict[str, Any] | None:
         if not row:
@@ -40,20 +34,36 @@ class MySqlWarehouseStore:
         if value is not None:
             result["evidence_attachment_ids"] = value
         return result
-
     @staticmethod
     def _scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        return (f"d.area_id IN ({','.join(['%s'] * len(areas))})", areas) if areas else ("d.created_by=%s", [int(user["id"])])
-
+        if areas:
+            return f"d.area_id IN ({','.join(['%s'] * len(areas))})", areas
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return "d.created_by=%s", [int(user["id"])]
+        return "1=0", []
+    @staticmethod
+    def _transfer_target_scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
+        scopes = require_active_scope(user)
+        if unrestricted(user):
+            return "", []
+        areas = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
+        if not areas:
+            return "1=0", []
+        placeholders = ",".join(["%s"] * len(areas))
+        return f"EXISTS (SELECT 1 FROM warehouses target_scope WHERE target_scope.id=d.target_warehouse_id AND target_scope.area_id IN ({placeholders}))", areas
     def list_records(self, resource: str, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
         clauses, values = ["d.document_type=%s"], [DOC_TYPES[resource]]
         scope, scoped = self._scope(user)
         if scope:
             clauses.append(scope); values.extend(scoped)
+        if resource == "transfers":
+            target_scope, target_values = self._transfer_target_scope(user)
+            if target_scope:
+                clauses.append(target_scope); values.extend(target_values)
         if status:
             clauses.append("d.status=%s"); values.append(status)
         if search:
@@ -68,7 +78,6 @@ class MySqlWarehouseStore:
             )
             items = [self._decode(row) or {} for row in cursor.fetchall()]
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
-
     @staticmethod
     def _scoped(cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
         result = dict(payload)
@@ -94,11 +103,10 @@ class MySqlWarehouseStore:
             if lot is None or int(lot["organization_id"]) != int(result["organization_id"]) or int(lot["material_id"]) != int(result["material_id"]):
                 raise DomainError("WAREHOUSE_LOT_INVALID", "库存批次不存在或不属于当前企业及物料", 400)
         return result
-
     @staticmethod
     def _require_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return
         allowed = {int(item["area_id"]) for item in scopes if item.get("area_id")}
         actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
@@ -107,14 +115,22 @@ class MySqlWarehouseStore:
         if any(item.get("scope_type") == "personal" for item in scopes) and int(row.get("created_by") or 0) == int(user["id"]):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的仓储记录", 403)
-
+    @staticmethod
+    def _require_write_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
+        scopes = require_active_scope(user)
+        if unrestricted(user):
+            return
+        areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
+        actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
+        if actual and actual <= areas:
+            return
+        raise DomainError("DATA_SCOPE_FORBIDDEN", "仅本人数据范围不能写入未授权区域", 403)
     @staticmethod
     def _payload(payload: dict[str, Any]) -> dict[str, Any]:
         clean = {key: value for key, value in payload.items() if key in FIELDS and value != ""}
         if "evidence_attachment_ids" in clean:
             clean["evidence_attachment_ids_json"] = json.dumps(clean.pop("evidence_attachment_ids"))
         return clean
-
     def _get(self, cursor: Any, resource: str, record_id: int, *, lock: bool = False) -> dict[str, Any] | None:
         cursor.execute("SELECT * FROM warehouse_documents WHERE id=%s AND document_type=%s" + (" FOR UPDATE" if lock else ""), (record_id, DOC_TYPES[resource]))
         row = self._decode(cursor.fetchone())
@@ -124,14 +140,13 @@ class MySqlWarehouseStore:
             if target:
                 row["_target_area_id"] = target["area_id"]
         return row
-
     def get_record(self, resource: str, record_id: int) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             return self._get(cursor, resource, record_id)
 
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            scoped = {**self._scoped(cursor, payload), "created_by": user_id}; self._require_scope(user, scoped); clean = self._payload(scoped)
+            scoped = {**self._scoped(cursor, payload), "created_by": user_id}; self._require_write_scope(user, scoped); clean = self._payload(scoped)
             clean.update(document_type=DOC_TYPES[resource], status="draft", row_version=1, created_by=user_id)
             try:
                 cursor.execute(f"INSERT INTO warehouse_documents ({','.join(clean)}) VALUES ({','.join(['%s'] * len(clean))})", tuple(clean.values()))
@@ -149,7 +164,7 @@ class MySqlWarehouseStore:
             if before is None or before["status"] != "verified" or int(before["row_version"]) != expected_version:
                 raise DomainError("VERSION_CONFLICT", "数据已被修改，请刷新后重试", 409)
             copied = {key: before[key] for key in FIELDS if before.get(key) is not None and key != "evidence_attachment_ids"}
-            copied.update(payload); scoped = {**self._scoped(cursor, copied), "created_by": user_id}; self._require_scope(user, scoped); clean = self._payload(scoped)
+            copied.update(payload); scoped = {**self._scoped(cursor, copied), "created_by": user_id}; self._require_write_scope(user, scoped); clean = self._payload(scoped)
             clean.update(document_type=DOC_TYPES[resource], correction_of_id=record_id, status="draft", row_version=1, created_by=user_id)
             try:
                 cursor.execute(f"INSERT INTO warehouse_documents ({','.join(clean)}) VALUES ({','.join(['%s'] * len(clean))})", tuple(clean.values()))
@@ -166,7 +181,7 @@ class MySqlWarehouseStore:
             before = self._get(cursor, resource, record_id, lock=True)
             if before is None:
                 raise DomainError("WAREHOUSE_RECORD_NOT_FOUND", "仓储记录不存在", 404)
-            scoped = self._scoped(cursor, {**before, **payload}); self._require_scope(user, scoped)
+            scoped = self._scoped(cursor, {**before, **payload}); self._require_write_scope(user, {**scoped, "created_by": user_id})
             clean = self._payload({**payload, **({key: scoped[key] for key in ("organization_id", "farm_id", "area_id")} if "warehouse_id" in payload else {})})
             assignments = ",".join(f"{key}=%s" for key in clean)
             cursor.execute(f"UPDATE warehouse_documents SET {assignments},updated_by=%s,row_version=row_version+1 WHERE id=%s AND row_version=%s AND status IN ('draft','submitted')", (*clean.values(), user_id, record_id, expected_version))
@@ -248,16 +263,20 @@ class MySqlWarehouseStore:
 
     @staticmethod
     def _area_where(user: dict[str, Any], alias: str) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        return (f"WHERE {alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas) if areas else ("WHERE 1=0", [])
+        if areas:
+            return f"WHERE {alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return (f"WHERE {alias}.created_by=%s", [int(user["id"])]) if alias == "d" else ("WHERE 1=0", [])
+        return "WHERE 1=0", []
 
     def list_warehouses(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         where, values = self._area_where(user, "w")
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            cursor.execute(f"SELECT w.id,w.code,w.name,w.farm_id,w.area_id,w.location FROM warehouses w {where} AND w.status='active'" if where else "SELECT w.id,w.code,w.name,w.farm_id,w.area_id,w.location FROM warehouses w WHERE w.status='active'", tuple(values))
+            cursor.execute(f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w {where} AND w.status='active'" if where else "SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w WHERE w.status='active'", tuple(values))
             return list(cursor.fetchall())
 
     def list_ledger(self, user: dict[str, Any], *, page: int = 1, page_size: int = 50, **_: Any) -> dict[str, Any]:
@@ -274,7 +293,6 @@ class MySqlWarehouseStore:
 
     def list_alerts(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         return list_alerts(self, user)
-
     def handle_alert(self, user: dict[str, Any], alert_key: str, **context: Any) -> dict[str, Any]:
         return handle_alert(self, user, alert_key, **context)
 

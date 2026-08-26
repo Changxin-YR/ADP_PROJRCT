@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 STATUS_LABELS = {
@@ -14,14 +15,15 @@ BATCH_LABELS = {"stocked": "已放养", "farming": "养殖中", "pending_settlem
 class WorkbenchRepository:
     @staticmethod
     def _scope(user: dict[str, Any], alias: str) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        roles = {item.get("code") for item in user.get("roles") or []}
-        if any(item.get("scope_type") == "farm" for item in scopes) or "super_admin" in roles:
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "1=1", []
         areas = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         if areas:
             return f"{alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas
-        return f"{alias}.created_by = %s", [int(user["id"])]
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return f"{alias}.created_by = %s", [int(user["id"])]
+        return "1=0", []
 
     def summary(self, connection: Any, *, user: dict[str, Any]) -> dict[str, Any]:
         now = datetime.now()

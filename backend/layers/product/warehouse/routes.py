@@ -38,6 +38,8 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
     @blueprint.get("/<resource>")
     def records(resource: str) -> tuple[Response, int] | Response:
         try:
+            if resource == "warehouses":
+                return jsonify(ok({"items": service.warehouses(user())}))
             page, page_size = pagination(code="WAREHOUSE_PAGE_INVALID")
             result = service.list_records(user(), resource, page=page, page_size=page_size, status=request.args.get("status") or None, search=request.args.get("search") or None)
             return jsonify(ok(result))
@@ -48,6 +50,12 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
 
     @blueprint.post("/<resource>")
     def create(resource: str) -> tuple[Response, int] | Response:
+        if resource == "warehouses":
+            try:
+                require_csrf()
+                return jsonify(ok({"warehouse": service.create_warehouse(user(), json_object())})), 201
+            except (CsrfError, AuthServiceError, DomainError) as exc:
+                return error(exc)
         return write(service.create, resource, created=True)
 
     @blueprint.get("/<resource>/<int:record_id>")
@@ -59,6 +67,12 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
 
     @blueprint.patch("/<resource>/<int:record_id>")
     def update(resource: str, record_id: int) -> tuple[Response, int] | Response:
+        if resource == "warehouses":
+            try:
+                require_csrf()
+                return jsonify(ok({"warehouse": service.update_warehouse(user(), record_id, json_object())}))
+            except (CsrfError, AuthServiceError, DomainError) as exc:
+                return error(exc)
         return write(service.update, resource, record_id)
 
     @blueprint.post("/<resource>/<int:record_id>/corrections")

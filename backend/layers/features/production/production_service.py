@@ -7,6 +7,7 @@ from typing import Any
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.features.production.daily_operation_rules import normalize_daily_operation_payload
 from backend.layers.common.files.evidence import evidence_from_payload
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 RESOURCES = {
@@ -190,8 +191,8 @@ class ProductionService:
 
     @staticmethod
     def _require_record_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return
         areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
         personal = any(item.get("scope_type") == "personal" for item in scopes)
@@ -257,7 +258,6 @@ class ProductionService:
             resource, record_id, clean, expected_version=expected, user=user, user_id=int(user["id"]),
         )
         return self.result(row, user, resource)
-
     def submit(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "manage")

@@ -3,16 +3,19 @@ from __future__ import annotations
 from decimal import Decimal
 import json
 from typing import Any
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 def _scope(user: dict[str, Any], area_sql: str, creator_sql: str) -> tuple[str, list[int]]:
-    scopes = user.get("data_scopes") or []
-    if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+    scopes = require_active_scope(user)
+    if unrestricted(user):
         return "", []
     areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
     if areas:
         return f" AND {area_sql} IN ({','.join(['%s'] * len(areas))})", areas
-    return f" AND {creator_sql}=%s", [int(user["id"])]
+    if any(item.get("scope_type") == "personal" for item in scopes):
+        return f" AND {creator_sql}=%s", [int(user["id"])]
+    return " AND 1=0", []
 
 
 class CostDashboardRepository:

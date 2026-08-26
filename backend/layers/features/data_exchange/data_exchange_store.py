@@ -17,6 +17,7 @@ from backend.layers.features.data_exchange.attachment_scope import attachment_ta
 from backend.layers.features.data_exchange.import_scope_validation import validate_import_scope
 from backend.layers.features.data_exchange.import_validation import validate_rows as validate_import_rows
 from backend.layers.features.data_exchange.importers import get_importer
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 class MySqlDataExchangeStore:
@@ -39,11 +40,11 @@ class MySqlDataExchangeStore:
 
     @staticmethod
     def _organizations(user: dict[str, Any]) -> set[int] | None:
-        scopes = user.get("data_scopes") or []
+        scopes = require_active_scope(user)
         roles = {str(item.get("code")) for item in user.get("roles") or [] if isinstance(item, dict)}
         if "super_admin" in roles and any(item.get("scope_type") == "farm" and not item.get("organization_id") for item in scopes):
             return None
-        return {int(item["organization_id"]) for item in scopes if item.get("organization_id")} if scopes else None
+        return {int(item["organization_id"]) for item in scopes if item.get("organization_id")} if scopes else set()
 
     def find_import_hash(self, organization_id: int, template_code: str, sha256: str) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
@@ -175,8 +176,8 @@ class MySqlDataExchangeStore:
 
     @staticmethod
     def _export_scope(user: dict[str, Any], resource: str) -> tuple[str, list[Any]]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return "", []
         areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
         if areas:
@@ -191,7 +192,7 @@ class MySqlDataExchangeStore:
         own = EXPORT_PERSONAL_COLUMNS.get(resource)
         if own:
             return f" AND {own}=%s", [int(user["id"])]
-        return "", []
+        return " AND 1=0", []
 
     @staticmethod
     def _matches_export_filters(row: dict[str, Any], filters: dict[str, Any]) -> bool:

@@ -22,9 +22,10 @@ def allocate_fefo(
     *,
     specified_lot_id: int | None = None,
     override_reason: str | None = None,
+    include_expired: bool = False,
 ) -> list[tuple[int, Decimal]]:
     valid = sorted(
-        (lot for lot in lots if not lot.get("expired") and amount(lot.get("available")) > 0),
+        (lot for lot in lots if (include_expired or not lot.get("expired")) and amount(lot.get("available")) > 0),
         key=lambda lot: (lot.get("expiry_date") or "9999-12-31", int(lot["id"])),
     )
     if specified_lot_id is not None:

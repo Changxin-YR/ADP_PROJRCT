@@ -6,6 +6,7 @@ from typing import Any
 
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.common.files.evidence import evidence_from_payload
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 RESOURCES = {"receipts", "issue-requests", "issues", "returns", "transfers", "stocktakes", "scraps"}
@@ -72,8 +73,8 @@ class WarehouseService:
 
     @staticmethod
     def _scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return
         allowed = {int(item["area_id"]) for item in scopes if item.get("area_id")}
         actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
@@ -137,7 +138,7 @@ class WarehouseService:
             raise DomainError("WAREHOUSE_QUANTITY_INVALID", "数量格式无效", 400) from exc
         if not quantity.is_finite():
             raise DomainError("WAREHOUSE_QUANTITY_INVALID", "数量格式无效", 400)
-        if quantity <= 0:
+        if quantity < 0 or (quantity == 0 and resource != "stocktakes"):
             raise DomainError("WAREHOUSE_QUANTITY_INVALID", "数量必须大于 0", 400)
         if resource == "transfers" and row.get("warehouse_id") == row.get("target_warehouse_id"):
             raise DomainError("WAREHOUSE_TRANSFER_TARGET_INVALID", "调入仓不能与调出仓相同", 400)
@@ -158,6 +159,9 @@ class WarehouseService:
                     datetime.fromisoformat(text.replace("Z", "+00:00")) if field == "happened_at" else date.fromisoformat(text)
                 except (TypeError, ValueError) as exc:
                     raise DomainError("WAREHOUSE_DATE_INVALID", f"字段 {field} 日期格式无效", 400) from exc
+        if row.get("production_date") not in (None, "") and row.get("expiry_date") not in (None, ""):
+            if date.fromisoformat(str(row["production_date"])) > date.fromisoformat(str(row["expiry_date"])):
+                raise DomainError("WAREHOUSE_DATE_INVALID", "生产日期不能晚于到期日期", 400)
         if row.get("unit_cost") not in (None, ""):
             try:
                 cost = Decimal(str(row["unit_cost"]))
@@ -267,3 +271,26 @@ class WarehouseService:
     def warehouses(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         self.require(user, "view")
         return self.store.list_warehouses(user)
+
+    def create_warehouse(self, user: dict[str, Any], payload: Any) -> dict[str, Any]:
+        self.require(user, "manage")
+        if not isinstance(payload, dict) or not str(payload.get("code") or "").strip() or not str(payload.get("name") or "").strip() or not payload.get("farm_id"):
+            raise DomainError("WAREHOUSE_REQUIRED_FIELDS", "仓库编码、名称和所属基地不能为空", 400)
+        status = str(payload.get("status") or "active")
+        if status not in {"active", "disabled"}:
+            raise DomainError("WAREHOUSE_STATUS_INVALID", "仓库状态无效", 400)
+        return self.store.create_warehouse({key: payload[key] for key in ("organization_id", "farm_id", "area_id", "code", "name", "location", "status") if key in payload}, user=user, user_id=int(user["id"]))
+
+    def update_warehouse(self, user: dict[str, Any], warehouse_id: int, payload: Any) -> dict[str, Any]:
+        self.require(user, "manage")
+        if not isinstance(payload, dict):
+            raise DomainError("WAREHOUSE_PAYLOAD_INVALID", "请求内容必须是对象", 400)
+        clean = {key: payload[key] for key in ("organization_id", "farm_id", "area_id", "code", "name", "location", "status") if key in payload}
+        for field in ("code", "name"):
+            if field in clean and not str(clean[field] or "").strip():
+                raise DomainError("WAREHOUSE_REQUIRED_FIELDS", "仓库编码和名称不能为空", 400)
+        if "farm_id" in clean and not clean["farm_id"]:
+            raise DomainError("WAREHOUSE_REQUIRED_FIELDS", "所属基地不能为空", 400)
+        if "status" in clean and str(clean["status"]) not in {"active", "disabled"}:
+            raise DomainError("WAREHOUSE_STATUS_INVALID", "仓库状态无效", 400)
+        return self.store.update_warehouse(warehouse_id, clean, user=user, user_id=int(user["id"]))

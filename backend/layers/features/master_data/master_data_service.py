@@ -5,8 +5,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
-
-
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 RESOURCES = {"farms", "areas", "pond-groups", "ponds", "materials", "suppliers", "customers", "settings"}
 RESERVED_FIELDS = {"id", "status", "row_version", "version", "allowed_actions", "created_by", "updated_by", "created_at", "updated_at", "has_references"}
 MASTER_FIELDS = {
@@ -185,8 +184,8 @@ class MasterDataService:
 
     @staticmethod
     def _scope_payload(user: dict[str, Any], resource: str, payload: dict[str, Any]) -> dict[str, Any]:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return payload
         areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
         if areas:
@@ -202,12 +201,15 @@ class MasterDataService:
                 raise DomainError("DATA_SCOPE_FORBIDDEN", "不能写入授权区域之外的数据", 403)
             if requested is None and len(areas) == 1:
                 payload = {**payload, "area_id": next(iter(areas))}
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            if not areas:
+                raise DomainError("DATA_SCOPE_FORBIDDEN", "仅本人数据范围不能维护跨区域主数据", 403)
         return payload
 
     @staticmethod
     def _require_record_scope(user: dict[str, Any], resource: str, row: dict[str, Any]) -> None:
-        scopes = user.get("data_scopes") or []
-        if not scopes or any(item.get("scope_type") == "farm" for item in scopes):
+        scopes = require_active_scope(user)
+        if unrestricted(user):
             return
         areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
         area_id = int(row["id"]) if resource == "areas" else int(row.get("area_id") or 0)
@@ -289,7 +291,6 @@ class MasterDataService:
         if not reason or len(reason) > 500:
             raise DomainError("POND_STATUS_REASON_REQUIRED", "必须填写 1 到 500 字的状态变更原因", 400)
         return self._normalize(self.store.request_pond_status_change(pond_id, to_status=target, reason=reason, expected_pond_version=expected, user_id=int(user["id"])))
-
     def verify_pond_status_change(self, user: dict[str, Any], pond_id: int, request_id: int, payload: Any) -> dict[str, Any]:
         self.require(user, "ponds", "verify")
         self._current(user, "ponds", pond_id)

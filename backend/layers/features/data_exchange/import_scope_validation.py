@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.layers.features.data_exchange.import_refs import _fetch, _int
+from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
 def _error(row_number: int, field: str, area_id: int | None) -> dict[str, Any]:
@@ -46,9 +47,11 @@ def validate_import_scope(
     rows: list[dict[str, Any]],
     row_numbers: list[int],
 ) -> list[dict[str, Any]]:
-    scopes = user.get("data_scopes") or []
-    if not scopes or any(item.get("scope_type") in {"farm", "personal"} for item in scopes):
+    scopes = require_active_scope(user)
+    if unrestricted(user):
         return []
+    if any(item.get("scope_type") == "personal" for item in scopes):
+        return [{"row": number, "column": "data_scope", "message": "仅本人数据范围不允许批量导入业务数据", "value": None} for number in row_numbers]
     allowed = {
         int(item["area_id"])
         for item in scopes

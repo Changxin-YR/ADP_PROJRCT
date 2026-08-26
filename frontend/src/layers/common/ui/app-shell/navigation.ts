@@ -13,7 +13,7 @@ export const navGroups: NavGroup[] = [
     { to: '/feeding/logs', label: '投喂记录', requiredPermission: 'production.view' }, { to: '/daily-ops', label: '日常作业', requiredPermission: 'production.view' },
   ] },
   { code: 'warehouse', label: '物料与仓储', icon: 'layers', items: [
-    { to: '/warehouse/materials', label: '物料档案', requiredPermission: 'warehouse.view' }, { to: '/warehouse/in', label: '入库管理', requiredPermission: 'warehouse.view' },
+    { to: '/warehouse/materials', label: '物料档案', requiredPermission: 'warehouse.view' }, { to: '/warehouse/warehouses', label: '仓库档案', requiredPermission: 'warehouse.view' }, { to: '/warehouse/in', label: '入库管理', requiredPermission: 'warehouse.view' },
     { to: '/warehouse/out', label: '出库领用', requiredPermission: 'warehouse.view' }, { to: '/warehouse/returns', label: '退库管理', requiredPermission: 'warehouse.view' },
     { to: '/warehouse/transfers', label: '仓间调拨', requiredPermission: 'warehouse.view' }, { to: '/warehouse/stocktakes', label: '库存盘点', requiredPermission: 'warehouse.view' },
     { to: '/warehouse/scraps', label: '报损报废', requiredPermission: 'warehouse.view' }, { to: '/warehouse/alerts', label: '库存预警', requiredPermission: 'warehouse.view' },

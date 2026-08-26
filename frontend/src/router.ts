@@ -40,6 +40,7 @@ export const router = createRouter({
 
     // 物料与仓储
     { path: '/warehouse/materials', component: () => import('./layers/product/warehouse/MaterialPage.vue'), meta: { ...auth, requiredPermission: 'warehouse.view' } },
+    { path: '/warehouse/warehouses', component: () => import('./layers/product/warehouse/WarehouseMasterPage.vue'), meta: { ...auth, requiredPermission: 'warehouse.view' } },
     { path: '/warehouse/in', component: () => import('./layers/product/warehouse/StockInPage.vue'), meta: { ...auth, requiredPermission: 'warehouse.view' } },
     { path: '/warehouse/out', component: () => import('./layers/product/warehouse/StockOutPage.vue'), meta: { ...auth, requiredPermission: 'warehouse.view' } },
     { path: '/warehouse/returns', component: () => import('./layers/product/warehouse/StockReturnPage.vue'), meta: { ...auth, requiredPermission: 'warehouse.view' } },

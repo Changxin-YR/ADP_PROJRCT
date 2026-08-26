@@ -65,6 +65,7 @@ class WarehouseLedgerPoster:
             amount(row.get("quantity")),
             specified_lot_id=int(row["inventory_lot_id"]) if row.get("inventory_lot_id") else None,
             override_reason=str(row.get("override_reason") or "") or None,
+            include_expired=row.get("_resource") == "scraps",
         )
 
     @staticmethod
@@ -136,6 +137,8 @@ class WarehouseLedgerPoster:
         cursor: Any,
         row: dict[str, Any],
         original: list[dict[str, Any]],
+        *,
+        include_expired: bool = False,
     ) -> list[tuple[int, Decimal]]:
         remaining = amount(row.get("quantity"))
         allocations: list[tuple[int, Decimal]] = []
@@ -152,6 +155,7 @@ class WarehouseLedgerPoster:
                 self._lots(cursor, row), remaining,
                 specified_lot_id=int(row["inventory_lot_id"]) if row.get("inventory_lot_id") else None,
                 override_reason=str(row.get("override_reason") or "") or None,
+                include_expired=include_expired,
             ))
         return allocations
 
@@ -166,7 +170,7 @@ class WarehouseLedgerPoster:
             original = self._ledger_movements(cursor, int(row["correction_of_id"]))
         if resource == "stocktakes":
             return build_movements(resource, row, book_quantity=self._book_quantity(cursor, row))
-        allocations = self._correction_allocations(cursor, row, original) if resource in {"issues", "transfers", "scraps"} else None
+        allocations = self._correction_allocations(cursor, row, original, include_expired=resource == "scraps") if resource in {"issues", "transfers", "scraps"} else None
         desired = build_movements(resource, row, allocations=allocations)
         return movement_difference(desired, original)
 
@@ -234,7 +238,7 @@ class WarehouseLedgerPoster:
             movements = self._correction_movements(cursor, resource, row)
             source_type = "correction"
         else:
-            allocations = self._allocations(cursor, row) if resource in {"issues", "scraps"} else None
+            allocations = self._allocations(cursor, {**row, "_resource": resource}) if resource in {"issues", "scraps"} else None
             book = self._book_quantity(cursor, row) if resource == "stocktakes" else None
             movements = build_movements(resource, row, allocations=allocations, book_quantity=book)
             source_type = None
