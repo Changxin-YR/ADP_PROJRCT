@@ -14,9 +14,11 @@ def unrestricted(user: dict[str, Any]) -> bool:
     scopes = user.get("data_scopes") or []
     if not scopes and not enforced(user):
         return True
-    return "super_admin" in {item.get("code") for item in user.get("roles") or []} or any(
-        item.get("scope_type") == "farm" for item in scopes
-    )
+    roles = {item.get("code") for item in user.get("roles") or []}
+    if "super_admin" in roles:
+        return True
+    # Farm scopes have no tenant key in the current schema; live non-admin users must fail closed.
+    return not enforced(user) and any(item.get("scope_type") == "farm" for item in scopes)
 
 
 def require_active_scope(user: dict[str, Any]) -> list[dict[str, Any]]:

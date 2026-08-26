@@ -39,7 +39,7 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
     def records(resource: str) -> tuple[Response, int] | Response:
         try:
             if resource == "warehouses":
-                return jsonify(ok({"items": service.warehouses(user())}))
+                return jsonify(ok({"items": service.warehouses(user(), include_disabled=request.args.get("include_disabled") == "1")}))
             page, page_size = pagination(code="WAREHOUSE_PAGE_INVALID")
             result = service.list_records(user(), resource, page=page, page_size=page_size, status=request.args.get("status") or None, search=request.args.get("search") or None)
             return jsonify(ok(result))
@@ -135,7 +135,7 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
     @blueprint.get("/warehouses")
     def warehouses() -> tuple[Response, int] | Response:
         try:
-            return jsonify(ok({"items": service.warehouses(user())}))
+            return jsonify(ok({"items": service.warehouses(user(), include_disabled=request.args.get("include_disabled") == "1")}))
         except (AuthServiceError, DomainError) as exc:
             return error(exc)
 

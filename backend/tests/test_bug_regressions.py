@@ -107,6 +107,14 @@ def test_empty_active_scope_fails_closed_for_real_accounts() -> None:
         WarehouseService._scope(account, {"area_id": 2, "created_by": 7})
 
 
+def test_non_super_admin_farm_scope_does_not_become_cross_tenant_global_access() -> None:
+    account = {"id": 7, "roles": [{"code": "breed_manager"}], "data_scopes": [{"scope_type": "farm"}]}
+    assert MySqlProductionStore._scope(account) == ("1=0", [])
+    assert MySqlWarehouseStore._scope(account) == ("1=0", [])
+    admin = {"id": 1, "roles": [{"code": "super_admin"}], "data_scopes": [{"scope_type": "farm"}]}
+    assert MySqlProductionStore._scope(admin) == ("", [])
+
+
 def test_personal_scope_cannot_write_a_record_outside_its_area() -> None:
     account = {"id": 7, "roles": [{"code": "breed_worker"}], "data_scopes": [{"scope_type": "personal"}]}
     with pytest.raises(DomainError, match="DATA_SCOPE_FORBIDDEN"):
@@ -160,3 +168,17 @@ def test_warehouse_master_area_must_belong_to_selected_farm() -> None:
 
     with pytest.raises(DomainError, match="WAREHOUSE_SCOPE_INVALID"):
         WarehouseMasterStoreMixin._validate_area(Cursor(), 3, 1, 2)
+
+
+def test_warehouse_master_listing_can_include_disabled_rows() -> None:
+    class Store:
+        def __init__(self) -> None:
+            self.include_disabled = False
+
+        def list_warehouses(self, _user: dict[str, object], *, include_disabled: bool = False) -> list[dict[str, object]]:
+            self.include_disabled = include_disabled
+            return []
+
+    store = Store()
+    WarehouseService(store).warehouses({"id": 1, "permissions": ["warehouse.view"], "data_scopes": []}, include_disabled=True)
+    assert store.include_disabled is True

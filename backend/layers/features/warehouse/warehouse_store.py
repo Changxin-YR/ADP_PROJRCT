@@ -272,11 +272,11 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
         if any(item.get("scope_type") == "personal" for item in scopes):
             return (f"WHERE {alias}.created_by=%s", [int(user["id"])]) if alias == "d" else ("WHERE 1=0", [])
         return "WHERE 1=0", []
-
-    def list_warehouses(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def list_warehouses(self, user: dict[str, Any], *, include_disabled: bool = False) -> list[dict[str, Any]]:
         where, values = self._area_where(user, "w")
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            cursor.execute(f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w {where} AND w.status='active'" if where else "SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w WHERE w.status='active'", tuple(values))
+            status = "" if include_disabled else " AND w.status='active'"
+            cursor.execute(f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w {where}{status}" if where else f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w WHERE w.status<>'archived'" + ("" if include_disabled else " AND w.status='active'"), tuple(values))
             return list(cursor.fetchall())
 
     def list_ledger(self, user: dict[str, Any], *, page: int = 1, page_size: int = 50, **_: Any) -> dict[str, Any]:

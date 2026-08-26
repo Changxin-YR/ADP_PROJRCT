@@ -268,9 +268,9 @@ class WarehouseService:
             raise DomainError("WAREHOUSE_ALERT_NOTE_REQUIRED", "处理预警必须填写处理结论", 400)
         return self.store.handle_alert(user, alert_key, action_code=action, resolution_note=note, user_id=int(user["id"]))
 
-    def warehouses(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def warehouses(self, user: dict[str, Any], *, include_disabled: bool = False) -> list[dict[str, Any]]:
         self.require(user, "view")
-        return self.store.list_warehouses(user)
+        return self.store.list_warehouses(user, include_disabled=include_disabled)
 
     def create_warehouse(self, user: dict[str, Any], payload: Any) -> dict[str, Any]:
         self.require(user, "manage")

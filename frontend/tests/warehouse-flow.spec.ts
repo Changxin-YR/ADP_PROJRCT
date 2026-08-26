@@ -6,6 +6,7 @@ import StockLedgerPage from '../src/layers/product/warehouse/StockLedgerPage.vue
 import StockOutPage from '../src/layers/product/warehouse/StockOutPage.vue'
 import StockTransferPage from '../src/layers/product/warehouse/StockTransferPage.vue'
 import StockAlertPage from '../src/layers/product/warehouse/StockAlertPage.vue'
+import WarehouseMasterPage from '../src/layers/product/warehouse/WarehouseMasterPage.vue'
 import { createSessionStore } from '../src/layers/common/session/session.store'
 
 
@@ -142,5 +143,37 @@ describe('enterprise warehouse flow', () => {
 
     expect(wrapper.find('[aria-label="库存预警处理"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('处理结论')
+  })
+
+  it('lists disabled warehouse masters and supports editing their lifecycle status', async () => {
+    const paths: string[] = []
+    const requests: Array<{ path: string; body: string | undefined }> = []
+    const disabled = { id: 5, organization_id: 1, farm_id: 2, area_id: 3, code: 'W-005', name: '备用仓', location: '北侧', status: 'disabled' }
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      paths.push(path)
+      requests.push({ path, body: init?.body as string | undefined })
+      if (path === '/api/v1/auth/csrf') return response({ csrf_token: 'csrf' })
+      if (path.includes('/master-data/farms')) return response({ items: [{ id: 2, name: '一号基地' }] })
+      if (path.includes('/master-data/areas')) return response({ items: [{ id: 3, name: '北区' }] })
+      if (path.includes('include_disabled=1')) return response({ items: [disabled] })
+      if (path.endsWith('/warehouses/5')) return response({ warehouse: { ...disabled, status: 'active' } })
+      return response({ items: [] })
+    }))
+
+    const wrapper = mount(WarehouseMasterPage, { global: globals })
+    await flushPromises()
+
+    expect(paths).toContain('/api/v1/warehouse/warehouses?include_disabled=1')
+    expect(wrapper.text()).toContain('备用仓')
+    await wrapper.get('[data-testid="warehouse-master-action-edit"]').trigger('click')
+    expect(wrapper.find('[aria-label="编辑仓库"]').exists()).toBe(true)
+
+    await wrapper.get('#warehouse-status').setValue('active')
+    await wrapper.get('[data-testid="warehouse-master-save"]').trigger('click')
+    await flushPromises()
+
+    expect(requests.find((request) => request.path.endsWith('/warehouses/5'))?.body).toContain('"status":"active"')
+    expect(wrapper.text()).toContain('active')
   })
 })
