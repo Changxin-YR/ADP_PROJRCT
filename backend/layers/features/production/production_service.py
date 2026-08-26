@@ -116,6 +116,27 @@ class ProductionService:
                 raise DomainError("PRODUCTION_DATE_INVALID", "预计出塘日期格式无效", 400) from exc
         if stocked is not None and harvest is not None and harvest < stocked.date():
             raise DomainError("PRODUCTION_DATE_INVALID", "预计出塘日期不能早于放苗日期", 400)
+        if stocked is not None:
+            now = datetime.now(tz=stocked.tzinfo) if stocked.tzinfo else datetime.now()
+            if stocked > now:
+                raise DomainError("PRODUCTION_DATE_INVALID", "实际放苗日期不能晚于当前时间", 400)
+
+    @staticmethod
+    def _validate_feed_plan(clean: dict[str, Any], *, submitting: bool = False) -> None:
+        if clean.get("quantity") not in (None, ""):
+            try:
+                quantity = Decimal(str(clean["quantity"]))
+            except InvalidOperation as exc:
+                raise DomainError("PRODUCTION_VALUE_INVALID", "计划投喂量格式无效", 400) from exc
+            if quantity <= 0:
+                raise DomainError("PRODUCTION_QUANTITY_INVALID", "计划投喂量必须大于 0", 400)
+        if clean.get("planned_at") not in (None, ""):
+            try:
+                datetime.fromisoformat(str(clean["planned_at"]).replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise DomainError("PRODUCTION_DATE_INVALID", "计划时间格式无效", 400) from exc
+        if submitting and not all(clean.get(key) for key in ("batch_id", "material_id", "quantity", "planned_at")):
+            raise DomainError("FEED_PLAN_REQUIRED_FIELDS", "投喂计划送审前必须关联批次、饲料并填写正数计划量和计划时间", 400)
 
     def _validate_batches(self, clean: dict[str, Any], *, creating: bool) -> None:
         self._positive(clean, "initial_quantity", "initial_weight_kg")
@@ -156,6 +177,8 @@ class ProductionService:
             self._validate_batches(clean, creating=True)
         else:
             self._positive(clean, "quantity", "weight_kg")
+            if resource == "feed-plans":
+                self._validate_feed_plan(clean)
             if resource in {"transfers", "losses", "harvests", "feed-logs"} and clean.get("quantity") not in (None, ""):
                 if Decimal(str(clean["quantity"])) <= 0:
                     raise DomainError("PRODUCTION_QUANTITY_INVALID", "业务数量必须大于 0", 400)
@@ -203,6 +226,8 @@ class ProductionService:
         elif resource in {"transfers", "losses", "harvests", "feed-logs"} and clean.get("quantity") not in (None, ""):
             if Decimal(str(clean["quantity"])) <= 0:
                 raise DomainError("PRODUCTION_QUANTITY_INVALID", "业务数量必须大于 0", 400)
+        if resource == "feed-plans":
+            self._validate_feed_plan({**current, **clean})
         if resource == "daily-operations":
             self._normalize_daily_operation(clean, current_payload=current.get("payload") if isinstance(current.get("payload"), dict) else None)
         return self.result(self.store.update_record(resource, record_id, clean, expected_version=expected, user=user, user_id=int(user["id"])), user, resource)
@@ -236,6 +261,8 @@ class ProductionService:
     def submit(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "manage")
+        if resource == "feed-plans":
+            self._validate_feed_plan(self._current(user, resource, record_id), submitting=True)
         return self._transition(user, resource, record_id, payload, "draft", "submitted")
 
     def verify(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:

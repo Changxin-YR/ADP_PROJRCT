@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -105,6 +106,7 @@ class MasterDataService:
             raise DomainError("MASTER_REQUIRED_FIELDS", "编码和名称不能为空", 400)
         if resource == "ponds":
             self._validate_ponds_fields(clean, creating=True)
+        self._validate_business_fields(resource, clean)
         return self.result(self.store.create_record(resource, clean, user_id=int(user["id"])), user, resource)
 
     @staticmethod
@@ -151,6 +153,28 @@ class MasterDataService:
                     f"字段 stock_quantity_source 取值必须是 {'/'.join(sorted(STOCK_QUANTITY_SOURCES))}",
                     400,
                 )
+
+    @staticmethod
+    def _validate_business_fields(resource: str, clean: dict[str, Any]) -> None:
+        if resource == "materials" and clean.get("safety_stock") not in (None, ""):
+            try:
+                value = Decimal(str(clean["safety_stock"]))
+            except InvalidOperation as exc:
+                raise DomainError("SAFETY_STOCK_INVALID", "安全库存必须是非负数字", 400) from exc
+            if not value.is_finite() or value < 0:
+                raise DomainError("SAFETY_STOCK_INVALID", "安全库存必须是非负数字", 400)
+        if resource in {"suppliers", "customers"}:
+            if clean.get("credit_limit") not in (None, ""):
+                try:
+                    credit = Decimal(str(clean["credit_limit"]))
+                except InvalidOperation as exc:
+                    raise DomainError("CREDIT_LIMIT_INVALID", "信用额度必须是非负数字", 400) from exc
+                if not credit.is_finite() or credit < 0:
+                    raise DomainError("CREDIT_LIMIT_INVALID", "信用额度必须是非负数字", 400)
+            if clean.get("phone") not in (None, ""):
+                phone = str(clean["phone"]).strip()
+                if not re.fullmatch(r"[0-9+()\-\.\s#xX]{3,40}", phone) or not re.search(r"\d", phone):
+                    raise DomainError("PHONE_INVALID", "联系电话格式无效", 400)
 
     @staticmethod
     def _clean(resource: str, payload: dict[str, Any], *, allow_version: bool = False) -> dict[str, Any]:
@@ -218,6 +242,7 @@ class MasterDataService:
             raise DomainError("MASTER_NO_CHANGES", "没有可保存的修改", 400)
         if resource == "ponds":
             self._validate_ponds_fields(clean, creating=False)
+        self._validate_business_fields(resource, clean)
         return self.result(self.store.update_record(resource, record_id, clean, expected_version=expected, user_id=int(user["id"])), user, resource)
 
     def submit(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
@@ -228,6 +253,11 @@ class MasterDataService:
     def verify(self, user: dict[str, Any], resource: str, record_id: int, payload: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "verify")
+        current = self._current(user, resource, record_id)
+        if self._expected(payload) != int(current["row_version"]):
+            return self._transition(user, resource, record_id, payload, "submitted", "verified")
+        if int(user["id"]) in {int(current.get("created_by") or 0), int(current.get("updated_by") or 0)}:
+            raise DomainError("SELF_APPROVAL_FORBIDDEN", "主数据禁止经办人自审", 403)
         return self._transition(user, resource, record_id, payload, "submitted", "verified")
 
     def _transition(self, user: dict[str, Any], resource: str, record_id: int, payload: Any, before: str, after: str) -> dict[str, Any]:

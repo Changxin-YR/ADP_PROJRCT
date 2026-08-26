@@ -123,8 +123,8 @@ def test_submitted_master_record_can_change_version_then_becomes_read_only() -> 
     assert stale.status_code == 409
     assert stale.get_json()["code"] == "VERSION_CONFLICT"
     verified = client.post(f"/api/v1/master-data/materials/{row['id']}/verify", json={"expected_version": 3}, headers=csrf(client))
-    assert verified.status_code == 200
-    assert verified.get_json()["data"]["record"]["allowed_actions"] == ["view"]
+    assert verified.status_code == 403
+    assert verified.get_json()["code"] == "SELF_APPROVAL_FORBIDDEN"
     assert client.patch(f"/api/v1/master-data/materials/{row['id']}", json={"expected_version": 4, "name": "非法修改"}, headers=csrf(client)).status_code == 409
     assert client.delete(f"/api/v1/master-data/materials/{row['id']}", headers=csrf(client)).status_code == 409
 

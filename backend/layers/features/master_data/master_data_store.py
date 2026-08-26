@@ -91,8 +91,11 @@ class MySqlMasterDataStore:
     def _defaults(self, cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
         result = dict(payload)
         if not result.get("organization_id"):
-            cursor.execute("SELECT id FROM organizations ORDER BY id LIMIT 1")
-            result["organization_id"] = int(cursor.fetchone()["id"])
+            cursor.execute("SELECT id FROM organizations WHERE status='active' ORDER BY id LIMIT 2")
+            organizations = list(cursor.fetchall())
+            if len(organizations) != 1:
+                raise DomainError("MASTER_ORGANIZATION_REQUIRED", "多企业环境必须明确指定企业", 400)
+            result["organization_id"] = int(organizations[0]["id"])
         if not result.get("farm_id"):
             cursor.execute("SELECT id FROM farms WHERE organization_id = %s ORDER BY id LIMIT 1", (result["organization_id"],))
             farm = cursor.fetchone()
