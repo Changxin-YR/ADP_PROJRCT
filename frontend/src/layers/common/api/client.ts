@@ -14,6 +14,9 @@ export function createApiClient() {
     headers.set('Accept', 'application/json')
     if (options.body !== undefined) headers.set('Content-Type', 'application/json')
     if (stateChangingMethods.has(method) && path !== '/api/v1/auth/csrf') headers.set('X-CSRF-Token', await getCsrfToken())
+    if (method === 'POST' && path !== '/api/v1/auth/csrf' && !headers.has('Idempotency-Key')) {
+      headers.set('Idempotency-Key', globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+    }
     const dedupeKey = stateChangingMethods.has(method) ? `${method} ${path} ${JSON.stringify(options.body ?? null)}` : ''
     if (dedupeKey && inflight.has(dedupeKey)) return inflight.get(dedupeKey) as Promise<T>
     const promise = doRequest<T>(path, options, method, headers)

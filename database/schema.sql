@@ -25,6 +25,7 @@ SOURCE database/migrations/021_remove_placeholder_cost_entries.sql;
 SOURCE database/migrations/022_super_admin_account_permissions.sql;
 SOURCE database/migrations/023_role_permissions_least_privilege.sql;
 SOURCE database/migrations/024_pond_extended_fields.sql;
+SOURCE database/migrations/025_warehouse_alert_resolution.sql;
 
 -- Contract index for source readers and schema checks:
 -- CREATE TABLE work_items: 004_enterprise_governance_foundation.sql

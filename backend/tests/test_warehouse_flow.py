@@ -236,13 +236,14 @@ def test_transfer_cancel_uses_the_governance_work_item_column() -> None:
 def test_alert_handling_persists_an_action_and_resolution_note() -> None:
     class AlertStore:
         @staticmethod
-        def handle_alert(_user: dict[str, object], alert_key: str, *, action_code: str, resolution_note: str, user_id: int) -> dict[str, object]:
+        def handle_alert(_user: dict[str, object], alert_key: str, *, action_code: str, resolution_note: str, user_id: int, **_references: object) -> dict[str, object]:
             return {"alert_key": alert_key, "status": "handled", "action_code": action_code,
                     "resolution_note": resolution_note, "handled_by": user_id}
 
     service = WarehouseService(AlertStore())
     handled = service.handle_alert(actor(9, "warehouse.manage"), "3:8:low_stock", {
         "action_code": "replenish", "resolution_note": "采购申请 PR-009 已提交",
+        "purchase_order_id": 123,
     })
 
     assert handled["status"] == "handled"

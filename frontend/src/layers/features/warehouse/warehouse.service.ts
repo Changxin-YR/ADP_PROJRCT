@@ -21,4 +21,4 @@ export const receiveWarehouseTransfer = (id: number, expectedVersion: number, re
 export const cancelWarehouseTransfer = (id: number, expectedVersion: number, reason: string) => api.post<{ record: WarehouseRecord }>(`${base('transfers')}/${id}/cancel`, { expected_version: expectedVersion, cancellation_reason: reason })
 export const listWarehouseLedger = () => api.get<{ items: WarehouseLedgerRow[]; page: number; page_size: number; total: number; has_next: boolean }>('/api/v1/warehouse/ledger')
 export const listWarehouseAlerts = () => api.get<{ items: Array<Record<string, unknown>> }>('/api/v1/warehouse/alerts')
-export const handleWarehouseAlert = (alertKey: string, actionCode: string, resolutionNote: string) => api.post<{ alert: Record<string, unknown> }>(`/api/v1/warehouse/alerts/${encodeURIComponent(alertKey)}/handle`, { action_code: actionCode, resolution_note: resolutionNote })
+export const handleWarehouseAlert = (alertKey: string, payload: Record<string, unknown>) => api.post<{ alert: Record<string, unknown> }>(`/api/v1/warehouse/alerts/${encodeURIComponent(alertKey)}/handle`, payload)

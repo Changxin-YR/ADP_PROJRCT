@@ -7,6 +7,7 @@ from typing import Any
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.common.files.evidence import evidence_from_payload
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.features.warehouse.warehouse_alert_store import alert_references
 RESOURCES = {"receipts", "issue-requests", "issues", "returns", "transfers", "stocktakes", "scraps"}
 EVIDENCE_REQUIRED = {"receipts", "stocktakes", "scraps"}
 FIELDS = {
@@ -259,7 +260,6 @@ class WarehouseService:
     def alerts(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         self.require(user, "view")
         return self.store.list_alerts(user)
-
     def handle_alert(self, user: dict[str, Any], alert_key: str, payload: Any) -> dict[str, Any]:
         self.require(user, "manage")
         if not isinstance(payload, dict):
@@ -270,8 +270,8 @@ class WarehouseService:
         note = str(payload.get("resolution_note") or "").strip()
         if not note:
             raise DomainError("WAREHOUSE_ALERT_NOTE_REQUIRED", "处理预警必须填写处理结论", 400)
-        return self.store.handle_alert(user, alert_key, action_code=action, resolution_note=note, user_id=int(user["id"]))
-
+        references = alert_references(action, payload)
+        return self.store.handle_alert(user, alert_key, action_code=action, resolution_note=note, user_id=int(user["id"]), **references)
     def warehouses(self, user: dict[str, Any], *, include_disabled: bool = False) -> list[dict[str, Any]]:
         self.require(user, "view")
         return self.store.list_warehouses(user, include_disabled=include_disabled)

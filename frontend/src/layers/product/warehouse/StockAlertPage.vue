@@ -14,6 +14,9 @@ const dialogError = ref('')
 const handling = ref<Record<string, unknown> | null>(null)
 const actionCode = ref('replenish')
 const resolutionNote = ref('')
+const purchaseOrderId = ref('')
+const resolutionDocumentId = ref('')
+const safetyStock = ref<number | null>(null)
 const session = createSessionStore()
 const canManage = computed(() => hasPermission(session.user.value, 'warehouse.manage'))
 const typeLabels: Record<string, string> = { low_stock: '低库存', expiring: '临近到期', expired: '已过期' }
@@ -30,7 +33,7 @@ onMounted(async () => {
 })
 function openHandling(_name: string, row: Record<string, unknown>) {
   if (!canManage.value) return
-  handling.value = row; actionCode.value = 'replenish'; resolutionNote.value = ''; dialogError.value = ''
+  handling.value = row; actionCode.value = 'replenish'; resolutionNote.value = ''; purchaseOrderId.value = ''; resolutionDocumentId.value = ''; safetyStock.value = null; dialogError.value = ''
 }
 const { busy: saving, run } = useSubmitGuard()
 async function saveHandling() {
@@ -39,7 +42,11 @@ async function saveHandling() {
   dialogError.value = ''
   await run(async () => {
     try {
-      const result = await handleWarehouseAlert(String(handling.value!.alert_key), actionCode.value, resolutionNote.value.trim())
+      const payload: Record<string, unknown> = { action_code: actionCode.value, resolution_note: resolutionNote.value.trim() }
+      if (actionCode.value === 'replenish') payload.purchase_order_id = Number(purchaseOrderId.value)
+      if (actionCode.value === 'transfer' || actionCode.value === 'scrap') payload.resolution_document_id = Number(resolutionDocumentId.value)
+      if (actionCode.value === 'threshold') payload.safety_stock = safetyStock.value
+      const result = await handleWarehouseAlert(String(handling.value!.alert_key), payload)
       const index = rows.value.findIndex((row) => row.alert_key === result.alert.alert_key)
       if (index >= 0) rows.value[index] = result.alert
       handling.value = null
@@ -66,5 +73,5 @@ async function saveHandling() {
       { key: 'expiry_date', label: '到期日' }, { key: 'status_label', label: '状态', type: 'badge', tones: { '待处理': 'amber', '已处理': 'teal' } },
     ]"
     :rows="displayRows" action-test-id-prefix="warehouse-alert-action" :empty-text="loading ? '正在计算库存预警…' : '当前没有库存预警'" @action="openHandling" />
-  <Teleport to="body"><div v-if="handling" class="modal-overlay" role="dialog" aria-modal="true" aria-label="库存预警处理"><div class="modal-panel" style="width:min(520px,100%)"><div class="modal-panel__head"><div><p class="section-label">Alert handling</p><h2>处理库存预警</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="handling = null">×</button></div><p class="section-subtitle">{{ handling.material_name }} · {{ handling.warehouse_name }} · {{ handling.lot_no }}</p><label class="modal-field" for="warehouse-alert-action"><span>处理动作 *</span><select id="warehouse-alert-action" v-model="actionCode" class="filter-select" style="width:100%"><option value="replenish">发起补货</option><option value="transfer">办理调拨</option><option value="scrap">报损报废</option><option value="recheck">库存复核</option><option value="threshold">调整阈值</option></select></label><label class="modal-field" for="warehouse-alert-note"><span>处理结论 *</span><textarea id="warehouse-alert-note" v-model="resolutionNote" rows="4" class="filter-input" style="width:100%;resize:vertical" /></label><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="handling = null">取消</button><button class="primary-action" type="button" :disabled="saving" :aria-busy="saving" @click="saveHandling">{{ saving ? '提交中…' : '保存处理结果' }}</button></div></div></div></Teleport>
+  <Teleport to="body"><div v-if="handling" class="modal-overlay" role="dialog" aria-modal="true" aria-label="库存预警处理"><div class="modal-panel" style="width:min(520px,100%)"><div class="modal-panel__head"><div><p class="section-label">Alert handling</p><h2>处理库存预警</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="handling = null">×</button></div><p class="section-subtitle">{{ handling.material_name }} · {{ handling.warehouse_name }} · {{ handling.lot_no }}</p><label class="modal-field" for="warehouse-alert-action"><span>处理动作 *</span><select id="warehouse-alert-action" v-model="actionCode" class="filter-select" style="width:100%"><option value="replenish">发起补货</option><option value="transfer">办理调拨</option><option value="scrap">报损报废</option><option value="recheck">库存复核</option><option value="threshold">调整阈值</option></select></label><label v-if="actionCode === 'replenish'" class="modal-field" for="warehouse-alert-purchase-order"><span>采购单 ID *</span><input id="warehouse-alert-purchase-order" v-model="purchaseOrderId" type="number" min="1" class="filter-input" style="width:100%"></label><label v-if="actionCode === 'transfer' || actionCode === 'scrap'" class="modal-field" for="warehouse-alert-document"><span>仓储单据 ID *</span><input id="warehouse-alert-document" v-model="resolutionDocumentId" type="number" min="1" class="filter-input" style="width:100%"></label><label v-if="actionCode === 'threshold'" class="modal-field" for="warehouse-alert-threshold"><span>新安全库存 *</span><input id="warehouse-alert-threshold" v-model.number="safetyStock" type="number" min="0" step="0.001" class="filter-input" style="width:100%"></label><label class="modal-field" for="warehouse-alert-note"><span>处理结论 *</span><textarea id="warehouse-alert-note" v-model="resolutionNote" rows="4" class="filter-input" style="width:100%;resize:vertical" /></label><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="handling = null">取消</button><button class="primary-action" type="button" :disabled="saving" :aria-busy="saving" @click="saveHandling">{{ saving ? '提交中…' : '保存处理结果' }}</button></div></div></div></Teleport>
 </template>

@@ -40,6 +40,11 @@ def _seed(settings: Any) -> dict[str, int]:
             (ids["organization_id"], ids["farm_id"], ids["area_id"]),
         )
         ids["material_id"] = int(cursor.lastrowid)
+        cursor.execute(
+            "INSERT INTO business_partners (organization_id,farm_id,area_id,partner_type,code,name,status,created_by) VALUES (%s,%s,%s,'supplier','SUP-1','测试供应商','verified',1)",
+            (ids["organization_id"], ids["farm_id"], ids["area_id"]),
+        )
+        ids["supplier_id"] = int(cursor.lastrowid)
         cursor.executemany(
             "INSERT INTO warehouses (organization_id,farm_id,area_id,code,name) VALUES (%s,%s,%s,%s,%s)",
             [
@@ -49,6 +54,11 @@ def _seed(settings: Any) -> dict[str, int]:
         )
         cursor.execute("SELECT id FROM warehouses ORDER BY id")
         ids["warehouse_1"], ids["warehouse_2"] = [int(row["id"]) for row in cursor.fetchall()]
+        cursor.execute(
+            "INSERT INTO purchase_orders (organization_id,farm_id,area_id,code,name,supplier_id,material_id,warehouse_id,quantity,unit_price,total_amount,due_date,status,created_by) VALUES (%s,%s,%s,'PO-ALERT','预警补货',%s,%s,%s,100,5,500,'2026-12-31','approved',1)",
+            (ids["organization_id"], ids["farm_id"], ids["area_id"], ids["supplier_id"], ids["material_id"], ids["warehouse_1"]),
+        )
+        ids["purchase_order_id"] = int(cursor.lastrowid)
         cursor.execute(
             "INSERT INTO attachments (organization_id,entity_type,entity_id,sha256,storage_name,original_name,media_type,size_bytes,uploaded_by) VALUES (%s,'test',1,%s,%s,'receipt.pdf','application/pdf',10,1)",
             (ids["organization_id"], "a" * 64, "b" * 32),
@@ -87,7 +97,7 @@ def _bind_receipt_evidence(settings: Any, record_id: int, attachment_id: int) ->
 
 
 def test_real_mysql_warehouse_business_chain_is_transactional_and_immutable() -> None:
-    with disposable_database("adp_warehouse_test", through=10) as database:
+    with disposable_database("adp_warehouse_test", through=25) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         service = WarehouseService(MySqlWarehouseStore(settings))
@@ -181,7 +191,7 @@ def test_real_mysql_warehouse_business_chain_is_transactional_and_immutable() ->
         assert (_balance(settings, ids["warehouse_1"]), _balance(settings, ids["warehouse_2"])) == (Decimal("40"), Decimal("18"))
 
         alert = next(item for item in service.alerts(verifier) if int(item["inventory_lot_id"]) == lot_id and int(item["warehouse_id"]) == ids["warehouse_1"])
-        service.handle_alert(creator, alert["alert_key"], {"action_code": "replenish", "resolution_note": "采购申请已提交"})
+        service.handle_alert(creator, alert["alert_key"], {"action_code": "replenish", "purchase_order_id": ids["purchase_order_id"], "resolution_note": "采购申请已提交"})
         assert next(item for item in service.alerts(verifier) if item["alert_key"] == alert["alert_key"])["status"] == "handled"
         extra = _create_submit(service, creator, "receipts", {**base, "inventory_lot_id": lot_id, "code": "IN-2", "name": "补收入库", "quantity": 1})
         _bind_receipt_evidence(settings, extra["id"], ids["attachment_id"])
