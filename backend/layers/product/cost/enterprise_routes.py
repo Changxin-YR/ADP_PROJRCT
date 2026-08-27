@@ -5,6 +5,7 @@ from typing import Any, Callable
 from flask import Blueprint, Response, g, jsonify, request, session
 
 from backend.layers.common.governance.lifecycle import DomainError
+from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import pagination
 from backend.layers.common.security.csrf import CsrfError, validate_csrf_token
@@ -12,7 +13,7 @@ from backend.layers.features.auth.auth_service import AuthService, AuthServiceEr
 from backend.layers.features.cost.cost_enterprise_service import CostEnterpriseService
 
 
-def register_cost_enterprise_routes(blueprint: Blueprint, auth: AuthService, service: CostEnterpriseService) -> None:
+def register_cost_enterprise_routes(blueprint: Blueprint, auth: AuthService, service: CostEnterpriseService, settings: Any) -> None:
     def user() -> dict[str, Any]:
         return auth.current_user(request.cookies.get("adp_session"), request_id=getattr(g, "request_id", None))
 
@@ -51,10 +52,12 @@ def register_cost_enterprise_routes(blueprint: Blueprint, auth: AuthService, ser
     def write(operation: Callable[..., dict[str, Any]], record_id: int | None = None, *, created: bool = False) -> tuple[Response, int] | Response:
         try:
             validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
-            payload = json_body()
-            result = operation(user(), payload) if record_id is None else operation(user(), record_id, payload)
-            response = jsonify(ok(result)); response.status_code = 201 if created else 200
-            return response
+            payload = json_body(); current_user = user()
+            def perform() -> tuple[dict[str, Any], int]:
+                result = operation(current_user, payload) if record_id is None else operation(current_user, record_id, payload)
+                return ok(result), 201 if created else 200
+            body, status = execute_idempotent(settings, user_id=int(current_user["id"]), action_code=request.path, key=request.headers.get("Idempotency-Key"), payload=payload, operation=perform)
+            return jsonify(body), status
         except (CsrfError, AuthServiceError, DomainError) as exc:
             return error(exc)
 

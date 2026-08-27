@@ -7,6 +7,7 @@ from flask import Blueprint, Response, g, jsonify, request
 
 from backend.config.settings import Settings
 from backend.layers.common.governance.lifecycle import DomainError
+from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import json_object, pagination, require_csrf
 from backend.layers.common.security.csrf import CsrfError
@@ -33,11 +34,12 @@ def create_master_data_blueprint(settings: Settings, auth_store: Any, master_sto
     def write(operation: Callable[..., dict[str, Any]], resource: str, record_id: int | None = None, *, created: bool = False) -> tuple[Response, int] | Response:
         try:
             csrf()
-            payload = json_object()
-            result = operation(user(), resource, payload) if record_id is None else operation(user(), resource, record_id, payload)
-            response = jsonify(ok({"record": result}))
-            response.status_code = 201 if created else 200
-            return response
+            payload = json_object(); current_user = user()
+            def perform() -> tuple[dict[str, Any], int]:
+                result = operation(current_user, resource, payload) if record_id is None else operation(current_user, resource, record_id, payload)
+                return ok({"record": result}), 201 if created else 200
+            body, status = execute_idempotent(settings, user_id=int(current_user["id"]), action_code=request.path, key=request.headers.get("Idempotency-Key"), payload=payload, operation=perform)
+            return jsonify(body), status
         except (CsrfError, AuthServiceError, DomainError) as error:
             return error_response(error)
         except pymysql.IntegrityError as error:

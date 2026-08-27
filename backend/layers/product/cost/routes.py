@@ -184,5 +184,5 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
                 return error_response(CostServiceError("COST_RULES_INCOMPLETE", "分摊规则必须完整覆盖全部启用成本类别", 400))
             return error_response(CostServiceError("COST_RULE_SAVE_FAILED", "分摊规则保存失败", 400))
 
-    register_cost_enterprise_routes(blueprint, auth_service, enterprise_service)
+    register_cost_enterprise_routes(blueprint, auth_service, enterprise_service, settings)
     return blueprint
