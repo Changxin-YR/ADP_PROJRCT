@@ -28,7 +28,7 @@ def _race(first: Callable[[], Any], second: Callable[[], Any]) -> list[Any]:
 
 
 def test_concurrent_production_losses_cannot_overdraw_same_batch_stock() -> None:
-    with disposable_database("adp_prod_race", through=10) as database:
+    with disposable_database("adp_prod_race", through=11) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         with get_connection(settings) as connection, connection.cursor() as cursor:
@@ -69,7 +69,7 @@ def test_concurrent_production_losses_cannot_overdraw_same_batch_stock() -> None
 
 
 def test_concurrent_warehouse_transfers_cannot_overdraw_same_inventory_lot() -> None:
-    with disposable_database("adp_wh_race", through=10) as database:
+    with disposable_database("adp_wh_race", through=11) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         with get_connection(settings) as connection, connection.cursor() as cursor:

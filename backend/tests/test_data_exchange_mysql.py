@@ -29,7 +29,7 @@ def workbook(rows: list[list[Any]]) -> bytes:
 def actor() -> dict[str, Any]:
     return {
         "id": 1, "name": "数据管理员",
-        "permissions": ["data_exchange.view", "data_exchange.import", "data_exchange.export", "attachment.manage"],
+        "permissions": ["data_exchange.view", "data_exchange.import", "data_exchange.export", "attachment.manage", "production.view"],
         "data_scopes": [],
     }
 
@@ -139,6 +139,13 @@ def test_real_mysql_production_templates_preview_and_import_drafts(tmp_path: Pat
             pond_id = int(cursor.lastrowid)
             cursor.execute("INSERT INTO materials (organization_id,code,name,category,unit,status,row_version,created_by) VALUES (%s,'FEED-IMP-1','导入饲料','饲料','kg','verified',1,1)", (organization_id,))
             material_id = int(cursor.lastrowid)
+            cursor.execute("INSERT INTO warehouses (organization_id,farm_id,area_id,code,name) VALUES (%s,%s,%s,'WH-IMP-1','导入仓库')", (organization_id, farm_id, area_id))
+            warehouse_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,material_id,quantity,status,row_version,created_by) VALUES (%s,%s,%s,'issue_request','REQ-IMP-1','导入领料申请',%s,%s,25,'verified',1,1)",
+                (organization_id, farm_id, area_id, warehouse_id, material_id),
+            )
+            material_issue_request_id = int(cursor.lastrowid)
         service = DataExchangeService(MySqlDataExchangeStore(settings), tmp_path)
         user = actor()
 
@@ -158,6 +165,12 @@ def test_real_mysql_production_templates_preview_and_import_drafts(tmp_path: Pat
         production = MySqlProductionStore(settings)
         production.set_status("batches", batch_id, "submitted", expected_version=1, user_id=1)
         production.set_status("batches", batch_id, "verified", expected_version=2, user_id=1)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO production_documents (organization_id,farm_id,area_id,document_type,code,name,pond_id,batch_id,material_id,quantity,status,row_version,created_by,verified_by,verified_at) VALUES (%s,%s,%s,'feed_task','TASK-IMP-1','导入投喂任务',%s,%s,%s,25,'verified',1,1,1,NOW())",
+                (organization_id, farm_id, area_id, pond_id, batch_id, material_id),
+            )
+            feed_task_id = int(cursor.lastrowid)
         stocking = service.preview(user, organization_id=organization_id, template_code="stocking", file_name="stocking.xlsx", content=workbook_with(["code", "batch_id", "quantity", "happened_at"], [["STOCK-IMP-1", batch_id, 200, "2026-08-18"]]))
         assert stocking["status"] == "ready", stocking["errors"]
         imported_stocking = service.confirm(user, stocking["id"])
@@ -185,7 +198,10 @@ def test_real_mysql_production_templates_preview_and_import_drafts(tmp_path: Pat
             service.confirm(user, bad["id"])
 
         # 喂养记录模板：关联批次/塘口/物料写入草稿单据。
-        feed = service.preview(user, organization_id=organization_id, template_code="feed-logs", file_name="feed-logs.xlsx", content=workbook_with(["code", "pond_id", "material_id", "quantity", "happened_at"], [["FEEDLOG-IMP-1", pond_id, material_id, 25, "2026-08-18"]]))
+        feed = service.preview(user, organization_id=organization_id, template_code="feed-logs", file_name="feed-logs.xlsx", content=workbook_with(
+            ["code", "pond_id", "batch_id", "material_id", "feed_task_id", "material_issue_request_id", "quantity", "happened_at"],
+            [["FEEDLOG-IMP-1", pond_id, batch_id, material_id, feed_task_id, material_issue_request_id, 25, "2026-08-18"]],
+        ))
         assert feed["status"] == "ready", feed["errors"]
         imported_feed = service.confirm(user, feed["id"])
         assert imported_feed["status"] == "imported"
@@ -233,8 +249,8 @@ def test_real_mysql_purchase_and_sales_order_imports_confirm_drafts(tmp_path: Pa
         service.confirm(user, purchase["id"])
         assert scalar(settings, "SELECT COUNT(*) AS total FROM purchase_orders WHERE code='PO-IMPORT-REAL' AND total_amount=6 AND status='draft'") == 1
         sale = service.preview(user, organization_id=organization_id, template_code="sales-orders", file_name="sale.xlsx", content=workbook_with(
-            ["code", "customer_id", "batch_id", "quantity", "unit_price"],
-            [["SO-IMPORT-REAL", customer_id, batch_id, 2, 3]],
+            ["code", "customer_id", "batch_id", "quantity", "unit_price", "sold_at", "due_date"],
+            [["SO-IMPORT-REAL", customer_id, batch_id, 2, 3, "2026-08-18", "2026-09-18"]],
         ))
         assert sale["status"] == "ready", sale["errors"]
         service.confirm(user, sale["id"])

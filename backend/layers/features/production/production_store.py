@@ -267,7 +267,7 @@ class MySqlProductionStore:
         for batch_id, pond_id, _kind, quantity, weight in lines:
             if quantity >= 0 and weight >= 0:
                 continue
-            cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight FROM batch_stock_records WHERE batch_id=%s AND pond_id=%s", (batch_id, pond_id))
+            cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight FROM batch_stock_records WHERE batch_id=%s AND pond_id=%s FOR UPDATE", (batch_id, pond_id))
             available = cursor.fetchone() or {}
             if -quantity > Decimal(str(available.get("quantity", 0))) or -weight > Decimal(str(available.get("weight", 0))):
                 raise DomainError("BATCH_STOCK_INSUFFICIENT", "塘口批次存量不足，禁止核验", 409)

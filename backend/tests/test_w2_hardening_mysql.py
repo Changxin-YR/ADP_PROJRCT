@@ -97,7 +97,7 @@ def test_w2_mysql_pond_extended_fields_roundtrip() -> None:
             cursor.execute("INSERT INTO areas (organization_id,farm_id,code,name,status,row_version,created_by) VALUES (%s,%s,'W2-A','扩展区','verified',1,%s)", (farm["organization_id"], farm["id"], maker_id))
             area_id = int(cursor.lastrowid)
         service = MasterDataService(MySqlMasterDataStore(settings))
-        manager = {"id": maker_id, "permissions": ["master_data.view", "master_data.ponds.manage"], "data_scopes": []}
+        manager = {"id": maker_id, "permissions": ["master_data.view", "master_data.ponds.manage"], "data_scopes": [{"scope_type": "area", "area_id": area_id}]}
         created = service.create(manager, "ponds", {
             "code": "W2-POND", "name": "扩展塘", "area_id": area_id, "capacity_mu": 8.5,
             "pond_status": "stocked", "aerator_count": 2, "stocking_spec": "2cm",
@@ -125,6 +125,9 @@ def test_w2_mysql_pond_errors_are_400_409_not_500() -> None:
             farm = cursor.fetchone()
             cursor.execute("INSERT INTO areas (organization_id,farm_id,code,name,status,row_version,created_by) VALUES (%s,%s,'W2-E','错误区','verified',1,%s)", (farm["organization_id"], farm["id"], maker_id))
             area_id = int(cursor.lastrowid)
+            cursor.execute("INSERT INTO data_scopes (code,name,scope_type,area_id,status) VALUES (%s,'W2错误区范围','area',%s,'active')", (f"W2-E-SCOPE-{maker_id}", area_id))
+            scope_id = int(cursor.lastrowid)
+            cursor.execute("INSERT INTO user_data_scopes (user_id,data_scope_id,granted_by) VALUES (%s,%s,%s)", (maker_id, scope_id, maker_id))
         app = create_app(settings)
         client = app.test_client()
         csrf = _login(client, settings, maker_id)
@@ -168,8 +171,14 @@ def test_w2_mysql_feed_logs_filter_by_pond_and_area() -> None:
             )
             area_north = int(cursor.lastrowid)
             area_south = int(cursor.lastrowid) + 1
+            cursor.execute("INSERT INTO data_scopes (code,name,scope_type,area_id,status) VALUES (%s,'W2养殖范围','area',%s,'active')", (f"W2-FEED-SCOPE-{maker_id}", area_north))
+            scope_id = int(cursor.lastrowid)
+            cursor.execute("INSERT INTO user_data_scopes (user_id,data_scope_id,granted_by) VALUES (%s,%s,%s)", (maker_id, scope_id, maker_id))
+            cursor.execute("INSERT INTO data_scopes (code,name,scope_type,area_id,status) VALUES (%s,'W2养殖范围','area',%s,'active')", (f"W2-FEED-SCOPE-{maker_id}-S", area_south))
+            scope_south_id = int(cursor.lastrowid)
+            cursor.execute("INSERT INTO user_data_scopes (user_id,data_scope_id,granted_by) VALUES (%s,%s,%s)", (maker_id, scope_south_id, maker_id))
             cursor.execute(
-                "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,capacity_mu,pond_status,status,row_version,created_by) VALUES (%s,%s,%s,'W2-PN','北塘',5,'stocked','verified',1,%s),(%s,%s,%s,'W2-PS','南塘',5,'stocked','verified',1,%s)",
+                "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,capacity_mu,pond_status,status,row_version,created_by) VALUES (%s,%s,%s,'W2-PN','北塘',5,'farming','verified',1,%s),(%s,%s,%s,'W2-PS','南塘',5,'farming','verified',1,%s)",
                 (farm["organization_id"], farm["id"], area_north, maker_id, farm["organization_id"], farm["id"], area_south, maker_id),
             )
             pond_north = int(cursor.lastrowid)

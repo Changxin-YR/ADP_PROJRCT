@@ -3,9 +3,7 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from typing import Any, Iterator
-
 import pymysql
-
 from backend.config.settings import Settings
 from backend.layers.common.audit.audit_logger import AuditLogger
 from backend.layers.common.db.connection import get_connection
@@ -38,6 +36,8 @@ class MySqlDataExchangeStore:
     @staticmethod
     def _organizations(user: dict[str, Any]) -> set[int] | None:
         scopes = require_active_scope(user)
+        if unrestricted(user):
+            return None
         roles = {str(item.get("code")) for item in user.get("roles") or [] if isinstance(item, dict)}
         if "super_admin" in roles and any(item.get("scope_type") == "farm" and not item.get("organization_id") for item in scopes):
             return None

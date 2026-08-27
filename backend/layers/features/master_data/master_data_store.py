@@ -93,6 +93,17 @@ class MySqlMasterDataStore:
 
     def _defaults(self, cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
         result = dict(payload)
+        if result.get("area_id") and (not result.get("organization_id") or not result.get("farm_id")):
+            cursor.execute(
+                "SELECT organization_id,farm_id FROM areas WHERE id=%s AND status='verified'",
+                (result["area_id"],),
+            )
+            area = cursor.fetchone()
+            if area:
+                if not result.get("organization_id"):
+                    result["organization_id"] = int(area["organization_id"])
+                if not result.get("farm_id"):
+                    result["farm_id"] = int(area["farm_id"])
         if not result.get("organization_id"):
             cursor.execute("SELECT id FROM organizations WHERE status='active' ORDER BY id LIMIT 2")
             organizations = list(cursor.fetchall())

@@ -14,6 +14,7 @@ from backend.config.settings import Settings
 from backend.layers.common.db.repositories.cost_repository import CostRepository
 from backend.layers.common.db.repositories.cost_store import MySqlCostStore
 from backend.layers.features.cost.calculation import summarize_costs
+from backend.tests.mysql_test_database import grant_database_access
 
 
 MYSQL_CLIENT = os.environ.get("ADP_TEST_MYSQL_CLIENT")
@@ -69,6 +70,7 @@ def test_cost_migrations_are_idempotent_and_preserve_entry_level_nature() -> Non
     migrations = Path("database/migrations")
     _mysql(f"--execute=CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     try:
+        grant_database_access(database)
         for migration in ("000_schema_migrations.sql", "001_initial_auth.sql", "002_roles_and_scopes_expansion.sql", "003_cost_accounting_foundation.sql"):
             _mysql(f"--database={database}", sql=(migrations / migration).read_bytes())
         _mysql(f"--database={database}", sql=(migrations / "003_cost_accounting_foundation.sql").read_bytes())

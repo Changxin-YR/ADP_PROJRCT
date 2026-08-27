@@ -52,7 +52,7 @@ def seed(settings: Any) -> dict[str, int]:
 
 
 def test_real_mysql_sales_delivery_receivable_receipt_and_reversal_chain() -> None:
-    with disposable_database("adp_sales_test", through=14) as database:
+    with disposable_database("adp_sales_test", through=15) as database:
         settings = settings_for(database); ids = seed(settings); store = MySqlSalesStore(settings); service = SalesService(store)
         seller = actor(1, "sales.view", "sales.manage"); approver = actor(2, "sales.view", "sales.verify", "sales.manage")
         cashier = actor(3, "finance.receivable.view", "finance.receipt.manage"); checker = actor(4, "finance.receivable.view", "finance.receipt.verify"); finance_editor = actor(2, "finance.receipt.manage", "finance.receipt.verify")

@@ -40,11 +40,21 @@ def run_mysql(*args: str, sql: bytes | None = None) -> None:
         raise AssertionError(completed.stderr.decode("utf-8", errors="replace"))
 
 
+def grant_database_access(database: str) -> None:
+    test_user = os.environ.get("ADP_TEST_MYSQL_USER", "root").strip()
+    if not test_user or test_user == "root":
+        return
+    if not test_user.replace("_", "").replace("-", "").isalnum():
+        raise AssertionError("ADP_TEST_MYSQL_USER contains unsupported characters")
+    run_mysql(f"--execute=GRANT ALL PRIVILEGES ON `{database}`.* TO '{test_user}'@'127.0.0.1'")
+
+
 @contextmanager
 def disposable_database(prefix: str, *, through: int) -> Iterator[str]:
     database = f"{prefix}_{uuid4().hex[:12]}"
     run_mysql(f"--execute=CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
     try:
+        grant_database_access(database)
         migrations = sorted((ROOT / "database/migrations").glob("[0-9][0-9][0-9]_*.sql"))
         for migration in migrations:
             if int(migration.name[:3]) <= through:

@@ -31,7 +31,7 @@ def _seed(settings: Any) -> dict[str, int]:
         )
         ids["area_id"] = int(cursor.lastrowid)
         cursor.execute(
-            "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,status,created_by) VALUES (%s,%s,%s,'P1','一号塘','verified',1)",
+            "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,pond_status,status,created_by) VALUES (%s,%s,%s,'P1','一号塘','farming','verified',1)",
             (ids["organization_id"], ids["farm_id"], ids["area_id"]),
         )
         ids["pond_id"] = int(cursor.lastrowid)

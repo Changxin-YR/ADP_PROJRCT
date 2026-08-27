@@ -62,7 +62,9 @@ def expense(ids: dict[str, int], code: str = "EXP-REAL-1") -> dict[str, Any]:
 def completed_allocation(settings: Any, ids: dict[str, int], area_id: int, pond_id: int, source_ref: str) -> int:
     with get_connection(settings) as connection, connection.cursor() as cursor:
         cursor.execute("INSERT INTO cost_entries (organization_id,farm_id,area_id,category_id,amount,occurred_on,period_start,period_end,status,cost_nature,source_type,source_ref,created_by,confirmed_by,confirmed_at) SELECT %s,%s,%s,id,10,'2026-08-10','2026-08-01','2026-08-31','confirmed','public','expense',%s,1,3,NOW() FROM cost_categories WHERE code='electricity'", (ids["organization_id"], ids["farm_id"], area_id, source_ref)); entry_id = int(cursor.lastrowid)
-        cursor.execute("INSERT INTO cost_allocation_runs (organization_id,farm_id,area_id,period_start,period_end,rule_version_id,result_version,source_total,allocated_total,participant_snapshot_json,created_by) SELECT %s,%s,%s,'2026-08-01','2026-08-31',id,1,10,10,JSON_ARRAY(),1 FROM cost_allocation_rule_versions WHERE status='active' ORDER BY version_no DESC LIMIT 1", (ids["organization_id"], ids["farm_id"], area_id)); run_id = int(cursor.lastrowid)
+        cursor.execute("SELECT COALESCE(MAX(result_version),0)+1 AS version FROM cost_allocation_runs WHERE organization_id=%s AND farm_id=%s AND area_id=%s AND period_start='2026-08-01' AND period_end='2026-08-31'", (ids["organization_id"], ids["farm_id"], area_id))
+        result_version = int(cursor.fetchone()["version"])
+        cursor.execute("INSERT INTO cost_allocation_runs (organization_id,farm_id,area_id,period_start,period_end,rule_version_id,result_version,source_total,allocated_total,participant_snapshot_json,created_by) SELECT %s,%s,%s,'2026-08-01','2026-08-31',id,%s,10,10,JSON_ARRAY(),1 FROM cost_allocation_rule_versions WHERE status='active' ORDER BY version_no DESC LIMIT 1", (ids["organization_id"], ids["farm_id"], area_id, result_version)); run_id = int(cursor.lastrowid)
         cursor.execute("INSERT INTO cost_allocation_details (run_id,cost_entry_id,category_id,pond_id,amount,driver,driver_value,source_snapshot_json) SELECT %s,%s,category_id,%s,10,'equal',1,JSON_OBJECT('source_ref',source_ref) FROM cost_entries WHERE id=%s", (run_id, entry_id, pond_id, entry_id))
         return run_id
 
@@ -193,10 +195,13 @@ def test_real_mysql_cost_asset_allocation_settlement_chain() -> None:
             with get_connection(settings) as connection, connection.cursor() as cursor:
                 cursor.execute("UPDATE cost_settlement_sources SET amount=1 WHERE settlement_id=%s LIMIT 1", (settlement["id"],))
 
-        draft = service.create_settlement(maker, {"period_start": "2026-08-01", "period_end": "2026-08-31", "allocation_run_id": run["id"]})
+        # A reversed settlement creates a new confirmed reversal entry; use a
+        # fresh allocation result for the next settlement lifecycle.
+        run_id = completed_allocation(settings, ids, ids["area_id"], ids["pond_1"], "EXP-REOPEN")
+        draft = service.create_settlement(maker, {"period_start": "2026-08-01", "period_end": "2026-08-31", "allocation_run_id": run_id})
         service.delete_settlement(maker, draft["id"])
         assert one(settings, "SELECT COUNT(*) AS total FROM cost_settlements WHERE id=%s", (draft["id"],))["total"] == 0
-        repeated = service.create_settlement(maker, {"period_start": "2026-08-01", "period_end": "2026-08-31", "allocation_run_id": run["id"]})
+        repeated = service.create_settlement(maker, {"period_start": "2026-08-01", "period_end": "2026-08-31", "allocation_run_id": run_id})
         repeated = service.submit_settlement(maker, repeated["id"], {"expected_version": repeated["version"]})
         repeated = service.verify_settlement(reviewer, repeated["id"], {"expected_version": repeated["version"]})
         repeated = service.confirm_settlement(approver, repeated["id"], {"expected_version": repeated["version"]})

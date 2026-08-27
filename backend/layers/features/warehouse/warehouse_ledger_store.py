@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from decimal import Decimal
 from typing import Any
 from backend.layers.common.governance.lifecycle import DomainError
@@ -50,6 +49,7 @@ class WarehouseLedgerPoster:
             WHERE l.organization_id=%s AND l.material_id=%s AND l.status='available'
             GROUP BY l.id,l.expiry_date,l.material_id
             HAVING available>0
+            FOR UPDATE
             """,
             (row.get("id") or 0, row["warehouse_id"], row["warehouse_id"], row["organization_id"], row["material_id"]),
         )
@@ -193,7 +193,7 @@ class WarehouseLedgerPoster:
             if quantity >= 0:
                 continue
             cursor.execute(
-                "SELECT COALESCE(SUM(quantity_delta),0) AS quantity FROM inventory_ledger WHERE warehouse_id=%s AND material_id=%s AND inventory_lot_id=%s",
+                "SELECT COALESCE(SUM(quantity_delta),0) AS quantity FROM inventory_ledger WHERE warehouse_id=%s AND material_id=%s AND inventory_lot_id=%s FOR UPDATE",
                 (movement["warehouse_id"], row["material_id"], movement["inventory_lot_id"]),
             )
             available = Decimal(str((cursor.fetchone() or {}).get("quantity", 0)))

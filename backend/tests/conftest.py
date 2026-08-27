@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from backend.app import create_app
 from backend.config.settings import Settings
+from backend.tests.mysql_test_database import grant_database_access
 
 
 @pytest.fixture
@@ -55,6 +56,7 @@ def real_registration_db_adapter():
                "--default-character-set=utf8mb4", "--batch"]
     subprocess.run([*command, f"--execute=CREATE DATABASE `{database}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"], env=environment, check=True)
     try:
+        grant_database_access(database)
         subprocess.run([*command, f"--database={database}"], input=(PROJECT_ROOT / "database/migrations/001_initial_auth.sql").read_bytes(), env=environment, check=True)
         from backend.tests.mysql_registration_adapter import MySqlRegistrationTestAdapter
         yield MySqlRegistrationTestAdapter(host=environment.get("ADP_TEST_MYSQL_HOST", "127.0.0.1"),
