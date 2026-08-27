@@ -22,7 +22,7 @@ SCOPES = [
 ADMIN_USER = {
     "id": 1, "name": "系统管理员", "phone": "13800000000", "login_name": "admin", "status": "active",
     "roles": [{"id": 1, "code": "super_admin", "name": "超级管理员"}],
-    "data_scopes": [{"id": 1, "code": "farm-all", "name": "全场数据（所有基地）"}],
+    "data_scopes": [{"id": 1, "code": "farm-all", "name": "全场数据（所有基地）", "scope_type": "farm", "organization_id": 1}],
     "permissions": [
         "workbench.enter", "work_item.view", "work_item.manage",
         "master_data.view", "master_data.manage", "master_data.verify",
@@ -36,18 +36,18 @@ ADMIN_USER = {
 LIMITED_USER = {
     "id": 4, "name": "仓储查看员", "phone": "13900000002", "login_name": "viewer", "status": "active",
     "roles": [{"id": 4, "code": "warehouse_manager", "name": "仓储管理员"}],
-    "data_scopes": [{"id": 1, "code": "farm-all", "name": "全场数据（所有基地）"}],
+    "data_scopes": [{"id": 1, "code": "farm-all", "name": "全场数据（所有基地）", "scope_type": "farm", "organization_id": 1}],
     "permissions": ["workbench.enter", "work_item.view", "warehouse.view"],
 }
 MANAGED_USERS = [
     {**ADMIN_USER, "created_at": "2026-08-01 09:00:00", "updated_at": "2026-08-10 09:00:00"},
     {"id": 2, "name": "李养殖", "phone": "13900000001", "login_name": "li", "status": "active",
      "roles": [{"id": 2, "code": "breed_manager", "name": "养殖管理员"}],
-     "data_scopes": [{"id": 2, "code": "north-farm-all", "name": "北区基地全部数据"}],
+     "data_scopes": [{"id": 2, "code": "north-farm-all", "name": "北区基地全部数据", "scope_type": "area", "organization_id": 1, "area_id": 1}],
      "created_at": "2026-08-02 09:00:00", "updated_at": "2026-08-09 09:00:00"},
     {"id": 3, "name": "王仓储", "phone": "13900000002", "login_name": "wang", "status": "active",
      "roles": [{"id": 4, "code": "warehouse_manager", "name": "仓储管理员"}],
-     "data_scopes": [{"id": 4, "code": "personal-self", "name": "仅本人数据"}],
+     "data_scopes": [{"id": 4, "code": "personal-self", "name": "仅本人数据", "scope_type": "personal", "organization_id": 1}],
      "created_at": "2026-08-03 09:00:00", "updated_at": "2026-08-08 09:00:00"},
 ]
 APPLICATIONS = [
