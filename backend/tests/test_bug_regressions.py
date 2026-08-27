@@ -367,6 +367,33 @@ def test_feed_task_import_requires_explicit_pond(monkeypatch) -> None:
         )
 
 
+def test_warehouse_import_requires_explicit_warehouse() -> None:
+    import backend.layers.features.data_exchange.importers as importers
+
+    class Cursor:
+        lastrowid = 42
+
+        def __init__(self) -> None:
+            self.rows = iter([
+                {"id": 7},
+                {"id": 1},
+                {"organization_id": 1, "farm_id": 2, "area_id": 3},
+            ])
+
+        def execute(self, *_args: object, **_kwargs: object) -> None:
+            return None
+
+        def fetchone(self) -> dict[str, object]:
+            return next(self.rows)
+
+    with pytest.raises(DomainError, match="WAREHOUSE_REQUIRED"):
+        importers._import_warehouse_document(
+            Cursor(),
+            {"code": "IN-MISSING-WH", "name": "入库", "material_id": 7, "quantity": 1, "happened_at": "2026-08-27"},
+            organization_id=1, user={"id": 1}, user_id=1, doc_type="receipt", entity_type="warehouse:receipts",
+        )
+
+
 def test_cost_import_requires_explicit_farm_for_unrestricted_user(monkeypatch) -> None:
     from backend.layers.features.data_exchange.importers_finance import import_expense
 

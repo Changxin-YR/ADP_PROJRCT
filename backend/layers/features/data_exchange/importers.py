@@ -21,7 +21,6 @@ from backend.layers.features.data_exchange.import_refs import (
     _date,
     _decimal,
     _fetch,
-    _first_warehouse,
     _int,
     _pond,
     _text,
@@ -143,7 +142,9 @@ def _import_warehouse_document(cursor: Any, row: dict[str, Any], *, organization
     material = _fetch(cursor, "SELECT id FROM materials WHERE id=%s AND organization_id=%s AND status='verified'", (_int(row.get("material_id")), organization_id))
     if material is None:
         raise DomainError("WAREHOUSE_MATERIAL_INVALID", "物料不存在、未核验或不属于当前企业", 400)
-    warehouse_id = _int(row.get("warehouse_id")) or _first_warehouse(cursor, organization_id)
+    warehouse_id = _int(row.get("warehouse_id"))
+    if warehouse_id is None:
+        raise DomainError("WAREHOUSE_REQUIRED", "仓储导入必须明确填写仓库", 400)
     warehouse = _warehouse(cursor, organization_id, warehouse_id)
     enforce_area_scope(user, int(warehouse["area_id"] or 0))
     target = _int(row.get("target_warehouse_id"))
