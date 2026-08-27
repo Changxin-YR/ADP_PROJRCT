@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -44,6 +45,16 @@ class SalesService:
                 raise ValueError
         except (InvalidOperation, ValueError) as exc:
             raise DomainError("SALES_AMOUNT_INVALID", "数量、单价和金额必须大于零", 400) from exc
+
+    @staticmethod
+    def validate_dates(row: dict[str, Any]) -> None:
+        try:
+            sold = date.fromisoformat(str(row["sold_at"])) if row.get("sold_at") else None
+            due = date.fromisoformat(str(row["due_date"])) if row.get("due_date") else None
+        except (TypeError, ValueError) as exc:
+            raise DomainError("SALES_DATE_INVALID", "销售日期格式无效", 400) from exc
+        if sold and due and due < sold:
+            raise DomainError("SALES_DATE_INVALID", "收款到期日不能早于销售日期", 400)
 
     @staticmethod
     def dates(row: dict[str, Any]) -> dict[str, Any]:
@@ -103,6 +114,7 @@ class SalesService:
         if clean["unit"] not in {"kg", "jin", "tail"}:
             raise DomainError("SALES_UNIT_INVALID", "销售单位仅支持 kg、jin 或 tail", 400)
         self.positive(clean, "quantity", "unit_price")
+        self.validate_dates(clean)
         return self.order_result(self.store.create_order(clean, user=user, user_id=int(user["id"])), user)
 
     def order(self, user: dict[str, Any], record_id: int) -> dict[str, Any]:
@@ -115,6 +127,7 @@ class SalesService:
         verify_version(expected_version=expected, current_version=int(current["row_version"])); clean = self.clean(payload, ORDER_FIELDS)
         if not clean: raise DomainError("SALES_NO_CHANGES", "没有可保存的修改", 400)
         self.positive({**current, **clean}, "quantity", "unit_price")
+        self.validate_dates({**current, **clean})
         return self.order_result(self.store.update_order(record_id, clean, expected_version=expected, user=user, user_id=int(user["id"])), user)
 
     def order_transition(self, user: dict[str, Any], record_id: int, payload: Any, before: str, after: str) -> dict[str, Any]:

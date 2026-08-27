@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import type { PurchaseOrder } from '../../common/api/purchase.models'
-import { listMasterOptions } from '../../features/master-data/master-data.service'
+import { listAllMasterOptions } from '../../features/master-data/master-data.service'
 import { listPurchaseOrders } from '../../features/purchase/purchase.service'
 import { listWarehouseOptions } from '../../features/warehouse/warehouse.service'
 import WarehouseRecordsPage from './WarehouseRecordsPage.vue'
@@ -29,9 +29,9 @@ const fields = computed(() => [
 onMounted(async () => {
   try {
     const [materialPage, warehousePage, approved, partial] = await Promise.all([
-      listMasterOptions('materials'), listWarehouseOptions(), listPurchaseOrders({ page_size: 100, status: 'approved' }), listPurchaseOrders({ page_size: 100, status: 'partially_received' }),
+      listAllMasterOptions('materials'), listWarehouseOptions(), listPurchaseOrders({ page_size: 100, status: 'approved' }), listPurchaseOrders({ page_size: 100, status: 'partially_received' }),
     ])
-    materials.value = materialPage.items; warehouses.value = warehousePage.items
+    materials.value = materialPage; warehouses.value = warehousePage.items
     orders.value = [...new Map([...approved.items, ...partial.items].map((row) => [row.id, row])).values()]
   } catch { optionError.value = '仓储数据加载失败：入库关联选项加载失败，请重新进入页面' }
 })

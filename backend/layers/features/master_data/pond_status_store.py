@@ -54,7 +54,7 @@ class MySqlPondStatusStore:
                     module_code="master_data",
                     action_code="verify",
                     object_type="master:pond_status_change",
-                    object_id=request_id,
+                    object_id=pond_id,
                     object_ref=f"pond_status_change:{request_id}",
                     source_key=source_key,
                     title=f"核验塘口状态变更：{pond['name']}",

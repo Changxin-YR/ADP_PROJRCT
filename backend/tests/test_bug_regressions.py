@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from decimal import Decimal
 
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.master_data.master_data_service import MasterDataService
@@ -215,6 +216,17 @@ def test_warehouse_update_rejects_blank_code_and_name() -> None:
         service.update_warehouse(user, 1, {"code": ""})
     with pytest.raises(DomainError, match="WAREHOUSE_REQUIRED_FIELDS"):
         service.update_warehouse(user, 1, {"name": "   "})
+
+
+def test_finance_notifications_use_parent_document_area_scope() -> None:
+    import inspect
+    from backend.layers.features.purchase import purchase_payment_store
+    from backend.layers.features.sales import sales_receipt_store
+
+    payment_source = inspect.getsource(purchase_payment_store.set_payment_status)
+    receipt_source = inspect.getsource(sales_receipt_store.set_receipt_status)
+    assert "area_id=payable.get(\"area_id\")" in payment_source
+    assert "area_id=source.get(\"area_id\")" in receipt_source
 def test_feed_log_requires_positive_quantity_or_weight() -> None:
     service = ProductionService(FakeProductionStore())
     with pytest.raises(DomainError, match="PRODUCTION_QUANTITY_REQUIRED"):
@@ -279,6 +291,128 @@ def test_feed_log_relation_validation_rejects_a_non_task_reference() -> None:
         MySqlProductionStore._validate_relations(Cursor(), "feed-logs", {
             "id": 9, "organization_id": 1, "batch_id": 3, "pond_id": 10, "feed_task_id": 4,
         })
+
+
+def test_feed_importers_preserve_schedule_and_business_links(monkeypatch) -> None:
+    import backend.layers.features.data_exchange.importers as importers
+
+    class Cursor:
+        lastrowid = 41
+
+        def __init__(self):
+            self.statement = ""
+            self.params = ()
+
+        def execute(self, statement, params=()):
+            self.statement, self.params = statement, params
+
+    monkeypatch.setattr(importers, "_pond", lambda *_args: {"farm_id": 1, "area_id": 2, "organization_id": 9})
+    cursor = Cursor()
+    importers._import_production_document(
+        cursor,
+        {"code": "FP-1", "name": "计划", "pond_id": 3, "batch_id": 4, "material_id": 5, "quantity": 10, "planned_at": "2026-08-27 08:00", "happened_at": "2026-08-27", "reason": ""},
+        organization_id=9, user={"id": 7, "data_scopes": [{"scope_type": "farm"}]}, user_id=7, doc_type="feed_plan", entity_type="production:feed-plans",
+    )
+    assert "planned_at" in cursor.statement
+    assert cursor.params[14] == "2026-08-27 08:00"
+
+    cursor = Cursor()
+    importers._import_production_document(
+        cursor,
+        {"code": "FL-1", "name": "记录", "pond_id": 3, "batch_id": 4, "material_id": 5, "feed_task_id": 6, "material_issue_request_id": 8, "quantity": 2, "happened_at": "2026-08-27", "reason": ""},
+        organization_id=9, user={"id": 7, "data_scopes": [{"scope_type": "farm"}]}, user_id=7, doc_type="feed_log", entity_type="production:feed-logs",
+    )
+    assert "feed_task_id" in cursor.statement and "material_issue_request_id" in cursor.statement
+    assert 6 in cursor.params and 8 in cursor.params
+
+
+def test_feed_task_import_rejects_non_breeding_assignee(monkeypatch) -> None:
+    import backend.layers.features.data_exchange.importers as importers
+
+    class Cursor:
+        lastrowid = 42
+
+        def __init__(self):
+            self.fetches = iter([{"id": 10}, None])
+
+        def execute(self, *_args):
+            return None
+
+        def fetchone(self):
+            return next(self.fetches)
+
+    monkeypatch.setattr(importers, "_pond", lambda *_args: {"farm_id": 1, "area_id": 2, "organization_id": 9})
+    with pytest.raises(DomainError, match="FEED_TASK_ASSIGNEE_INVALID"):
+        importers._import_production_document(
+            Cursor(),
+            {"code": "FT-1", "name": "派工", "pond_id": 3, "assignee_id": 10, "happened_at": "2026-08-27"},
+            organization_id=9, user={"id": 7, "data_scopes": [{"scope_type": "farm"}]}, user_id=7, doc_type="feed_task", entity_type="production:feed-tasks",
+        )
+
+
+def test_feed_task_import_requires_explicit_pond(monkeypatch) -> None:
+    import backend.layers.features.data_exchange.importers as importers
+
+    class Cursor:
+        lastrowid = 42
+        def execute(self, *_args):
+            raise AssertionError("must reject before selecting a fallback pond")
+
+    with pytest.raises(DomainError, match="POND_REQUIRED"):
+        importers._import_production_document(
+            Cursor(),
+            {"code": "FT-2", "name": "派工", "assignee_id": 10, "happened_at": "2026-08-27"},
+            organization_id=9, user={"id": 7, "data_scopes": [{"scope_type": "farm"}]}, user_id=7,
+            doc_type="feed_task", entity_type="production:feed-tasks",
+        )
+
+
+def test_cost_import_requires_explicit_farm_for_unrestricted_user(monkeypatch) -> None:
+    from backend.layers.features.data_exchange.importers_finance import import_expense
+
+    class Cursor:
+        def execute(self, statement, params=()):
+            if "SELECT id FROM cost_categories" in statement:
+                self.rows = [{"id": 9}]
+            elif "SELECT default_nature" in statement:
+                self.rows = [{"default_nature": "direct"}]
+            elif "FROM farms" in statement:
+                self.rows = [{"id": 1, "organization_id": 1}]
+            else:
+                raise AssertionError("must reject before selecting a fallback farm")
+        def fetchone(self):
+            return self.rows.pop(0)
+
+    with pytest.raises(DomainError, match="COST_SCOPE_REQUIRED"):
+        import_expense(
+            Cursor(), {"code": "EXP-UNSCOPED", "name": "费用", "category_code": "FEED", "amount": 100, "happened_at": "2026-08-24"},
+            organization_id=1, user={"id": 7, "roles": [{"code": "super_admin"}], "data_scopes": [{"scope_type": "farm"}]}, user_id=7,
+        )
+
+
+def test_second_warehouse_correction_uses_effective_parent_movements(monkeypatch) -> None:
+    poster = WarehouseLedgerPoster()
+    monkeypatch.setattr(poster, "_ledger_movements", lambda _cursor, source_id, _source_type=None: {
+        1: [{"warehouse_id": 1, "inventory_lot_id": 8, "quantity_delta": Decimal("-100")}],
+        2: [{"warehouse_id": 1, "inventory_lot_id": 8, "quantity_delta": Decimal("20")}],
+    }.get(source_id, []))
+
+    class Cursor:
+        def __init__(self):
+            self.params = ()
+
+        def execute(self, _statement, params=()):
+            self.params = params
+
+        def fetchone(self):
+            return {"correction_of_id": 1} if self.params == (2,) else {}
+
+        def fetchall(self):
+            return []
+
+    assert poster._effective_movements(Cursor(), 2) == [
+        {"warehouse_id": 1, "inventory_lot_id": 8, "quantity_delta": Decimal("-80")}
+    ]
 def test_low_stock_alerts_aggregate_all_lots_of_one_material() -> None:
     from backend.layers.features.warehouse.warehouse_alert_store import _collapse_low_stock_alerts
 
@@ -287,6 +421,25 @@ def test_low_stock_alerts_aggregate_all_lots_of_one_material() -> None:
         {"warehouse_id": 1, "material_id": 7, "inventory_lot_id": 12, "alert_type": "low_stock", "current_quantity": 40, "safety_stock": 50},
     ]
     assert _collapse_low_stock_alerts(rows) == []
+
+
+def test_submitted_scrap_reservation_uses_latest_correction_only() -> None:
+    from backend.layers.features.warehouse.warehouse_ledger_store import WarehouseLedgerPoster
+
+    class Cursor:
+        sql = ""
+        def execute(self, sql: str, _params: tuple[object, ...]) -> None:
+            self.sql = sql
+        @staticmethod
+        def fetchall() -> list[dict[str, object]]: return []
+
+    cursor = Cursor()
+    WarehouseLedgerPoster()._lots(cursor, {
+        "id": 9, "warehouse_id": 1, "organization_id": 1, "material_id": 7,
+    })
+    assert "NOT EXISTS" in cursor.sql
+
+
 def test_breed_worker_permission_covers_issue_request_creation() -> None:
     WarehouseService.require({"permissions": ["production.manage"]}, "manage", "issue-requests")
 def test_feed_records_require_a_farming_pond() -> None:

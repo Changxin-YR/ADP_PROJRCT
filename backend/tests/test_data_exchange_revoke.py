@@ -105,3 +105,12 @@ def test_data_exchange_migration_protects_audit_and_import_facts() -> None:
     sql = migration.read_text(encoding="utf-8")
     for marker in ("CREATE TABLE data_import_batches", "UNIQUE KEY uq_data_import_file", "CREATE TABLE data_export_audits", "data_export_audits_no_update", "data_export_audits_no_delete"):
         assert marker in sql
+
+
+def test_follow_up_migration_revokes_breed_worker_data_exchange_overgrant() -> None:
+    migration = ROOT / "database/migrations/027_revoke_breed_worker_data_exchange.sql"
+    assert migration.exists()
+    sql = migration.read_text(encoding="utf-8").lower()
+    assert "delete rp" in sql
+    assert "r.code='breed_worker'" in sql
+    assert "p.code in ('data_exchange.view','data_exchange.export')" in sql

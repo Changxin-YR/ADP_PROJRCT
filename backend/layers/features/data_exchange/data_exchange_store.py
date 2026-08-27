@@ -18,8 +18,6 @@ from backend.layers.features.data_exchange.import_scope_validation import valida
 from backend.layers.features.data_exchange.import_validation import validate_rows as validate_import_rows
 from backend.layers.features.data_exchange.importers import get_importer
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
-
-
 class MySqlDataExchangeStore:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -37,7 +35,6 @@ class MySqlDataExchangeStore:
             if hasattr(value, "isoformat"):
                 result[key] = value.isoformat()
         return result
-
     @staticmethod
     def _organizations(user: dict[str, Any]) -> set[int] | None:
         scopes = require_active_scope(user)
@@ -78,20 +75,17 @@ class MySqlDataExchangeStore:
             cursor.execute(f"SELECT * FROM data_import_batches{where} ORDER BY id DESC LIMIT %s OFFSET %s", params + (page_size, (page - 1) * page_size))
             items = [self._decode(row) or {} for row in cursor.fetchall()]
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
-
     def get_import(self, batch_id: int, user: dict[str, Any]) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT * FROM data_import_batches WHERE id=%s", (batch_id,))
             row = self._decode(cursor.fetchone())
         allowed = self._organizations(user)
         return row if row and (allowed is None or int(row["organization_id"]) in allowed) else None
-
     def validate_rows(self, user: dict[str, Any], organization_id: int, template_code: str, rows: list[dict[str, Any]], row_numbers: list[int]) -> list[dict[str, Any]]:
         """预览阶段业务校验（编号唯一、关联对象存在、非法状态等），错误逐行列+中文原因。"""
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             errors = validate_import_rows(cursor, organization_id, template_code, rows, row_numbers)
             return errors + validate_import_scope(cursor, user, organization_id, template_code, rows, row_numbers)
-
     def confirm_import(self, batch_id: int, user: dict[str, Any]) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT * FROM data_import_batches WHERE id=%s FOR UPDATE", (batch_id,))
@@ -120,7 +114,6 @@ class MySqlDataExchangeStore:
         except pymysql.IntegrityError as exc:
             raise DomainError("IMPORT_RECORD_CONFLICT", "导入内容与已有正式或草稿记录冲突，整批已回滚", 409) from exc
         return inserted
-
     # 撤销：entity_type -> (业务表, 是否为只追加账本)
     REVOKE_TARGETS = {
         "master:ponds": ("ponds", False), "master:materials": ("materials", False),
@@ -175,8 +168,6 @@ class MySqlDataExchangeStore:
             after = self._decode(cursor.fetchone()) or {}
             self._audit(connection, int(user["id"]), "revoke_import", batch_id, before=before, after=after)
             return after
-
-
     @staticmethod
     def _export_scope(user: dict[str, Any], resource: str) -> tuple[str, list[Any]]:
         scopes = require_active_scope(user)
@@ -196,17 +187,29 @@ class MySqlDataExchangeStore:
         if own:
             return f" AND {own}=%s", [int(user["id"])]
         return " AND 1=0", []
-
     @staticmethod
     def _matches_export_filters(row: dict[str, Any], filters: dict[str, Any]) -> bool:
         status = str(filters.get("status") or "")
         if status and str(row.get("status")) != status:
             return False
+        for key in ("area_id", "pond_id", "warehouse_id", "supplier_id", "customer_id", "batch_id"):
+            value = filters.get(key)
+            if value not in (None, "") and str(row.get(key)) != str(value):
+                return False
+        created = str(row.get("created_at") or row.get("happened_at") or row.get("sold_at") or "")[:10]
+        if filters.get("created_from") and created < str(filters["created_from"]):
+            return False
+        if filters.get("created_to") and created > str(filters["created_to"]):
+            return False
+        business = str(row.get("happened_at") or row.get("sold_at") or row.get("paid_at") or row.get("received_at") or row.get("occurred_on") or "")[:10]
+        if filters.get("business_date_from") and business < str(filters["business_date_from"]):
+            return False
+        if filters.get("business_date_to") and business > str(filters["business_date_to"]):
+            return False
         search = str(filters.get("search") or "").strip().lower()
         return not search or search in " ".join(
             str(value) for value in row.values() if value is not None
         ).lower()
-
     @contextmanager
     def export_stream(
         self,
@@ -233,18 +236,15 @@ class MySqlDataExchangeStore:
                             yield row
 
             yield generate()
-
     def export_rows(self, user: dict[str, Any], resource: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
         with self.export_stream(user, resource, filters) as rows:
             return list(rows)
-
     def record_export(self, payload: dict[str, Any]) -> int:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute("INSERT INTO data_export_audits (organization_id,resource_code,format,filters_json,row_count,request_id,exported_by) VALUES (%s,%s,%s,%s,%s,%s,%s)", (payload["organization_id"], payload["resource"], payload["format"], json.dumps(payload["filters"], ensure_ascii=False), payload["row_count"], payload["request_id"], payload["exported_by"]))
             export_id = int(cursor.lastrowid)
             self._audit(connection, int(payload["exported_by"]), "export_data", export_id, after=payload)
             return export_id
-
     _target_scope_allows = staticmethod(target_scope_allows)
 
     def attachment_target_exists(self, organization_id: int, entity_type: str, entity_id: int) -> bool:

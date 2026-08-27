@@ -13,12 +13,46 @@ from backend.tests.fake_auth_store import FakeAuthStore
 from backend.layers.features.data_exchange.data_exchange_service import DataExchangeService
 from backend.layers.common.db.repositories.user_repository import UserRepository
 from backend.layers.features.data_exchange.data_exchange_store import MySqlDataExchangeStore
+from backend.layers.features.data_exchange.template_catalog import get_template
+from backend.layers.features.data_exchange.workbooks import preview_workbook
+from backend.layers.features.data_exchange.import_validation import validate_rows
 from backend.layers.common.governance.lifecycle import DomainError
 
 
 ROOT = Path(__file__).parents[2]
 def test_farm_scope_without_organization_id_allows_organization_access() -> None:
     DataExchangeService.scope({"roles": [{"code": "super_admin"}], "data_scopes": [{"scope_type": "farm"}]}, 1)
+
+
+def test_export_requires_module_permission_in_addition_to_exchange_permission(tmp_path: Path) -> None:
+    service = DataExchangeService(FakeExchangeStore(), tmp_path)
+    user = {"id": 1, "permissions": ["data_exchange.export"], "roles": [{"code": "breed_worker"}], "data_scopes": [{"scope_type": "farm", "organization_id": 1}]}
+    with pytest.raises(DomainError, match="FORBIDDEN"):
+        service.export(user, organization_id=1, resource="payments", file_format="xlsx", filters={}, request_id="r")
+
+
+def test_export_rejects_filters_not_supported_by_resource(tmp_path: Path) -> None:
+    service = DataExchangeService(FakeExchangeStore(), tmp_path)
+    user = {"id": 1, "permissions": ["data_exchange.export"], "roles": [{"code": "super_admin"}], "data_scopes": [{"scope_type": "farm", "organization_id": 1}]}
+
+    with pytest.raises(DomainError, match="EXPORT_FILTER_INVALID"):
+        service.export(user, organization_id=1, resource="materials", file_format="xlsx", filters={"pond_id": 1}, request_id="r")
+
+
+def test_attachment_requires_the_target_business_module_permission(tmp_path: Path) -> None:
+    service = DataExchangeService(FakeExchangeStore(), tmp_path)
+    user = {
+        "id": 7,
+        "permissions": ["attachment.manage", "production.view"],
+        "roles": [{"code": "breed_worker"}],
+        "data_scopes": [{"scope_type": "farm", "organization_id": 1}],
+    }
+
+    with pytest.raises(DomainError, match="FORBIDDEN"):
+        service.upload_attachment(
+            user, organization_id=1, entity_type="cost:expense", entity_id=9,
+            file_name="invoice.pdf", media_type="application/pdf", content=b"%PDF-1.4\n%%EOF\n",
+        )
 
 
 def test_super_admin_farm_scope_is_unrestricted_for_exchange_store() -> None:
@@ -200,7 +234,7 @@ def settings(tmp_path: Path) -> Settings:
 def client(tmp_path: Path, store: FakeExchangeStore | None = None):
     auth = FakeAuthStore()
     user = auth.add_user(phone="13800000801", login_name="exchange-admin", password="Correct9!", status="active")
-    user.update(permissions=["data_exchange.view", "data_exchange.import", "data_exchange.export", "attachment.manage"])
+    user.update(permissions=["data_exchange.view", "data_exchange.import", "data_exchange.export", "attachment.manage", "cost.view"])
     app = create_app(settings(tmp_path), store=auth, data_exchange_store=store or FakeExchangeStore())
     browser = app.test_client()
     csrf = browser.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]
@@ -246,6 +280,79 @@ def test_templates_are_versioned_and_downloadable(tmp_path: Path) -> None:
     assert downloaded.status_code == 200
     assert downloaded.data.startswith(b"PK")
     assert downloaded.headers["X-Template-Version"]
+
+
+def test_preview_rejects_invalid_datetime_values() -> None:
+    from openpyxl import Workbook
+
+    book = Workbook()
+    sheet = book.active
+    template = get_template("feed-plans")
+    sheet.append([field.key for field in template.fields])
+    sheet.append(["FEED-1", "计划", 1, 1, 1, 2, 10, "2026-99-99 25:61"])
+    output = BytesIO()
+    book.save(output)
+
+    result = preview_workbook(template, output.getvalue())
+
+    assert any(item["column"] == "planned_at" and "日期时间" in item["message"] for item in result["errors"])
+
+
+def test_import_validation_rejects_inventory_lot_for_another_material() -> None:
+    class Cursor:
+        def execute(self, sql: str, params: tuple[object, ...]) -> None:
+            self.last_sql = sql
+            self.last_params = params
+
+        def fetchall(self) -> list[dict[str, object]]:
+            if "SELECT id FROM materials" in self.last_sql:
+                return [{"id": 7}]
+            if "SELECT id FROM warehouses" in self.last_sql:
+                return [{"id": 2}]
+            return []
+
+        def fetchone(self) -> dict[str, object] | None:
+            if "FROM inventory_lots" in self.last_sql:
+                return {"organization_id": 1, "material_id": 99, "status": "available"}
+            return None
+
+    errors = validate_rows(
+        Cursor(), 1, "scraps",
+        [{"code": "SCRAP-1", "name": "报损", "warehouse_id": 2, "material_id": 7, "inventory_lot_id": 8, "quantity": 1, "happened_at": "2026-08-26", "reason": "破损"}],
+        [2],
+    )
+
+    assert any(item["column"] == "inventory_lot_id" and "物料" in item["message"] for item in errors)
+
+
+def test_import_validation_rejects_asset_salvage_not_below_original_value() -> None:
+    class Cursor:
+        def execute(self, _sql: str, _params: tuple[object, ...] = ()) -> None:
+            pass
+
+        def fetchall(self) -> list[dict[str, object]]:
+            return []
+
+    errors = validate_rows(
+        Cursor(), 1, "assets",
+        [{"code": "ASSET-1", "name": "设备", "farm_id": 1, "asset_type": "equipment", "category_code": "equipment", "amount": "100.00", "salvage_value": "100.00", "useful_life_months": 12, "purchase_date": "2026-08-01", "depreciation_start_date": "2026-08-01"}],
+        [2],
+    )
+
+    assert any(item["column"] == "salvage_value" and "小于资产原值" in item["message"] for item in errors)
+
+
+def test_import_validation_returns_empty_errors_for_valid_template_without_special_checks() -> None:
+    class Cursor:
+        def execute(self, _sql: str, _params: tuple[object, ...] = ()) -> None:
+            pass
+
+        def fetchall(self) -> list[dict[str, object]]:
+            return [{"id": 1, "code": "MAT-1"}]
+
+    errors = validate_rows(Cursor(), 1, "materials", [{"code": "MAT-2", "name": "饲料"}], [2])
+
+    assert errors == []
 
 
 def test_preview_rejects_bad_rows_deduplicates_hash_and_blocks_confirmation(tmp_path: Path) -> None:

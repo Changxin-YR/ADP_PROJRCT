@@ -115,6 +115,12 @@ def test_submitted_sales_edit_bumps_version_and_approved_is_read_only() -> None:
         service.update_order(maker, order["id"], {"expected_version": 4, "quantity": 130})
 
 
+def test_sales_due_date_cannot_precede_sale_date() -> None:
+    service = SalesService(SalesStore())
+    with pytest.raises(DomainError, match="SALES_DATE_INVALID"):
+        service.create_order(actor(7, "sales.manage"), order_payload(sold_at="2026-09-10", due_date="2026-09-01"))
+
+
 def test_partial_and_full_delivery_are_verified_separately() -> None:
     store = SalesStore(); service = SalesService(store)
     maker = actor(7, "sales.view", "sales.manage"); checker = actor(8, "sales.verify")

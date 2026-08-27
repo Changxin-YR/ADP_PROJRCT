@@ -86,6 +86,8 @@ class MySqlCostAllocationStore:
             direct_pond = int(entry["target_id"])
         elif entry.get("target_type") == "batch":
             direct_pond = next((int(row["pond_id"]) for row in participants if row.get("batch_id") == entry.get("target_id")), None)
+            if direct_pond is None:
+                raise DomainError("COST_TARGET_BATCH_INVALID", "成本归属批次不在当前期间的有效核算范围内", 409)
         if direct_pond is not None:
             return [(int(row["pond_id"]), Decimal("1") if int(row["pond_id"]) == direct_pond else Decimal("0")) for row in participants], False
         driver = str(rule.get("driver") or "equal")

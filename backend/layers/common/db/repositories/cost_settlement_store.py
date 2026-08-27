@@ -63,15 +63,36 @@ class MySqlCostSettlementStore:
         )
         return list(cursor.fetchall())
 
+    def _assert_sources_current(self, cursor: Any, settlement: dict[str, Any]) -> None:
+        """正式核验前重读收入和成本来源，避免确认过期快照。"""
+        stored = {
+            (str(row.get("direction")), int(row.get("source_id"))): Decimal(str(row.get("amount") or 0))
+            for row in settlement.get("sources", [])
+        }
+        income = self._income_sources(cursor, settlement, settlement["period_start"], settlement["period_end"])
+        current = {
+            ("income", int(row["source_id"])): Decimal(str(row.get("amount") or 0))
+            for row in income
+        }
+        current.update({
+            ("cost", int(row["source_id"])): Decimal(str(row.get("amount") or 0))
+            for row in self._cost_sources(cursor, int(settlement["allocation_run_id"]))
+        })
+        if current != stored:
+            raise DomainError("COST_SETTLEMENT_STALE", "结算来源已变化，请重新生成结算", 409)
+
     def create_settlement(self, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT * FROM cost_allocation_runs WHERE id=%s AND status='completed' FOR UPDATE", (payload["allocation_run_id"],)); run = cursor.fetchone()
             if not run or run["period_start"] != payload["period_start"] or run["period_end"] != payload["period_end"]:
                 raise DomainError("COST_SETTLEMENT_RUN_INVALID", "结算期间与有效分摊结果不匹配", 422)
             require_scope(user, {**run, "created_by": user_id})
-            cursor.execute("SELECT id FROM cost_settlements WHERE organization_id=%s AND farm_id=%s AND area_id<=>%s AND period_start=%s AND period_end=%s AND status<>'reversed' LIMIT 1", (run["organization_id"], run["farm_id"], run.get("area_id"), payload["period_start"], payload["period_end"]))
+            cursor.execute("SELECT id FROM cost_settlements WHERE organization_id=%s AND farm_id=%s AND area_id<=>%s AND status<>'reversed' AND period_start<=%s AND period_end>=%s LIMIT 1", (run["organization_id"], run["farm_id"], run.get("area_id"), payload["period_end"], payload["period_start"]))
             if cursor.fetchone():
-                raise DomainError("COST_SETTLEMENT_PERIOD_EXISTS", "该期间已有未反结算记录", 409)
+                raise DomainError("COST_SETTLEMENT_PERIOD_OVERLAP", "结算期间与已有未反结算期间重叠", 409)
+            cursor.execute("SELECT 1 FROM cost_entries WHERE organization_id=%s AND farm_id=%s AND (%s IS NULL OR area_id=%s) AND status='confirmed' AND period_start<=%s AND period_end>=%s AND COALESCE(verified_at,created_at)>%s LIMIT 1", (run["organization_id"], run["farm_id"], run.get("area_id"), run.get("area_id"), payload["period_end"], payload["period_start"], run["created_at"]))
+            if cursor.fetchone():
+                raise DomainError("COST_SETTLEMENT_RUN_STALE", "分摊结果已过期，请重新运行成本分摊", 409)
             income_sources = self._income_sources(cursor, run, payload["period_start"], payload["period_end"]); cost_sources = self._cost_sources(cursor, run["id"])
             income = sum((Decimal(str(row["amount"])) for row in income_sources), Decimal("0")); cost = sum((Decimal(str(row["amount"])) for row in cost_sources), Decimal("0"))
             cursor.execute("SELECT COUNT(*)+1 AS version FROM cost_settlements WHERE organization_id=%s AND farm_id=%s AND area_id<=>%s AND period_start=%s AND period_end=%s", (run["organization_id"], run["farm_id"], run.get("area_id"), payload["period_start"], payload["period_end"])); version = int(cursor.fetchone()["version"])
@@ -118,12 +139,16 @@ class MySqlCostSettlementStore:
     def transition_settlement(self, record_id: int, status: str, *, expected_version: int, user: dict[str, Any], user_id: int, **_: Any) -> dict[str, Any]:
         previous = {"submitted": "draft", "verified": "submitted", "confirmed": "verified"}[status]
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            before = self._get(cursor, record_id, True)
+            before = self._get(cursor, record_id, True, sources=status in {"verified", "confirmed"})
             if not before:
                 raise DomainError("COST_SETTLEMENT_NOT_FOUND", "结算记录不存在", 404)
             require_scope(user, before)
             if before["status"] != previous or int(before["row_version"]) != expected_version:
                 raise DomainError("VERSION_CONFLICT", "状态或版本已变化，请刷新后重试", 409)
+            if status in {"verified", "confirmed"}:
+                self._assert_sources_current(cursor, before)
+            if status == "confirmed" and int(before.get("verified_by") or 0) == int(user_id):
+                raise DomainError("SELF_APPROVAL_FORBIDDEN", "结算核验人与确认人必须分离", 403)
             assignment = {"submitted": "", "verified": ",verified_by=%s,verified_at=NOW()", "confirmed": ",confirmed_by=%s,confirmed_at=NOW()"}[status]
             params: list[Any] = [status]
             if assignment:

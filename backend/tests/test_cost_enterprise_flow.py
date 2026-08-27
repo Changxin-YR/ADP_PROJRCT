@@ -295,3 +295,22 @@ def test_settlement_draft_delete_and_submitted_edit_match_advertised_actions() -
     assert edited["allowed_actions"] == ["view", "edit"]
     with pytest.raises(DomainError, match="DELETE_NOT_ALLOWED"):
         service.delete_settlement(MANAGER, 3)
+
+
+def test_settlement_source_recheck_rejects_new_income_before_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
+    from backend.layers.common.db.repositories.cost_settlement_store import MySqlCostSettlementStore
+
+    store = object.__new__(MySqlCostSettlementStore)
+    before = {
+        "allocation_run_id": 4,
+        "period_start": "2026-08-01",
+        "period_end": "2026-08-31",
+        "organization_id": 1,
+        "farm_id": 2,
+        "area_id": 3,
+        "sources": [{"direction": "income", "source_id": 10, "amount": "100.00"}],
+    }
+    monkeypatch.setattr(store, "_income_sources", lambda *_args: [{"source_id": 10, "amount": "100.00"}, {"source_id": 11, "amount": "20.00"}])
+    monkeypatch.setattr(store, "_cost_sources", lambda *_args: [])
+    with pytest.raises(DomainError, match="COST_SETTLEMENT_STALE"):
+        store._assert_sources_current(object(), before)

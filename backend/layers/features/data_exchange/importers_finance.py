@@ -16,7 +16,6 @@ from backend.layers.features.data_exchange.import_refs import (
     _decimal,
     _fetch,
     _first_category,
-    _first_farm,
     _first_warehouse,
     _int,
     _text,
@@ -111,9 +110,13 @@ def import_expense(cursor: Any, row: dict[str, Any], *, organization_id: int, us
         raise DomainError("COST_CATEGORY_INVALID", "成本分类不存在或已停用", 400)
     nature = _fetch(cursor, "SELECT default_nature FROM cost_categories WHERE id=%s", (category_id,))["default_nature"]
     scope = scoped_area_defaults(cursor, user, organization_id)
-    farm_id = scope.get("farm_id") or _first_farm(cursor, organization_id)
+    farm_id = scope.get("farm_id") or _int(row.get("farm_id"))
     if farm_id is None:
-        raise DomainError("COST_SCOPE_REQUIRED", "企业没有基地，无法登记费用", 400)
+        raise DomainError("COST_SCOPE_REQUIRED", "费用导入必须明确填写基地，不能自动绑定默认基地", 400)
+    if not scope:
+        farm = _fetch(cursor, "SELECT id,organization_id FROM farms WHERE id=%s", (farm_id,))
+        if farm is None or int(farm["organization_id"]) != organization_id:
+            raise DomainError("COST_SCOPE_REQUIRED", "费用导入基地不存在或不属于当前企业", 400)
     occurred = _date(row.get("happened_at")) or date.today()
     period_start = occurred.replace(day=1)
     period_end = period_start.replace(day=_calendar.monthrange(occurred.year, occurred.month)[1])
@@ -131,9 +134,13 @@ def import_asset(cursor: Any, row: dict[str, Any], *, organization_id: int, user
     if category_id is None:
         raise DomainError("COST_CATEGORY_INVALID", "资产导入必须填写有效成本分类", 400)
     scope = scoped_area_defaults(cursor, user, organization_id)
-    farm_id = scope.get("farm_id") or _first_farm(cursor, organization_id)
+    farm_id = scope.get("farm_id") or _int(row.get("farm_id"))
     if farm_id is None:
-        raise DomainError("COST_SCOPE_REQUIRED", "企业没有基地，无法登记资产", 400)
+        raise DomainError("COST_SCOPE_REQUIRED", "资产导入必须明确填写基地，不能自动绑定默认基地", 400)
+    if not scope:
+        farm = _fetch(cursor, "SELECT id,organization_id FROM farms WHERE id=%s", (farm_id,))
+        if farm is None or int(farm["organization_id"]) != organization_id:
+            raise DomainError("COST_SCOPE_REQUIRED", "资产导入基地不存在或不属于当前企业", 400)
     purchase = _date(row.get("purchase_date") or row.get("happened_at"))
     depreciation_start = _date(row.get("depreciation_start_date"))
     if purchase is None or depreciation_start is None:
@@ -146,6 +153,8 @@ def import_asset(cursor: Any, row: dict[str, Any], *, organization_id: int, user
         raise DomainError("COST_ASSET_LIFE_INVALID", "资产导入必须填写大于 0 的使用寿命（月）", 400)
     if salvage < 0:
         raise DomainError("COST_ASSET_SALVAGE_INVALID", "预计残值不能为负数", 400)
+    if salvage >= Decimal(str(row["amount"])):
+        raise DomainError("COST_ASSET_VALUE_INVALID", "预计残值必须小于资产原值", 400)
     cursor.execute(
         "INSERT INTO cost_assets (organization_id,farm_id,area_id,code,name,asset_type,category_id,purchase_date,original_value,salvage_value,useful_life_months,depreciation_start_date,allocation_driver,status,row_version,created_by) "
         "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',1,%s)",

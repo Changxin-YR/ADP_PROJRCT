@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { ColumnItem } from '../../common/ui/DataTablePage.vue'
 import DataTablePage from '../../common/ui/DataTablePage.vue'
-import { listMasterOptions } from '../../features/master-data/master-data.service'
+import { listAllMasterOptions } from '../../features/master-data/master-data.service'
 import { createWarehouse, listWarehouseMasters, updateWarehouse, type WarehouseMaster } from '../../features/warehouse/warehouse.service'
 import { messageWithContext as message } from '../../common/api/errors'
 import { createSessionStore } from '../../common/session/session.store'
@@ -27,10 +27,10 @@ const displayRows = computed(() => rows.value.map((row) => ({ ...row, farm_id: f
 
 async function load() {
   try {
-    const [warehousePage, farmPage, areaPage] = await Promise.all([listWarehouseMasters(), listMasterOptions('farms'), listMasterOptions('areas')])
+    const [warehousePage, farmPage, areaPage] = await Promise.all([listWarehouseMasters(), listAllMasterOptions('farms'), listAllMasterOptions('areas')])
     rows.value = warehousePage.items
-    farms.value = farmPage.items as Array<{ id: number; name: string }>
-    areas.value = areaPage.items as Array<{ id: number; name: string }>
+    farms.value = farmPage as Array<{ id: number; name: string }>
+    areas.value = areaPage as Array<{ id: number; name: string }>
   } catch (cause) { error.value = message(cause, '仓库档案加载失败') }
 }
 function openForm(row?: WarehouseMaster) {
@@ -42,7 +42,7 @@ async function save() {
   if (saving.value) return
   saving.value = true; error.value = ''
   try {
-    const payload = { ...form, farm_id: Number(form.farm_id), ...(form.area_id ? { area_id: Number(form.area_id) } : { area_id: null }) }
+    const payload = { ...form, farm_id: Number(form.farm_id), ...(form.area_id ? { area_id: Number(form.area_id) } : { area_id: null }), ...(editing.value ? { expected_version: editing.value.row_version } : {}) }
     const result = editing.value ? await updateWarehouse(editing.value.id, payload) : await createWarehouse(payload)
     const index = rows.value.findIndex((row) => row.id === result.warehouse.id)
     if (index < 0) rows.value.unshift(result.warehouse)

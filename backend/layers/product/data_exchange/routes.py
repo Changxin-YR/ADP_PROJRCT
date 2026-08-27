@@ -20,6 +20,8 @@ from backend.layers.features.data_exchange.data_exchange_service import DataExch
 def create_data_exchange_blueprint(settings: Settings, auth_store: Any, exchange_store: Any) -> Blueprint:
     blueprint = Blueprint("data_exchange", __name__, url_prefix="/api/v1/data-exchange")
     auth = AuthService(auth_store, settings)
+    if settings.app_env == "production" and not settings.attachment_scanner_argv:
+        raise RuntimeError("生产环境必须配置 ATTACHMENT_SCANNER_ARGV_JSON")
     scanner = (
         CommandMalwareScanner(
             settings.attachment_scanner_argv,

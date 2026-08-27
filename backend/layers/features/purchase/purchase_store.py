@@ -151,6 +151,7 @@ class MySqlPurchaseStore:
             self._require_scope(user, before)
             extra, params = "", [status, user_id]
             if status == "approved":
+                self._scoped(cursor, before)
                 extra = ",approved_by=%s,approved_at=CURRENT_TIMESTAMP"; params.append(user_id)
             params.extend([order_id, expected_version])
             cursor.execute(f"UPDATE purchase_orders SET status=%s,updated_by=%s{extra},row_version=row_version+1 WHERE id=%s AND row_version=%s", tuple(params))

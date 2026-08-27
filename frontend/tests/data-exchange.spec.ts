@@ -3,6 +3,9 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import ImportPage from '../src/layers/product/data/ImportPage.vue'
 import TemplatePage from '../src/layers/product/data/TemplatePage.vue'
+import { createSessionStore } from '../src/layers/common/session/session.store'
+import { uploadAttachment } from '../src/layers/features/data-exchange/data-exchange.service'
+import { listAllMasterOptions, listAllMasterRecords } from '../src/layers/features/master-data/master-data.service'
 
 
 const globals = { stubs: { AppShell: { template: '<main><slot /></main>' }, Teleport: true } }
@@ -10,9 +13,48 @@ const envelope = (data: unknown, status = 200) => Promise.resolve(new Response(J
   code: status >= 400 ? 'DATA_EXCHANGE_FAILED' : 'OK', message: status >= 400 ? '服务不可用' : '操作成功', data, request_id: 'exchange-test',
 }), { status, headers: { 'Content-Type': 'application/json' } }))
 
-afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+afterEach(() => { createSessionStore().clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 describe('governed data exchange pages', () => {
+  it('loads all pages for master-data selectors', async () => {
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input); calls.push(path)
+      const page = new URL(path, 'http://localhost').searchParams.get('page')
+      return envelope({
+        items: [{ id: page === '2' ? 101 : 1, code: `M-${page ?? '1'}`, name: '物料' }],
+        page: Number(page ?? 1), page_size: 100, total: 101, has_next: page !== '2',
+      })
+    }))
+    const rows = await listAllMasterOptions('materials')
+    expect(rows).toHaveLength(2)
+    expect(calls.some((path) => path.includes('page=2'))).toBe(true)
+  })
+
+  it('loads all pages for the pond master list', async () => {
+    const calls: string[] = []
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input); calls.push(path)
+      const page = new URL(path, 'http://localhost').searchParams.get('page')
+      return envelope({
+        items: [{ id: page === '2' ? 102 : 1, code: `P-${page ?? '1'}`, name: '塘口' }],
+        page: Number(page ?? 1), page_size: 100, total: 101, has_next: page !== '2',
+      })
+    }))
+    const rows = await listAllMasterRecords('ponds')
+    expect(rows).toHaveLength(2)
+    expect(calls.some((path) => path.includes('page=2'))).toBe(true)
+  })
+
+  it('turns a proxy HTML 413 into a usable upload error', async () => {
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      if (String(input).includes('/auth/csrf')) return envelope({ csrf_token: 'csrf' })
+      return Promise.resolve(new Response('<html>Request Entity Too Large</html>', { status: 413, headers: { 'Content-Type': 'text/html' } }))
+    }))
+
+    await expect(uploadAttachment(1, 'warehouse:receipts', 1, new File(['x'], 'photo.jpg', { type: 'image/jpeg' }))).rejects.toMatchObject({ code: 'UPLOAD_TOO_LARGE', message: '上传文件超过服务器允许的大小' })
+  })
+
   it('loads versioned templates from the API and downloads the selected workbook', async () => {
     const calls: Array<{ path: string; method: string }> = []
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -32,6 +74,7 @@ describe('governed data exchange pages', () => {
   })
 
   it('uploads the real file, previews validation, and confirms only clean batches', async () => {
+    createSessionStore().setUser({ id: 7, name: '测试用户', phone: '13800000000', status: 'active', roles: [], permissions: ['data_exchange.view', 'data_exchange.import'], data_scopes: [{ id: 1, code: 'org-1', name: '企业一', scope_type: 'farm', organization_id: 1 }] })
     const calls: Array<{ path: string; method: string; body?: BodyInit | null }> = []
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input), method = init?.method ?? 'GET'; calls.push({ path, method, body: init?.body })

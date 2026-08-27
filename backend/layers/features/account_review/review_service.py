@@ -187,8 +187,9 @@ class ReviewService:
         role = next((item for item in self.store.list_roles_with_permissions()["items"] if int(item["id"]) == int(role_id)), None)
         if role is None:
             raise ReviewServiceError("ROLE_NOT_FOUND", "角色不存在", 404)
-        if role["code"] == "super_admin" and not {"auth.user.manage", "workbench.enter"}.issubset(codes):
-            raise ReviewServiceError("SUPER_ADMIN_PERMISSION_REQUIRED", "超级管理员必须保留账号管理和工作台权限", 409)
+        required_super_admin = {"auth.user.manage", "auth.role.manage", "auth.review", "audit.view", "workbench.enter"}
+        if role["code"] == "super_admin" and not required_super_admin.issubset(codes):
+            raise ReviewServiceError("SUPER_ADMIN_PERMISSION_REQUIRED", "超级管理员必须保留账号、角色、审核、审计和工作台权限", 409)
         try:
             return self.store.replace_role_permissions(int(role_id), permission_codes=codes, operator_id=reviewer_id)
         except ValueError as exc:

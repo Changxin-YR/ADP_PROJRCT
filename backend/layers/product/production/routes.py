@@ -78,6 +78,10 @@ def create_production_blueprint(settings: Settings, auth_store: Any, production_
     def verify(resource: str, record_id: int) -> tuple[Response, int] | Response:
         return write(service.verify, resource, record_id)
 
+    @blueprint.post("/batches/<int:batch_id>/status")
+    def change_batch_status(batch_id: int) -> tuple[Response, int] | Response:
+        return write(lambda current_user, _resource, payload: service.change_batch_status(current_user, batch_id, payload), "batches")
+
     @blueprint.delete("/<resource>/<int:record_id>")
     def delete(resource: str, record_id: int) -> tuple[Response, int] | Response:
         try:

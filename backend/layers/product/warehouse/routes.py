@@ -77,7 +77,9 @@ def create_warehouse_blueprint(settings: Settings, auth_store: Any, warehouse_st
         if resource == "warehouses":
             try:
                 require_csrf()
-                return jsonify(ok({"warehouse": service.update_warehouse(user(), record_id, json_object())}))
+                current_user = user(); payload = json_object()
+                body, status = execute_idempotent(settings, user_id=int(current_user["id"]), action_code=request.path, key=request.headers.get("Idempotency-Key"), payload=payload, operation=lambda: (ok({"warehouse": service.update_warehouse(current_user, record_id, payload)}), 200))
+                return jsonify(body), status
             except (CsrfError, AuthServiceError, DomainError) as exc:
                 return error(exc)
         return write(service.update, resource, record_id)

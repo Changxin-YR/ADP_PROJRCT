@@ -4,7 +4,7 @@ import { submitErrorText, messageWithContext as message } from '../../common/api
 import type { MasterRecord } from '../../common/api/master-data.models'
 import type { PurchaseOrder } from '../../common/api/purchase.models'
 import DataTablePage from '../../common/ui/DataTablePage.vue'
-import { listMasterOptions } from '../../features/master-data/master-data.service'
+import { listAllMasterOptions } from '../../features/master-data/master-data.service'
 import { approvePurchaseOrder, cancelPurchaseOrder, createPurchaseOrder, deletePurchaseOrder, listPurchaseOrders, submitPurchaseOrder, updatePurchaseOrder } from '../../features/purchase/purchase.service'
 
 // 写操作防重复提交：busy + disabled + 防抖（BUG-M2-05/BUG-M4-09）
@@ -48,11 +48,11 @@ async function load() {
   loading.value = true; pageError.value = ''
   try {
     const [orderPage, supplierPage, materialPage, warehousePage] = await Promise.all([
-      listPurchaseOrders(), listMasterOptions('suppliers'), listMasterOptions('materials'), listWarehouseOptions(),
+      listPurchaseOrders(), listAllMasterOptions('suppliers'), listAllMasterOptions('materials'), listWarehouseOptions(),
     ])
     rows.value = orderPage.items; Object.assign(pageMeta, orderPage)
-    suppliers.value = supplierPage.items.filter((row) => !row.status || row.status === 'verified')
-    materials.value = materialPage.items.filter((row) => !row.status || row.status === 'verified')
+    suppliers.value = supplierPage.filter((row) => !row.status || row.status === 'verified')
+    materials.value = materialPage.filter((row) => !row.status || row.status === 'verified')
     warehouses.value = warehousePage.items
   }
   catch (error) { rows.value = []; pageError.value = message(error, '采购数据加载失败') }

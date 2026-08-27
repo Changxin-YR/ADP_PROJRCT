@@ -99,16 +99,6 @@ class MySqlMasterDataStore:
             if len(organizations) != 1:
                 raise DomainError("MASTER_ORGANIZATION_REQUIRED", "多企业环境必须明确指定企业", 400)
             result["organization_id"] = int(organizations[0]["id"])
-        if not result.get("farm_id"):
-            cursor.execute("SELECT id FROM farms WHERE organization_id = %s ORDER BY id LIMIT 1", (result["organization_id"],))
-            farm = cursor.fetchone()
-            if farm:
-                result["farm_id"] = int(farm["id"])
-        if not result.get("area_id") and result.get("farm_id"):
-            cursor.execute("SELECT id FROM areas WHERE farm_id = %s ORDER BY id LIMIT 1", (result["farm_id"],))
-            area = cursor.fetchone()
-            if area:
-                result["area_id"] = int(area["id"])
         return result
 
     def create_record(self, resource: str, payload: dict[str, Any], *, user_id: int) -> dict[str, Any]:
@@ -191,10 +181,18 @@ class MySqlMasterDataStore:
             before = self._get(cursor, resource, record_id, lock=True)
             if before is None:
                 raise DomainError("MASTER_RECORD_NOT_FOUND", "主数据记录不存在", 404)
+            if status == "verified":
+                # Recheck parent lifecycle at approval time; a draft created
+                # against a verified parent must not survive its archival.
+                validate_master_hierarchy(cursor, resource, before, record_id=record_id)
+            if status == "archived":
+                self._archive_references(cursor, resource, before)
             cursor.execute(f"UPDATE {sql_identifier(table)} SET status = %s, updated_by = %s, row_version = row_version + 1 WHERE id = %s AND row_version = %s", (status, user_id, record_id, expected_version))
             if cursor.rowcount != 1:
                 raise DomainError("VERSION_CONFLICT", "数据已被修改，请刷新后重试", 409)
             after = dict(self._get(cursor, resource, record_id) or {})
+            if status == "archived" and resource == "areas":
+                cursor.execute("UPDATE data_scopes SET status='disabled' WHERE area_id=%s AND status='active'", (record_id,))
             source_key = f"master:{resource}:{record_id}:verify"
             if status == "submitted":
                 cursor.execute("INSERT INTO work_items (organization_id,module_code,action_code,object_type,object_id,object_ref,source_key,title,status,target_version) VALUES (%s,'master_data','verify',%s,%s,%s,%s,%s,'pending',%s) ON DUPLICATE KEY UPDATE status='pending', target_version=VALUES(target_version), completed_by=NULL, completed_at=NULL", (after.get("organization_id"), f"master:{resource}", record_id, f"{resource}:{record_id}", source_key, f"核验主数据：{after.get('name')}", after["row_version"]))
@@ -215,6 +213,56 @@ class MySqlMasterDataStore:
                 cursor.execute("UPDATE work_items SET status='completed', completed_by=%s, completed_at=CURRENT_TIMESTAMP, completion_note='主数据核验完成', row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, source_key))
             self._audit(connection, user_id, status, resource, record_id, before=before, after=after)
             return after
+
+    @staticmethod
+    def _archive_references(cursor: Any, resource: str, row: dict[str, Any]) -> None:
+        record_id = int(row["id"])
+        checks: dict[str, list[tuple[str, str]]] = {
+            "farms": [
+                ("SELECT 1 FROM areas WHERE farm_id=%s AND status<>'archived' LIMIT 1", "基地仍有关联区域，不能归档"),
+                ("SELECT 1 FROM warehouses WHERE farm_id=%s AND status='active' LIMIT 1", "基地仍有启用仓库，不能归档"),
+                ("SELECT 1 FROM production_batches WHERE farm_id=%s AND status IN ('draft','submitted','verified') LIMIT 1", "基地仍有未完成生产批次，不能归档"),
+                ("SELECT 1 FROM production_documents WHERE farm_id=%s AND status IN ('draft','submitted','verified') LIMIT 1", "基地仍有未完成生产单据，不能归档"),
+                ("SELECT 1 FROM warehouse_documents WHERE farm_id=%s AND status IN ('draft','submitted','in_transit','verified') LIMIT 1", "基地仍有未完成仓储单据，不能归档"),
+                ("SELECT 1 FROM purchase_orders WHERE farm_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "基地仍有未完成采购单，不能归档"),
+                ("SELECT 1 FROM sales_orders WHERE farm_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "基地仍有未完成销售单，不能归档"),
+            ],
+            "areas": [
+                ("SELECT 1 FROM ponds WHERE area_id=%s AND status<>'archived' LIMIT 1", "区域仍有关联塘口，不能归档"),
+                ("SELECT 1 FROM warehouses WHERE area_id=%s AND status='active' LIMIT 1", "区域仍有启用仓库，不能归档"),
+                ("SELECT 1 FROM production_batches WHERE area_id=%s AND status IN ('draft','submitted','verified') LIMIT 1", "区域仍有未完成生产批次，不能归档"),
+                ("SELECT 1 FROM production_documents WHERE area_id=%s AND status IN ('draft','submitted','verified') LIMIT 1", "区域仍有未完成生产单据，不能归档"),
+                ("SELECT 1 FROM warehouse_documents WHERE area_id=%s AND status IN ('draft','submitted','in_transit','verified') LIMIT 1", "区域仍有未完成仓储单据，不能归档"),
+                ("SELECT 1 FROM purchase_orders WHERE area_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "区域仍有未完成采购单，不能归档"),
+                ("SELECT 1 FROM sales_orders WHERE area_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "区域仍有未完成销售单，不能归档"),
+            ],
+            "pond-groups": [("SELECT 1 FROM ponds WHERE pond_group_id=%s AND status<>'archived' LIMIT 1", "塘组仍有关联塘口，不能归档")],
+            "ponds": [
+                ("SELECT 1 FROM production_batches WHERE pond_id=%s AND status IN ('draft','submitted','verified') AND batch_status<>'closed' LIMIT 1", "塘口仍有活动批次，不能归档"),
+                ("SELECT 1 FROM production_documents WHERE pond_id=%s AND status IN ('draft','submitted','verified') LIMIT 1", "塘口仍有未完成生产单据，不能归档"),
+                ("SELECT 1 FROM warehouse_documents WHERE pond_id=%s AND status IN ('draft','submitted','in_transit','verified') LIMIT 1", "塘口仍有未完成仓储单据，不能归档"),
+                ("SELECT 1 FROM batch_stock_records WHERE pond_id=%s GROUP BY pond_id HAVING COALESCE(SUM(quantity_delta),0)>0", "塘口仍有存塘量，不能归档"),
+            ],
+            "materials": [
+                ("SELECT 1 FROM inventory_ledger WHERE material_id=%s GROUP BY material_id HAVING COALESCE(SUM(quantity_delta),0)>0", "物料仍有库存，不能归档"),
+                ("SELECT 1 FROM purchase_orders WHERE material_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "物料仍有未完成采购，不能归档"),
+                ("SELECT 1 FROM warehouse_documents WHERE material_id=%s AND status IN ('draft','submitted','in_transit') LIMIT 1", "物料仍有未完成领料，不能归档"),
+                ("SELECT 1 FROM production_documents WHERE material_id=%s AND status IN ('draft','submitted') LIMIT 1", "物料仍有待处理投喂计划，不能归档"),
+            ],
+            "suppliers": [
+                ("SELECT 1 FROM purchase_orders WHERE supplier_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "供应商仍有未完成采购，不能归档"),
+                ("SELECT 1 FROM purchase_payables WHERE supplier_id=%s AND status NOT IN ('settled','cancelled') LIMIT 1", "供应商仍有未结应付，不能归档"),
+                ("SELECT 1 FROM inventory_lots WHERE supplier_id=%s AND status IN ('available','quarantined') LIMIT 1", "供应商仍有可用库存批次，不能归档"),
+            ],
+            "customers": [
+                ("SELECT 1 FROM sales_orders WHERE customer_id=%s AND status NOT IN ('closed','cancelled') LIMIT 1", "客户仍有未完成销售，不能归档"),
+                ("SELECT 1 FROM sales_receivables WHERE customer_id=%s AND status NOT IN ('settled','cancelled') LIMIT 1", "客户仍有未结应收，不能归档"),
+            ],
+        }
+        for sql, message in checks.get(resource, []):
+            cursor.execute(sql, (record_id,))
+            if cursor.fetchone():
+                raise DomainError("MASTER_ARCHIVE_BLOCKED", message, 409)
 
     def delete_draft(self, resource: str, record_id: int, *, user_id: int) -> dict[str, Any]:
         table, _partner_type, _fields = self._spec(resource)

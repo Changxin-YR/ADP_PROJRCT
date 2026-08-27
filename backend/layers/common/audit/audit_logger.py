@@ -84,6 +84,22 @@ class AuditLogger:
         correlation_id: str | None = None,
         retention_class: str = "business",
     ) -> None:
+        if user_id is not None and (actor_name_snapshot is None or actor_role_snapshot is None):
+            try:
+                with connection.cursor() as context_cursor:
+                    context_cursor.execute(
+                        "SELECT u.name, COALESCE(GROUP_CONCAT(DISTINCT r.code ORDER BY r.code SEPARATOR ','),'') AS role_codes "
+                        "FROM users u LEFT JOIN user_roles ur ON ur.user_id=u.id LEFT JOIN roles r ON r.id=ur.role_id "
+                        "WHERE u.id=%s GROUP BY u.id,u.name",
+                        (user_id,),
+                    )
+                    actor = context_cursor.fetchone()
+                if actor:
+                    actor_name_snapshot = actor_name_snapshot or actor.get("name")
+                    actor_role_snapshot = actor_role_snapshot or actor.get("role_codes")
+            except (AttributeError, TypeError):
+                # Lightweight unit-test cursors may only capture the INSERT statement.
+                pass
         if detail_json is not None:
             try:
                 detail_value: Any = json.loads(detail_json)

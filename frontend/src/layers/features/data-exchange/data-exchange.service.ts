@@ -29,12 +29,13 @@ export interface ExportPayload {
   filters: Record<string, unknown>
 }
 
-/** 从当前会话的数据范围解析所属企业 ID（无范围信息时回退 1，由服务端校验）。 */
+/** 从当前会话的数据范围解析所属企业 ID；缺少明确企业时拒绝静默选择其他企业。 */
 export function resolveOrganizationId(): number {
   const { user } = createSessionStore()
   const scopes = user.value?.data_scopes ?? []
   const withOrg = scopes.find((item) => item.organization_id)
-  return withOrg?.organization_id ?? 1
+  if (!withOrg?.organization_id) throw new Error('当前账号没有明确的所属企业，请先选择企业')
+  return Number(withOrg.organization_id)
 }
 
 export async function exportData(payload: ExportPayload) {
@@ -56,7 +57,9 @@ export async function exportData(payload: ExportPayload) {
 
 async function multipart<T>(path: string, body: FormData): Promise<T> {
   const response = await fetch(path, { method: 'POST', body, credentials: 'include', headers: { 'X-CSRF-Token': await getCsrfToken(), Accept: 'application/json' } })
-  const payload = await response.json() as ApiResponse<T>
+  const payload = await response.json().catch(() => null) as ApiResponse<T> | null
+  if (response.status === 413) throw new ApiError('UPLOAD_TOO_LARGE', '上传文件超过服务器允许的大小', response.status)
+  if (!payload) throw new ApiError('UPLOAD_RESPONSE_INVALID', '上传服务返回了无法识别的响应', response.status)
   if (!response.ok || payload.code !== 'OK') throw new ApiError(payload.code, payload.message, response.status, payload.request_id, payload.data)
   return payload.data
 }

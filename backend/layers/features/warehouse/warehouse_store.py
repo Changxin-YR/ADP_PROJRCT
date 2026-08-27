@@ -143,7 +143,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
     def get_record(self, resource: str, record_id: int) -> dict[str, Any] | None:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             return self._get(cursor, resource, record_id)
-
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             scoped = {**self._scoped(cursor, payload), "created_by": user_id}; self._require_write_scope(user, scoped); clean = self._payload(scoped)
@@ -157,7 +156,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
             record_id = int(cursor.lastrowid); row = self._get(cursor, resource, record_id)
             self._audit(connection, user_id, "create", resource, record_id, after=row)
             return row or {}
-
     def create_correction(self, resource: str, record_id: int, payload: dict[str, Any], *, expected_version: int, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             before = self._get(cursor, resource, record_id, lock=True)
@@ -175,7 +173,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
             correction_id = int(cursor.lastrowid); row = self._get(cursor, resource, correction_id)
             self._audit(connection, user_id, "create_correction", resource, correction_id, before=before, after=row)
             return row or {}
-
     def update_record(self, resource: str, record_id: int, payload: dict[str, Any], *, expected_version: int, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             before = self._get(cursor, resource, record_id, lock=True)
@@ -193,7 +190,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
                 cursor.execute("UPDATE work_items SET target_version=%s,row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (after["row_version"], f"warehouse:{resource}:{record_id}:verify"))
             self._audit(connection, user_id, "update", resource, record_id, before=before, after=after)
             return after or {}
-
     def set_status(self, resource: str, record_id: int, status: str, *, expected_version: int, user: dict[str, Any], user_id: int, evidence_attachment_ids: list[int] | None = None) -> dict[str, Any]:
         del user
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
@@ -201,6 +197,14 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
             if before is None:
                 raise DomainError("WAREHOUSE_RECORD_NOT_FOUND", "仓储记录不存在", 404)
             if status == "verified":
+                cursor.execute("SELECT status FROM warehouses WHERE id=%s AND organization_id=%s", (before.get("warehouse_id"), before["organization_id"]))
+                warehouse = cursor.fetchone()
+                if not warehouse or warehouse.get("status") != "active":
+                    raise DomainError("WAREHOUSE_NOT_ACTIVE", "仓储单据关联的仓库已停用", 409)
+                cursor.execute("SELECT status FROM materials WHERE id=%s AND organization_id=%s", (before.get("material_id"), before["organization_id"]))
+                material = cursor.fetchone()
+                if not material or material.get("status") != "verified":
+                    raise DomainError("MATERIAL_NOT_VERIFIED", "仓储单据关联的物料未核验或已归档", 409)
                 self.poster.lock_business_anchors(cursor, resource, before)
             evidence = validate_bound_evidence(cursor, organization_id=int(before["organization_id"]), entity_type=f"warehouse:{resource}", entity_id=record_id, evidence_ids=evidence_attachment_ids)
             lot_id = self.poster.ensure_receipt_lot(cursor, before) if status == "verified" and resource == "receipts" else before.get("inventory_lot_id")
@@ -238,16 +242,12 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
                 cursor.execute("UPDATE work_items SET status='completed',completed_by=%s,completed_at=CURRENT_TIMESTAMP,completion_note='仓储单据核验完成',row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, source_key))
             self._audit(connection, user_id, status, resource, record_id, before=before, after=after)
             return after or {}
-
     def dispatch_transfer(self, record_id: int, *, expected_version: int, user_id: int) -> dict[str, Any]:
         return dispatch_transfer(self, record_id, expected_version=expected_version, user_id=user_id)
-
     def receive_transfer(self, record_id: int, **context: Any) -> dict[str, Any]:
         return receive_transfer(self, record_id, **context)
-
     def cancel_transfer(self, record_id: int, **context: Any) -> dict[str, Any]:
         return cancel_transfer(self, record_id, **context)
-
     def delete_draft(self, resource: str, record_id: int, *, user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             before = self._get(cursor, resource, record_id, lock=True)
@@ -261,7 +261,6 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
                 raise DomainError("DELETE_NOT_ALLOWED", "仅无引用的未提交草稿可以删除", 409)
             self._audit(connection, user_id, "delete_draft", resource, record_id, before=before)
             return before
-
     @staticmethod
     def _area_where(user: dict[str, Any], alias: str) -> tuple[str, list[Any]]:
         scopes = require_active_scope(user)
@@ -277,11 +276,13 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
         where, values = self._area_where(user, "w")
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             status = "" if include_disabled else " AND w.status='active'"
-            cursor.execute(f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w {where}{status}" if where else f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status FROM warehouses w WHERE w.status<>'archived'" + ("" if include_disabled else " AND w.status='active'"), tuple(values))
+            cursor.execute(f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status,w.row_version FROM warehouses w {where}{status}" if where else f"SELECT w.id,w.organization_id,w.code,w.name,w.farm_id,w.area_id,w.location,w.status,w.row_version FROM warehouses w WHERE w.status<>'archived'" + ("" if include_disabled else " AND w.status='active'"), tuple(values))
             return list(cursor.fetchall())
-
     def list_ledger(self, user: dict[str, Any], *, page: int = 1, page_size: int = 50, **_: Any) -> dict[str, Any]:
         where, values = self._area_where(user, "w"); page = max(1, int(page)); page_size = min(100, max(1, int(page_size)))
+        historical_area = "COALESCE((SELECT wd.area_id FROM warehouse_documents wd WHERE wd.id=g.source_id LIMIT 1),w.area_id)"
+        if where and "w.area_id" in where:
+            where = where.replace("w.area_id", historical_area)
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute(f"SELECT COUNT(*) AS total FROM inventory_ledger g JOIN warehouses w ON w.id=g.warehouse_id {where}", tuple(values))
             total = int((cursor.fetchone() or {}).get("total", 0))
@@ -295,6 +296,5 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
         return list_alerts(self, user)
     def handle_alert(self, user: dict[str, Any], alert_key: str, **context: Any) -> dict[str, Any]:
         return handle_alert(self, user, alert_key, **context)
-
     def _audit(self, connection: Any, user_id: int, action: str, resource: str, record_id: int, *, before: Any = None, after: Any = None) -> None:
         self.audit.write(connection, user_id=user_id, action=f"{action}_warehouse", object_type=f"warehouse:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", result="success", ip_address=None, module_code="warehouse", before=before, after=after)

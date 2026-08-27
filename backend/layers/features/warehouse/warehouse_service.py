@@ -134,7 +134,6 @@ class WarehouseService:
         self._validate(resource, {**current, **clean})
         row = self.store.create_correction(resource, record_id, clean, expected_version=expected, user=user, user_id=int(user["id"]))
         return self.result(row, user, resource)
-
     @staticmethod
     def _validate(resource: str, row: dict[str, Any]) -> None:
         try:
@@ -297,4 +296,5 @@ class WarehouseService:
             raise DomainError("WAREHOUSE_REQUIRED_FIELDS", "所属基地不能为空", 400)
         if "status" in clean and str(clean["status"]) not in {"active", "disabled"}:
             raise DomainError("WAREHOUSE_STATUS_INVALID", "仓库状态无效", 400)
-        return self.store.update_warehouse(warehouse_id, clean, user=user, user_id=int(user["id"]))
+        expected = self.expected(payload)
+        return self.store.update_warehouse(warehouse_id, clean, expected_version=expected, user=user, user_id=int(user["id"]))

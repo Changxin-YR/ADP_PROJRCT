@@ -21,7 +21,6 @@ from backend.layers.features.data_exchange.import_refs import (
     _date,
     _decimal,
     _fetch,
-    _first_pond,
     _first_warehouse,
     _int,
     _pond,
@@ -105,12 +104,20 @@ def _import_production_document(cursor: Any, row: dict[str, Any], *, organizatio
         pond_id = int(batch_row["pond_id"])
         pond = {"organization_id": organization_id, "farm_id": batch_row["farm_id"], "area_id": batch_row["area_id"]}
     else:
-        # 无塘口模板（如派工任务）：回退到企业第一个塘口，草稿可在核验前修改。
-        pond_id = _first_pond(cursor, organization_id)
-        if pond_id is None:
-            raise DomainError("POND_NOT_FOUND", "企业没有塘口，无法创建生产草稿", 400)
-        pond = _pond(cursor, organization_id, pond_id)
+        raise DomainError("POND_REQUIRED", "生产导入必须明确填写塘口或关联批次", 400)
     enforce_area_scope(user, int(pond["area_id"]))
+    if doc_type == "feed_task" and _int(row.get("assignee_id")):
+        assignee_id = _int(row.get("assignee_id"))
+        if _fetch(cursor, "SELECT id FROM users WHERE id=%s AND status='active'", (assignee_id,)) is None:
+            raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "指派作业员不存在或已停用", 400)
+        if _fetch(
+            cursor,
+            "SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.status='active' "
+            "JOIN user_data_scopes uds ON uds.user_id=ur.user_id JOIN data_scopes ds ON ds.id=uds.data_scope_id AND ds.status='active' "
+            "WHERE ur.user_id=%s AND r.code IN ('breed_worker','breed_manager') AND (ds.scope_type='farm' OR ds.area_id=%s) LIMIT 1",
+            (assignee_id, pond["area_id"]),
+        ) is None:
+            raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "投喂任务只能指派授权养殖岗位人员", 400)
     target = _int(row.get("target_pond_id"))
     if target:
         target_pond = _pond(cursor, organization_id, target)
@@ -119,11 +126,13 @@ def _import_production_document(cursor: Any, row: dict[str, Any], *, organizatio
         if int(target_pond["organization_id"]) != organization_id:
             raise DomainError("TRANSFER_TARGET_INVALID", "转入塘口不属于当前企业", 400)
         enforce_area_scope(user, int(target_pond["area_id"]))
-    columns = ["organization_id", "farm_id", "area_id", "document_type", "code", "name", "pond_id", "batch_id", "target_pond_id", "material_id", "assigned_user_id", "planned_at", "quantity", "happened_at", "note"]
+    columns = ["organization_id", "farm_id", "area_id", "document_type", "code", "name", "pond_id", "batch_id", "target_pond_id", "material_id", "assigned_user_id", "feed_plan_id", "feed_task_id", "material_issue_request_id", "planned_at", "quantity", "happened_at", "note"]
     values: list[Any] = [
         organization_id, pond["farm_id"], pond["area_id"], doc_type, row["code"], _text(row.get("name")) or str(row["code"]),
         pond_id, _int(row.get("batch_id")), target, _int(row.get("material_id")), _int(row.get("assignee_id")),
-        row.get("happened_at") if doc_type == "feed_task" else None, row.get("quantity"), row.get("happened_at") if doc_type != "feed_task" else None,
+        _int(row.get("feed_plan_id")), _int(row.get("feed_task_id")), _int(row.get("material_issue_request_id")),
+        row.get("planned_at") if doc_type == "feed_plan" else (row.get("planned_at") or row.get("happened_at") if doc_type == "feed_task" else None),
+        row.get("quantity"), row.get("happened_at") if doc_type not in {"feed_plan", "feed_task"} else None,
         _text(row.get("reason")) or None,
     ]
     cursor.execute(f"INSERT INTO production_documents ({','.join(columns)},status,row_version,created_by) VALUES ({','.join(['%s'] * len(values))},'draft',1,%s)", (*values, user_id))
@@ -143,10 +152,10 @@ def _import_warehouse_document(cursor: Any, row: dict[str, Any], *, organization
         if target == warehouse_id:
             raise DomainError("WAREHOUSE_TARGET_INVALID", "调入仓不能与调出仓相同", 400)
         enforce_area_scope(user, int(target_warehouse["area_id"] or 0))
-    columns = ["organization_id", "farm_id", "area_id", "document_type", "code", "name", "warehouse_id", "target_warehouse_id", "material_id", "quantity", "happened_at", "reason"]
+    columns = ["organization_id", "farm_id", "area_id", "document_type", "code", "name", "warehouse_id", "target_warehouse_id", "material_id", "inventory_lot_id", "source_document_id", "lot_no", "quantity", "happened_at", "reason"]
     values: list[Any] = [
         organization_id, warehouse["farm_id"], warehouse["area_id"], doc_type, row["code"], _text(row.get("name")) or str(row["code"]),
-        warehouse_id, target, row["material_id"], row.get("quantity") or 0, row.get("happened_at"), _text(row.get("reason")) or None,
+        warehouse_id, target, row["material_id"], _int(row.get("inventory_lot_id")), _int(row.get("source_document_id")), _text(row.get("lot_no")) or None, row.get("quantity") or 0, row.get("happened_at"), _text(row.get("reason")) or None,
     ]
     cursor.execute(f"INSERT INTO warehouse_documents ({','.join(columns)},status,row_version,created_by) VALUES ({','.join(['%s'] * len(values))},'draft',1,%s)", (*values, user_id))
     return entity_type, int(cursor.lastrowid)

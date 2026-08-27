@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -45,6 +46,16 @@ class PurchaseService:
                 raise ValueError
         except (InvalidOperation, ValueError) as exc:
             raise DomainError("PURCHASE_AMOUNT_INVALID", "数量、单价和金额必须大于零", 400) from exc
+
+    @staticmethod
+    def _validate_dates(row: dict[str, Any]) -> None:
+        try:
+            expected = date.fromisoformat(str(row["expected_delivery_date"])) if row.get("expected_delivery_date") else None
+            due = date.fromisoformat(str(row["due_date"])) if row.get("due_date") else None
+        except (TypeError, ValueError) as exc:
+            raise DomainError("PURCHASE_DATE_INVALID", "采购日期格式无效", 400) from exc
+        if expected and due and due < expected:
+            raise DomainError("PURCHASE_DATE_INVALID", "付款到期日不能早于预计到货日", 400)
 
     @classmethod
     def order_result(cls, row: dict[str, Any], user: dict[str, Any]) -> dict[str, Any]:
@@ -97,6 +108,7 @@ class PurchaseService:
         if not all(str(clean.get(key, "")).strip() for key in ("code", "name")) or not all(clean.get(key) for key in ("supplier_id", "material_id", "warehouse_id", "due_date")):
             raise DomainError("PURCHASE_REQUIRED_FIELDS", "单号、名称、供应商、物料、收货仓和到期日不能为空", 400)
         self._positive(clean, "quantity", "unit_price")
+        self._validate_dates(clean)
         return self.order_result(self.store.create_order(clean, user=user, user_id=int(user["id"])), user)
 
     def _order(self, user: dict[str, Any], order_id: int) -> dict[str, Any]:
@@ -111,6 +123,7 @@ class PurchaseService:
         if not clean:
             raise DomainError("PURCHASE_NO_CHANGES", "没有可保存的修改", 400)
         self._positive({**current, **clean}, "quantity", "unit_price")
+        self._validate_dates({**current, **clean})
         return self.order_result(self.store.update_order(order_id, clean, expected_version=expected, user=user, user_id=int(user["id"])), user)
 
     def submit_order(self, user: dict[str, Any], order_id: int, payload: Any) -> dict[str, Any]:

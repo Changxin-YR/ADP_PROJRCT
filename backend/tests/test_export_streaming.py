@@ -79,3 +79,17 @@ def test_service_uses_store_stream_and_audits_actual_row_count(tmp_path: Path) -
     assert content.startswith(b"PK")
     assert export_id == 99
     assert store.audit is not None and store.audit["row_count"] == 5
+
+
+def test_xlsx_export_escapes_formula_like_text() -> None:
+    artifact = export_workbook_stream(iter([{"name": "=HYPERLINK(\"https://evil\")"}]), {"resource": "materials"})
+    workbook = load_workbook(BytesIO(artifact.content), read_only=True, data_only=False)
+    value = next(workbook["导出数据"].iter_rows(min_row=2, values_only=True))[0]
+    workbook.close()
+    assert value == "'=HYPERLINK(\"https://evil\")"
+
+
+def test_pdf_export_preserves_long_row_text() -> None:
+    import inspect
+
+    assert "text[:100]" not in inspect.getsource(export_pdf_stream)

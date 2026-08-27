@@ -130,6 +130,12 @@ def test_submitted_purchase_order_stays_editable_until_separate_approval() -> No
         service.update_order(purchaser, order["id"], {"expected_version": 4, "quantity": 130})
 
 
+def test_purchase_due_date_cannot_precede_expected_delivery() -> None:
+    service = PurchaseService(PurchaseStore())
+    with pytest.raises(DomainError, match="PURCHASE_DATE_INVALID"):
+        service.create_order(actor(7, "purchase.manage"), {**order_payload(), "expected_delivery_date": "2026-09-25", "due_date": "2026-09-01"})
+
+
 def test_partially_received_order_still_allows_remaining_receipt() -> None:
     store = PurchaseStore()
     store.orders[1] = {**order_payload(), "id": 1, "status": "partially_received", "row_version": 4, "created_by": 7}

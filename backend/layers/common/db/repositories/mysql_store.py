@@ -79,7 +79,10 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         modules = self._work_item_modules(set(user.get("permissions") or []))
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
-        allow_unassigned = "super_admin" in roles or any(item.get("scope_type") == "farm" for item in scopes)
+        # Unassigned domain work is tenant-safe only for a super admin or an
+        # area-scoped reviewer; the current scope schema cannot identify a
+        # non-admin farm's organization.
+        allow_unassigned = "super_admin" in roles or ("work_item.view" in set(user.get("permissions") or []) and any(item.get("scope_type") == "area" for item in scopes))
         area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
             return self.governance.list_work_items(connection, user_id=int(user["id"]), allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, status=status, include_history=include_history, page=page, page_size=page_size)
@@ -99,7 +102,7 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         modules = self._work_item_modules(set(user.get("permissions") or []))
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
-        allow_unassigned = "super_admin" in roles or any(item.get("scope_type") == "farm" for item in scopes)
+        allow_unassigned = "super_admin" in roles or ("work_item.view" in set(user.get("permissions") or []) and any(item.get("scope_type") == "area" for item in scopes))
         area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
             result = self.governance.transition_work_item(connection, item_id=item_id, user_id=user_id, allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, action=action, expected_version=expected_version, note=note)
@@ -165,16 +168,20 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         now = datetime.now(timezone.utc)
         locked_until = now + timedelta(minutes=lock_minutes)
         with self.transaction() as connection:
-            user = self.users.find_by_id(connection, user_id)
-            if user is None:
-                return False
-            next_count = int(user["failed_login_count"]) + 1
-            self.users.record_failed_login(
-                connection,
-                user_id=user_id,
-                locked_until=locked_until if next_count >= threshold else None,
-            )
-            return next_count >= threshold
+            # Increment and lock decision happen in one row update so concurrent
+            # failed attempts cannot all observe the same pre-increment count.
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE users SET failed_login_count = failed_login_count + 1, "
+                    "locked_until = CASE WHEN failed_login_count + 1 >= %s THEN %s ELSE NULL END "
+                    "WHERE id = %s",
+                    (threshold, locked_until, user_id),
+                )
+                if cursor.rowcount != 1:
+                    return False
+                cursor.execute("SELECT failed_login_count FROM users WHERE id=%s", (user_id,))
+                row = cursor.fetchone() or {}
+                return int(row.get("failed_login_count") or 0) >= threshold
 
     def reset_failed_login(self, user_id: int) -> None:
         with self.transaction() as connection:
@@ -259,3 +266,5 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
                 password_hash=password_hash,
                 status="active" if activate else None,
             )
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE sessions SET status='revoked', revoked_at=CURRENT_TIMESTAMP, revoke_reason='password_change' WHERE user_id=%s AND status='active'", (user_id,))

@@ -8,13 +8,19 @@ import { listWarehouseLedger } from '../../features/warehouse/warehouse.service'
 const rows = ref<WarehouseLedgerRow[]>([])
 const loading = ref(true)
 const error = ref('')
+const page = ref(1)
+const total = ref(0)
+const pageSize = 50
 const labels: Record<string, string> = { receipt: '入库', issue: '出库', return: '退库', transfer_out: '调拨发出', transfer_in: '调拨接收', stocktake: '盘点差异', scrap: '报损报废', correction: '关联更正' }
 const displayRows = computed(() => rows.value.map((row) => ({ ...row, source_label: labels[row.source_type] ?? row.source_type })))
-onMounted(async () => {
-  try { rows.value = (await listWarehouseLedger()).items }
+async function loadLedger(targetPage = 1) {
+  loading.value = true; error.value = ''
+  try { const result = await listWarehouseLedger({ page: targetPage, page_size: pageSize }); rows.value = result.items; total.value = result.total; page.value = result.page }
   catch (reason) { error.value = reason instanceof ApiError ? `仓储台账加载失败：${reason.message}` : '仓储台账加载失败' }
   finally { loading.value = false }
-})
+}
+onMounted(() => { void loadLedger() })
+function queryLedger(query: Record<string, string | number>) { void loadLedger(Number(query.page ?? 1)) }
 </script>
 
 <template>
@@ -33,5 +39,5 @@ onMounted(async () => {
       { key: 'warehouse_name', label: '仓库' }, { key: 'source_label', label: '业务类型', type: 'badge', tones: { '入库': 'teal', '退库': 'blue', '调拨接收': 'teal', '出库': 'amber', '调拨发出': 'slate', '报损报废': 'rose', '盘点差异': 'blue', '关联更正': 'blue' } },
       { key: 'quantity_delta', label: '数量变化', type: 'number' }, { key: 'source_id', label: '来源单据 ID', type: 'number' },
     ]"
-    :rows="displayRows" :empty-text="loading ? '正在加载仓储台账…' : '当前授权范围内暂无库存流水'" />
+    :rows="displayRows" server-side :total="total" :current-page="page" :page-size="pageSize" :empty-text="loading ? '正在加载仓储台账…' : '当前授权范围内暂无库存流水'" @query="queryLedger" />
 </template>

@@ -1,9 +1,7 @@
 from __future__ import annotations
-
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
-
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.features.production.daily_operation_rules import normalize_daily_operation_payload
 from backend.layers.features.production.production_validation import require_stock_measurement, validate_batch_seed, validate_loss_reason
@@ -13,6 +11,7 @@ RESOURCES = {
     "batches", "samplings", "transfers", "losses", "harvests",
     "feed-plans", "feed-tasks", "feed-logs", "daily-operations",
 }
+BATCH_STATUS_TRANSITIONS = {"stocked": {"farming"}, "farming": {"pending_settlement"}, "pending_settlement": {"closed"}}
 HIGH_RISK = {"transfers", "losses", "harvests"}
 COMMON_FIELDS = {
     "organization_id", "farm_id", "area_id", "code", "name", "pond_id", "batch_id",
@@ -31,7 +30,6 @@ FIELDS = {
     },
 }
 RESERVED = {"id", "status", "row_version", "version", "allowed_actions", "created_by", "updated_by", "verified_by", "created_at", "updated_at"}
-
 # DECIMAL(18,3) 上限：批次 1e18 等超界数量在服务层直接拒绝（BUG-M4-02）。
 MAX_PRODUCTION_QUANTITY = Decimal("999999999999999.999")
 class ProductionService:
@@ -73,7 +71,6 @@ class ProductionService:
         if set(payload) - accepted or set(payload) & RESERVED:
             raise DomainError("PRODUCTION_FIELD_INVALID", "请求包含不允许修改的字段", 400)
         return {key: value for key, value in payload.items() if key in FIELDS[resource]}
-
     @staticmethod
     def _positive(payload: dict[str, Any], *fields: str) -> None:
         for field in fields:
@@ -89,7 +86,6 @@ class ProductionService:
                 raise DomainError("PRODUCTION_VALUE_INVALID", "数量和重量不能为负数", 400)
             if value > MAX_PRODUCTION_QUANTITY:
                 raise DomainError("PRODUCTION_VALUE_INVALID", "数量或重量超出允许范围", 400)
-
     @staticmethod
     def _validate_batch_dates(clean: dict[str, Any]) -> None:
         """放苗日期/预计出塘日期格式校验 + 顺序校验（BUG-M4-06/07、2026-02-30 等非法日期 400）。"""
@@ -113,7 +109,6 @@ class ProductionService:
             now = datetime.now(tz=stocked.tzinfo) if stocked.tzinfo else datetime.now()
             if stocked > now:
                 raise DomainError("PRODUCTION_DATE_INVALID", "实际放苗日期不能晚于当前时间", 400)
-
     @staticmethod
     def _validate_feed_plan(clean: dict[str, Any], *, submitting: bool = False) -> None:
         if clean.get("quantity") not in (None, ""):
@@ -130,23 +125,19 @@ class ProductionService:
                 raise DomainError("PRODUCTION_DATE_INVALID", "计划时间格式无效", 400) from exc
         if submitting and not all(clean.get(key) for key in ("batch_id", "material_id", "quantity", "planned_at")):
             raise DomainError("FEED_PLAN_REQUIRED_FIELDS", "投喂计划送审前必须关联批次、饲料并填写正数计划量和计划时间", 400)
-
     def _validate_batches(self, clean: dict[str, Any], *, creating: bool) -> None:
         self._positive(clean, "initial_quantity", "initial_weight_kg")
         validate_batch_seed(clean, creating=creating)
         self._validate_batch_dates(clean)
-
     @staticmethod
     def _normalize_daily_operation(clean: dict[str, Any], current_payload: dict[str, Any] | None) -> None:
         """日常作业类型化（BUG-012）：枚举与关键参数校验见 daily_operation_rules。"""
         normalize_daily_operation_payload(clean, current_payload)
-
     def list_records(self, user: dict[str, Any], resource: str, **query: Any) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "view")
         page = self.store.list_records(resource, user=user, **query)
         return {**page, "items": [self.result(row, user, resource) for row in page["items"]]}
-
     def get(self, user: dict[str, Any], resource: str, record_id: int) -> dict[str, Any]:
         resource = self.resource(resource)
         self.require(user, resource, "view")
@@ -296,3 +287,14 @@ class ProductionService:
         self.require(user, "batches", "view")
         self._current(user, "batches", batch_id)
         return self.store.reconcile_batch(batch_id)
+    def change_batch_status(self, user: dict[str, Any], batch_id: int, payload: Any) -> dict[str, Any]:
+        self.require(user, "batches", "manage")
+        current = self._current(user, "batches", batch_id)
+        target = str((payload or {}).get("batch_status") or "").strip()
+        reason = str((payload or {}).get("reason") or "").strip()
+        if target not in BATCH_STATUS_TRANSITIONS.get(str(current.get("batch_status")), set()):
+            raise DomainError("INVALID_BATCH_STATUS_TRANSITION", "批次状态流转不符合业务规则", 409)
+        if not reason or len(reason) > 500:
+            raise DomainError("BATCH_STATUS_REASON_REQUIRED", "批次状态变更必须填写原因", 400)
+        expected = self._expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
+        return self.result(self.store.change_batch_status(batch_id, target, reason=reason, expected_version=expected, user_id=int(user["id"])), user, "batches")

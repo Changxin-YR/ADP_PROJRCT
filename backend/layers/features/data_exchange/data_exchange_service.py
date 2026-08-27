@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +11,50 @@ from backend.layers.common.files.malware_scanner import MalwareScanner
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.data_exchange.template_catalog import all_templates, get_template
 from backend.layers.features.data_exchange.workbooks import error_workbook, export_pdf_stream, export_workbook_stream, preview_workbook, template_workbook
+from backend.layers.features.data_exchange.attachment_scope import attachment_permission_allows
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
+COMMON_EXPORT_FILTERS = {"status", "search", "created_from", "created_to", "business_date_from", "business_date_to"}
+
+
 class DataExchangeService:
+    EXPORT_FILTERS = {"status", "search", "area_id", "pond_id", "warehouse_id", "supplier_id", "customer_id", "batch_id", "created_from", "created_to", "business_date_from", "business_date_to"}
+    EXPORT_FILTERS_BY_RESOURCE = {
+        resource: set(COMMON_EXPORT_FILTERS) for resource in {
+            "materials", "imports", "farms", "areas", "pond-groups", "ponds", "suppliers", "customers", "business-settings",
+            "batches", "samplings", "transfers", "losses", "harvests", "feed-plans", "feed-tasks", "feed-logs", "daily-operations",
+            "receipts", "issues", "warehouse-transfers", "returns", "stocktakes", "scraps", "inventory-ledger", "stock-alerts",
+            "purchase-orders", "payables", "payments", "sales-orders", "sales-deliveries", "receivables", "customer-receipts",
+            "expenses", "cost-adjustments", "assets", "leases", "settlements",
+        }
+    }
+    for _resource in ("pond-groups", "ponds", "batches", "samplings", "transfers", "losses", "harvests", "feed-plans", "feed-tasks", "feed-logs", "daily-operations"):
+        EXPORT_FILTERS_BY_RESOURCE[_resource].update({"area_id", "pond_id"})
+    for _resource in ("receipts", "issues", "warehouse-transfers", "returns", "stocktakes", "scraps"):
+        EXPORT_FILTERS_BY_RESOURCE[_resource].update({"area_id", "warehouse_id", "batch_id"})
+    EXPORT_FILTERS_BY_RESOURCE["inventory-ledger"].update({"warehouse_id", "batch_id"})
+    EXPORT_FILTERS_BY_RESOURCE["stock-alerts"].update({"warehouse_id"})
+    EXPORT_FILTERS_BY_RESOURCE["purchase-orders"].update({"area_id", "warehouse_id", "supplier_id"})
+    EXPORT_FILTERS_BY_RESOURCE["payables"].update({"area_id", "supplier_id"})
+    EXPORT_FILTERS_BY_RESOURCE["payments"].update({"area_id"})
+    EXPORT_FILTERS_BY_RESOURCE["sales-orders"].update({"area_id", "pond_id", "batch_id", "customer_id"})
+    EXPORT_FILTERS_BY_RESOURCE["sales-deliveries"].update({"area_id"})
+    EXPORT_FILTERS_BY_RESOURCE["receivables"].update({"area_id", "customer_id"})
+    EXPORT_FILTERS_BY_RESOURCE["customer-receipts"].update({"area_id"})
+    EXPORT_FILTERS_BY_RESOURCE["expenses"].add("area_id")
+    EXPORT_FILTERS_BY_RESOURCE["cost-adjustments"].add("area_id")
+    EXPORT_FILTERS_BY_RESOURCE["assets"].add("area_id")
+    EXPORT_FILTERS_BY_RESOURCE["leases"].add("area_id")
+    EXPORT_FILTERS_BY_RESOURCE["settlements"].add("area_id")
+    RESOURCE_PERMISSIONS = {
+        "purchase-orders": "purchase.view", "payables": "finance.payable.view", "payments": "finance.payable.view",
+        "sales-orders": "sales.view", "sales-deliveries": "sales.view", "receivables": "finance.receivable.view", "customer-receipts": "finance.receivable.view",
+        "expenses": "cost.view", "cost-adjustments": "cost.view", "assets": "cost.view", "leases": "cost.view", "settlements": "cost.view",
+        "receipts": "warehouse.view", "issues": "warehouse.view", "warehouse-transfers": "warehouse.view", "returns": "warehouse.view", "stocktakes": "warehouse.view", "scraps": "warehouse.view", "inventory-ledger": "warehouse.view", "stock-alerts": "warehouse.view",
+        "batches": "production.view", "samplings": "production.view", "transfers": "production.view", "losses": "production.view", "harvests": "production.view", "feed-plans": "production.view", "feed-tasks": "production.view", "feed-logs": "production.view", "daily-operations": "production.view",
+    }
+
     def __init__(self, store: Any, attachment_root: Path, scanner: MalwareScanner | None = None) -> None:
         self.store = store
         self.attachment_root = attachment_root
@@ -106,8 +146,27 @@ class DataExchangeService:
 
     def export(self, user: dict[str, Any], *, organization_id: int, resource: str, file_format: str, filters: Any, request_id: str) -> tuple[bytes, int]:
         self.require(user, "data_exchange.export"); self.scope(user, organization_id)
+        required = self.RESOURCE_PERMISSIONS.get(resource)
+        if required:
+            roles = {str(item.get("code")) for item in user.get("roles") or [] if isinstance(item, dict)}
+            if "super_admin" not in roles:
+                self.require(user, required)
         if file_format not in {"xlsx", "pdf"} or not isinstance(filters, dict):
             raise DomainError("EXPORT_REQUEST_INVALID", "导出格式或筛选条件无效", 400)
+        supported = self.EXPORT_FILTERS_BY_RESOURCE.get(resource, COMMON_EXPORT_FILTERS)
+        unknown = set(filters) - supported
+        if unknown:
+            raise DomainError("EXPORT_FILTER_INVALID", f"不支持的导出筛选条件：{', '.join(sorted(unknown))}", 400)
+        for key in ("area_id", "pond_id", "warehouse_id", "supplier_id", "customer_id", "batch_id"):
+            if filters.get(key) not in (None, ""):
+                try:
+                    if int(filters[key]) < 1: raise ValueError
+                except (TypeError, ValueError):
+                    raise DomainError("EXPORT_FILTER_INVALID", f"筛选条件 {key} 必须为正整数", 400)
+        for key in ("created_from", "created_to", "business_date_from", "business_date_to"):
+            if filters.get(key) not in (None, ""):
+                try: date.fromisoformat(str(filters[key]))
+                except ValueError as exc: raise DomainError("EXPORT_FILTER_INVALID", f"筛选条件 {key} 日期格式无效", 400) from exc
         query = {str(key): value for key, value in filters.items()}
         generated_at = datetime.now(timezone.utc).isoformat()
         metadata = {"resource": resource, "generated_at": generated_at, "actor": user.get("name") or user["id"], "filters": query, "request_id": request_id}
@@ -130,6 +189,8 @@ class DataExchangeService:
             raise DomainError("ATTACHMENT_TARGET_NOT_FOUND", "附件关联的业务记录不存在或无权访问", 404)
         if not self.store.attachment_target_accessible(user, organization_id, entity_type, entity_id):
             raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问附件关联的业务记录", 403)
+        if not attachment_permission_allows(user, entity_type):
+            raise DomainError("FORBIDDEN", "当前账号没有查看该业务附件的权限", 403)
         metadata = prepare_attachment(original_name=file_name, media_type=media_type, content=content)
         if self.scanner is not None:
             self.scanner.scan(content=content, original_name=metadata.original_name)
@@ -146,6 +207,8 @@ class DataExchangeService:
 
     def attachments(self, user: dict[str, Any], entity_type: str, entity_id: int) -> list[dict[str, Any]]:
         self.require(user, "attachment.manage")
+        if not attachment_permission_allows(user, entity_type):
+            raise DomainError("FORBIDDEN", "当前账号没有查看该业务附件的权限", 403)
         return self.store.list_attachments(user, entity_type, entity_id)
 
     def attachment_file(self, user: dict[str, Any], attachment_id: int) -> tuple[Path, dict[str, Any]]:
@@ -153,6 +216,8 @@ class DataExchangeService:
         row = self.store.get_attachment(user, attachment_id)
         if not row:
             raise DomainError("ATTACHMENT_NOT_FOUND", "附件不存在或无权访问", 404)
+        if not attachment_permission_allows(user, str(row.get("entity_type") or "")):
+            raise DomainError("FORBIDDEN", "当前账号没有查看该业务附件的权限", 403)
         path = self.attachment_root.resolve() / row["storage_name"]
         if path.parent != self.attachment_root.resolve() or not path.is_file():
             raise DomainError("ATTACHMENT_FILE_MISSING", "附件文件不存在", 404)

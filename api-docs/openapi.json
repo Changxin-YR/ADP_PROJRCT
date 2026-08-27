@@ -3834,6 +3834,58 @@
         ]
       }
     },
+    "/api/v1/data-exchange/imports/{batch_id}/revoke": {
+      "post": {
+        "tags": [
+          "data-exchange"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "data_exchange_revoke_post_api_v1_data_exchange_imports_batch_id_revoke",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
     "/api/v1/data-exchange/imports/preview": {
       "post": {
         "tags": [
@@ -4263,6 +4315,66 @@
         ]
       }
     },
+    "/api/v1/master-data/{resource}/{record_id}/archive": {
+      "post": {
+        "tags": [
+          "master-data"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "master_data_archive_record_post_api_v1_master_data_resource_record_id_archive",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "resource",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
+    },
     "/api/v1/master-data/{resource}/{record_id}/submit": {
       "post": {
         "tags": [
@@ -4381,21 +4493,6 @@
             "CsrfToken": []
           }
         ]
-      }
-    },
-    "/api/v1/master-data/{resource}/{record_id}/archive": {
-      "post": {
-        "tags": ["master-data"],
-        "summary": "归档主数据",
-        "description": "归档已核验主数据，历史业务引用保留且不再作为新业务可选项。",
-        "operationId": "master_data_archive_record_post_api_v1_master_data_resource_record_id_archive",
-        "parameters": [
-          {"name": "record_id", "in": "path", "required": true, "schema": {"type": "integer", "minimum": 1}},
-          {"name": "resource", "in": "path", "required": true, "schema": {"type": "string"}}
-        ],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/MutationRequest"}}}},
-        "responses": {"200": {"description": "成功", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SuccessEnvelope"}}}}, "default": {"$ref": "#/components/responses/ErrorResponse"}},
-        "security": [{"CookieAuth": [], "CsrfToken": []}]
       }
     },
     "/api/v1/master-data/ponds/{pond_id}/status-changes": {
@@ -5100,6 +5197,58 @@
         "security": [
           {
             "CookieAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/production/batches/{batch_id}/status": {
+      "post": {
+        "tags": [
+          "production"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "production_change_batch_status_post_api_v1_production_batches_batch_id_status",
+        "parameters": [
+          {
+            "name": "batch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
           }
         ]
       }
@@ -8222,58 +8371,6 @@
             "CookieAuth": []
           }
         ]
-      }
-    },
-    "/api/v1/data-exchange/imports/{batch_id}/revoke": {
-      "post": {
-        "tags": [
-          "data-exchange"
-        ],
-        "parameters": [
-          {
-            "name": "batch_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SuccessEnvelope"
-                }
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/ErrorResponse"
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MutationRequest"
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "CookieAuth": [],
-            "CsrfToken": []
-          }
-        ],
-        "summary": "撤销导入批次",
-        "description": "仅已导入（imported）且未被后续业务引用的批次可以撤销：事务删除该批次创建的草稿并置 undone；被引用或含只追加流水时返回 409。",
-        "operationId": "data_exchange_revoke_post_api_v1_data_exchange_imports_batch_id_revoke"
       }
     }
   },

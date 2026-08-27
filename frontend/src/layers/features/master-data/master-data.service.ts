@@ -4,9 +4,30 @@ import type { MasterPage, MasterRecord, MasterResource } from '../../common/api/
 const api = createApiClient()
 const base = (resource: MasterResource) => `/api/v1/master-data/${resource}`
 
-export const listMasterRecords = (resource: MasterResource) => api.get<MasterPage>(base(resource))
+export const listMasterRecords = (resource: MasterResource, query: { page?: number; page_size?: number } = {}) => {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) if (value != null) params.set(key, String(value))
+  return api.get<MasterPage>(params.size ? `${base(resource)}?${params}` : base(resource))
+}
+export async function listAllMasterRecords(resource: MasterResource): Promise<MasterRecord[]> {
+  const first = await listMasterRecords(resource, { page: 1, page_size: 100 })
+  const items = [...first.items]
+  for (let page = 2; first.has_next && page <= Math.ceil(first.total / (first.page_size || 100)); page += 1) {
+    items.push(...(await listMasterRecords(resource, { page, page_size: first.page_size || 100 })).items)
+  }
+  return items
+}
 export const getMasterRecord = (resource: MasterResource, id: number) => api.get<{ record: MasterRecord }>(`${base(resource)}/${id}`)
 export const listMasterOptions = (resource: MasterResource, page?: number) => api.get<MasterPage>(`${base(resource)}?page_size=100&status=verified${page ? `&page=${page}` : ''}`)
+export async function listAllMasterOptions(resource: MasterResource): Promise<MasterRecord[]> {
+  const first = await listMasterOptions(resource)
+  const items = [...first.items]
+  const pageSize = first.page_size || 100
+  for (let page = 2; first.has_next && page <= Math.ceil(first.total / pageSize); page += 1) {
+    items.push(...(await listMasterOptions(resource, page)).items)
+  }
+  return items
+}
 export const createMasterRecord = (resource: MasterResource, payload: Record<string, unknown>) => api.post<{ record: MasterRecord }>(base(resource), payload)
 export const updateMasterRecord = (resource: MasterResource, id: number, payload: Record<string, unknown>) => api.patch<{ record: MasterRecord }>(`${base(resource)}/${id}`, payload)
 export const deleteMasterDraft = (resource: MasterResource, id: number) => api.delete<{ record: MasterRecord }>(`${base(resource)}/${id}`)

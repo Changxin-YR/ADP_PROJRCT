@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Any
-
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.warehouse.warehouse_posting import allocate_fefo, amount, build_movements, movement_difference
 from backend.layers.features.purchase.purchase_posting import post_purchase_receipt
-
-
 class WarehouseLedgerPoster:
     @staticmethod
     def lock_business_anchors(cursor: Any, resource: str, row: dict[str, Any]) -> None:
@@ -25,7 +22,6 @@ class WarehouseLedgerPoster:
             (row["organization_id"], row["material_id"]),
         )
         cursor.fetchall()
-
     @staticmethod
     def ensure_receipt_lot(cursor: Any, row: dict[str, Any]) -> int:
         if row.get("inventory_lot_id"):
@@ -37,17 +33,17 @@ class WarehouseLedgerPoster:
             (row["organization_id"], row["material_id"], row["lot_no"], row.get("production_date"), row.get("expiry_date"), row.get("unit_cost") or 0),
         )
         return int(cursor.lastrowid)
-
     @staticmethod
     def _lots(cursor: Any, row: dict[str, Any]) -> list[dict[str, Any]]:
         cursor.execute(
             """
             SELECT l.id,l.expiry_date,l.expiry_date<CURRENT_DATE AS expired,
                    COALESCE(SUM(g.quantity_delta),0)-COALESCE((
-                     SELECT SUM(d.quantity) FROM warehouse_documents d
-                     WHERE d.document_type='scrap' AND d.status='submitted'
+                       SELECT SUM(d.quantity) FROM warehouse_documents d
+                       WHERE d.document_type='scrap' AND d.status='submitted'
                        AND d.id<>%s
                        AND d.warehouse_id=%s AND d.material_id=l.material_id AND d.inventory_lot_id=l.id
+                       AND NOT EXISTS (SELECT 1 FROM warehouse_documents newer WHERE newer.correction_of_id=d.id AND newer.status='submitted')
                    ),0) AS available
             FROM inventory_lots l
             LEFT JOIN inventory_ledger g ON g.inventory_lot_id=l.id AND g.warehouse_id=%s
@@ -58,7 +54,6 @@ class WarehouseLedgerPoster:
             (row.get("id") or 0, row["warehouse_id"], row["warehouse_id"], row["organization_id"], row["material_id"]),
         )
         return list(cursor.fetchall())
-
     def _allocations(self, cursor: Any, row: dict[str, Any]) -> list[tuple[int, Decimal]]:
         return allocate_fefo(
             self._lots(cursor, row),
@@ -67,7 +62,6 @@ class WarehouseLedgerPoster:
             override_reason=str(row.get("override_reason") or "") or None,
             include_expired=row.get("_resource") == "scraps",
         )
-
     @staticmethod
     def _book_quantity(cursor: Any, row: dict[str, Any]) -> Decimal:
         if not row.get("inventory_lot_id"):
@@ -77,7 +71,6 @@ class WarehouseLedgerPoster:
             (row["warehouse_id"], row["material_id"], row["inventory_lot_id"]),
         )
         return Decimal(str((cursor.fetchone() or {}).get("quantity", 0)))
-
     @staticmethod
     def _validate_return(cursor: Any, row: dict[str, Any]) -> None:
         cursor.execute("SELECT organization_id,warehouse_id,material_id,document_type,status FROM warehouse_documents WHERE id=%s FOR UPDATE", (row["source_document_id"],))
@@ -87,28 +80,31 @@ class WarehouseLedgerPoster:
         ):
             raise DomainError("WAREHOUSE_RETURN_SOURCE_INVALID", "退库必须回到原出库单的同一企业、仓库和物料", 409)
         cursor.execute(
-            "SELECT COALESCE(-SUM(quantity_delta),0) AS issued FROM inventory_ledger WHERE source_type='issue' AND source_id=%s AND inventory_lot_id=%s",
+            "SELECT COALESCE(-SUM(g.quantity_delta),0) AS issued FROM inventory_ledger g JOIN warehouse_documents d ON d.id=g.source_id WHERE d.source_document_id=%s AND d.document_type='issue' AND d.status='verified' AND g.source_type IN ('issue','correction') AND g.inventory_lot_id=%s",
             (row["source_document_id"], row["inventory_lot_id"]),
         )
         issued = Decimal(str((cursor.fetchone() or {}).get("issued", 0)))
         cursor.execute(
-            "SELECT COALESCE(SUM(quantity),0) AS returned FROM warehouse_documents WHERE document_type='return' AND source_document_id=%s AND inventory_lot_id=%s AND status='verified'",
+            "SELECT COALESCE(SUM(g.quantity_delta),0) AS returned FROM inventory_ledger g JOIN warehouse_documents d ON d.id=g.source_id WHERE d.document_type='return' AND d.source_document_id=%s AND d.status='verified' AND g.source_type IN ('return','correction') AND g.inventory_lot_id=%s",
             (row["source_document_id"], row["inventory_lot_id"]),
         )
         returned = Decimal(str((cursor.fetchone() or {}).get("returned", 0)))
         if amount(row.get("quantity")) > issued - returned:
             raise DomainError("WAREHOUSE_RETURN_EXCEEDS_ISSUE", "退库数量不能超过原出库未退数量", 409)
-
     @staticmethod
     def _validate_issue_request(cursor: Any, row: dict[str, Any]) -> None:
         cursor.execute("SELECT id FROM warehouse_documents WHERE id=%s FOR UPDATE", (row["source_document_id"],))
         cursor.fetchone()
         cursor.execute(
             """
-            SELECT r.id,r.quantity AS requested_quantity,COALESCE(SUM(i.quantity),0) AS issued_quantity
+            SELECT r.id,r.quantity AS requested_quantity,COALESCE((
+              SELECT -SUM(g.quantity_delta)
+              FROM inventory_ledger g
+              JOIN warehouse_documents i ON i.id=g.source_id
+              WHERE i.source_document_id=r.id AND i.document_type='issue' AND i.status='verified'
+                AND i.id<>%s AND g.source_type IN ('issue','correction')
+            ),0) AS issued_quantity
             FROM warehouse_documents r
-            LEFT JOIN warehouse_documents i ON i.source_document_id=r.id
-              AND i.document_type='issue' AND i.status='verified' AND i.id<>%s
             WHERE r.id=%s AND r.document_type='issue_request' AND r.status='verified'
               AND r.material_id=%s AND r.pond_id<=>%s
             GROUP BY r.id,r.quantity
@@ -118,7 +114,6 @@ class WarehouseLedgerPoster:
         )
         if cursor.fetchone() is None:
             raise DomainError("WAREHOUSE_ISSUE_REQUEST_INVALID", "实际出库必须关联已核验且剩余额度充足的领用申请", 409)
-
     @staticmethod
     def _ledger_movements(cursor: Any, source_id: int, source_type: str | None = None) -> list[dict[str, Any]]:
         clause = " AND source_type=%s" if source_type else ""
@@ -131,7 +126,6 @@ class WarehouseLedgerPoster:
             {**item, "quantity_delta": Decimal(str(item["quantity_delta"]))}
             for item in cursor.fetchall()
         ]
-
     def _correction_allocations(
         self,
         cursor: Any,
@@ -167,12 +161,21 @@ class WarehouseLedgerPoster:
                 raise DomainError("WAREHOUSE_CORRECTION_SOURCE_MISSING", "上次更正记录不存在", 409)
             original = build_movements(resource, parent)
         else:
-            original = self._ledger_movements(cursor, int(row["correction_of_id"]))
+            original = self._effective_movements(cursor, int(row["correction_of_id"]))
         if resource == "stocktakes":
             return build_movements(resource, row, book_quantity=self._book_quantity(cursor, row))
         allocations = self._correction_allocations(cursor, row, original, include_expired=resource == "scraps") if resource in {"issues", "transfers", "scraps"} else None
         desired = build_movements(resource, row, allocations=allocations)
         return movement_difference(desired, original)
+
+    def _effective_movements(self, cursor: Any, source_id: int) -> list[dict[str, Any]]:
+        """Resolve the complete effective movement through a chain of corrections."""
+        cursor.execute("SELECT correction_of_id FROM warehouse_documents WHERE id=%s", (source_id,))
+        parent_id = (cursor.fetchone() or {}).get("correction_of_id")
+        current = self._ledger_movements(cursor, source_id)
+        if not parent_id:
+            return current
+        return movement_difference(current + self._effective_movements(cursor, int(parent_id)), [])
 
     @staticmethod
     def _validate_negative(cursor: Any, row: dict[str, Any], movements: list[dict[str, Any]]) -> None:
@@ -250,7 +253,7 @@ class WarehouseLedgerPoster:
     def post_transfer_dispatch(self, cursor: Any, row: dict[str, Any], user_id: int) -> None:
         self.lock_business_anchors(cursor, "transfers", row)
         if row.get("correction_of_id"):
-            original = self._ledger_movements(cursor, int(row["correction_of_id"]))
+            original = self._effective_movements(cursor, int(row["correction_of_id"]))
             allocations = self._correction_allocations(cursor, row, original)
             desired = [item for item in build_movements("transfers", row, allocations=allocations) if item["quantity_delta"] < 0]
             previous = [item for item in original if item["quantity_delta"] < 0]
@@ -264,7 +267,7 @@ class WarehouseLedgerPoster:
     def post_transfer_receive(self, cursor: Any, row: dict[str, Any], user_id: int) -> None:
         target = int(row["target_warehouse_id"]); received = amount(row.get("received_quantity"))
         if row.get("correction_of_id"):
-            original = self._ledger_movements(cursor, int(row["correction_of_id"]))
+            original = self._effective_movements(cursor, int(row["correction_of_id"]))
             dispatch_delta = self._ledger_movements(cursor, int(row["id"]), "correction")
             source = movement_difference(
                 [item for item in original if int(item["warehouse_id"]) == int(row["warehouse_id"])],

@@ -2,13 +2,14 @@
 import { computed, onMounted, ref } from 'vue'
 import AppShell from '../../common/ui/AppShell.vue'
 import { confirmImport, downloadImportErrors, getExchangeTemplates, getImportBatches, previewImport, revokeImport, type ExchangeTemplate, type ImportBatch } from '../../features/data-exchange/data-exchange.service'
+import { createSessionStore } from '../../common/session/session.store'
 
 const templates = ref<ExchangeTemplate[]>([])
 const rows = ref<ImportBatch[]>([])
 const page = ref(1)
 const hasNext = ref(false)
 const dialog = ref(false)
-const organizationId = ref(1)
+const organizationId = ref<number | null>(null)
 const templateCode = ref('materials')
 const file = ref<File | null>(null)
 const preview = ref<ImportBatch | null>(null)
@@ -26,15 +27,21 @@ async function load() {
   try {
     const [templateResult, importResult] = await Promise.all([getExchangeTemplates(), getImportBatches(page.value)])
     templates.value = templateResult.items; rows.value = importResult.items; hasNext.value = importResult.has_next
+    if (!organizationId.value) {
+      const scopes = createSessionStore().user.value?.data_scopes ?? []
+      const ids = [...new Set(scopes.map((scope) => Number(scope.organization_id)).filter((id) => id > 0))]
+      if (ids.length === 1) organizationId.value = ids[0]
+    }
     if (!importableTemplates.value.some((item) => item.code === templateCode.value)) templateCode.value = importableTemplates.value[0]?.code ?? ''
   } catch { error.value = '数据加载失败，请稍后重试' }
 }
 function open() { dialog.value = true; preview.value = null; file.value = null; error.value = ''; notice.value = '' }
 function choose(event: Event) { file.value = (event.target as HTMLInputElement).files?.[0] ?? null; preview.value = null }
 async function validate() {
-  if (!file.value || !templateCode.value) { error.value = '请选择可导入模板和 Excel 文件'; return }
+  const orgId = organizationId.value
+  if (!file.value || !templateCode.value || !orgId || orgId < 1) { error.value = '请选择所属企业、可导入模板和 Excel 文件'; return }
   busy.value = true; error.value = ''
-  try { preview.value = (await previewImport(organizationId.value, templateCode.value, file.value)).batch }
+  try { preview.value = (await previewImport(orgId, templateCode.value, file.value)).batch }
   catch (reason) { error.value = reason instanceof Error ? reason.message : '文件校验失败' }
   finally { busy.value = false }
 }

@@ -80,12 +80,8 @@ class ReviewRepository:
                 raise ValueError("申请不存在")
             if application["status"] != "pending":
                 raise ValueError("当前申请状态不允许通过")
+            # 审核人提交的 scope_ids 是最终授权集合；申请人的 desired_scope 仅作参考。
             resolved_scope_ids = list(scope_ids)
-            desired_scope_type = application.get("desired_scope_type")
-            if desired_scope_type:
-                auto_scope_id = self._resolve_scope_id(cursor, desired_scope_type, application.get("area_id"))
-                if auto_scope_id and auto_scope_id not in resolved_scope_ids:
-                    resolved_scope_ids.append(auto_scope_id)
             self._validate_grant_ids(cursor, role_ids=role_ids, scope_ids=resolved_scope_ids)
             cursor.execute("UPDATE users SET status = 'active' WHERE id = %s", (application["user_id"],))
             cursor.executemany("INSERT IGNORE INTO user_roles (user_id, role_id, granted_by) VALUES (%s, %s, %s)", [(application["user_id"], role_id, reviewer_id) for role_id in role_ids])
@@ -177,8 +173,9 @@ class ReviewRepository:
     # ===== 注册/账号字典（对齐功能文档 7 角色 + 三级数据范围） =====
     def list_roles(self, connection: Any, *, include_disabled: bool = False) -> list[dict[str, Any]]:
         with connection.cursor() as cursor:
+            where = "WHERE status = %s AND code <> 'super_admin'" if not include_disabled else ""
             cursor.execute(
-                f"SELECT id, code, name, description FROM roles {'WHERE status = %s' if not include_disabled else ''} ORDER BY id",
+                f"SELECT id, code, name, description FROM roles {where} ORDER BY id",
                 (("active",) if not include_disabled else ()),
             )
             return list(cursor.fetchall())

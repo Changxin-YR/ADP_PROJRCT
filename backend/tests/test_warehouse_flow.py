@@ -11,6 +11,7 @@ from backend.layers.features.warehouse.warehouse_posting import allocate_fefo, b
 from backend.layers.features.warehouse.warehouse_ledger_store import WarehouseLedgerPoster
 from backend.layers.features.warehouse.warehouse_service import WarehouseService
 from backend.layers.features.warehouse.warehouse_transfer_store import cancel_transfer
+from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
 from fake_auth_store import FakeAuthStore
 
 
@@ -107,6 +108,23 @@ def test_verified_warehouse_record_is_read_only() -> None:
     service = WarehouseService(Store({"id": 1, "status": "verified", "row_version": 3, "created_by": 1}))
     with pytest.raises(DomainError, match="RECORD_READ_ONLY"):
         service.update(actor(2, "warehouse.manage"), "receipts", 1, {"expected_version": 3, "quantity": 12})
+
+
+def test_warehouse_scope_cannot_change_after_historical_use() -> None:
+    class Cursor:
+        def __init__(self) -> None:
+            self.sql = ""
+
+        def execute(self, sql: str, _params: tuple[object, ...]) -> None:
+            self.sql = sql
+
+        def fetchone(self) -> dict[str, int] | None:
+            return {"1": 1} if "inventory_ledger" in self.sql else None
+
+    with pytest.raises(DomainError, match="WAREHOUSE_SCOPE_IMMUTABLE"):
+        WarehouseMasterStoreMixin._ensure_scope_immutable(
+            Cursor(), 1, {"farm_id": 1, "area_id": 1}, {"farm_id": 1, "area_id": 2}
+        )
 
 
 def test_verification_requires_evidence_and_separate_actor() -> None:

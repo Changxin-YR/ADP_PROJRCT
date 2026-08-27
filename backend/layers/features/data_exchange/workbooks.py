@@ -11,6 +11,7 @@ from openpyxl.styles import Font, PatternFill
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 from reportlab.pdfgen import canvas
+from textwrap import wrap
 
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.data_exchange.template_catalog import Template
@@ -83,7 +84,7 @@ def error_workbook(errors: list[dict[str, Any]]) -> bytes:
     sheet.title = "错误明细"
     sheet.append(["行号", "字段", "错误原因", "原值", "修正建议"])
     for item in errors:
-        sheet.append([item["row"], item["column"], item["message"], item.get("value"), "修正后重新上传并从头校验"])
+        sheet.append([item["row"], item["column"], item["message"], _excel_value(item.get("value")), "修正后重新上传并从头校验"])
     return _save(book)
 
 
@@ -98,7 +99,7 @@ def export_workbook_stream(
     sheet.append(keys)
     row_count = 0
     for row in chain([first], iterator) if first is not None else ():
-        sheet.append([_json_value(row.get(key)) for key in keys])
+        sheet.append([_excel_value(row.get(key)) for key in keys])
         row_count += 1
     guide = book.create_sheet("导出说明")
     for key, value in {**metadata, "row_count": row_count}.items():
@@ -132,7 +133,15 @@ def export_pdf_stream(
             document.setFont("STSong-Light", 10)
             y = 800
         text = "; ".join(f"{key}={value}" for key, value in row.items())
-        document.drawString(40, y, f"{row_count}. {text[:100]}")
+        lines = wrap(f"{row_count}. {text}", width=110, break_long_words=False, break_on_hyphens=False) or [""]
+        for line_index, line in enumerate(lines):
+            if line_index:
+                y -= 14
+                if y < 50:
+                    document.showPage()
+                    document.setFont("STSong-Light", 10)
+                    y = 800
+            document.drawString(40, y, line)
     y -= 20
     if y < 50:
         document.showPage()
@@ -161,6 +170,13 @@ def _json_value(value: Any) -> Any:
     return value
 
 
+def _excel_value(value: Any) -> Any:
+    value = _json_value(value)
+    if isinstance(value, str) and value[:1] in {"=", "+", "-", "@"}:
+        return "'" + value
+    return value
+
+
 def _validate(required: bool, kind: str, allowed: tuple[str, ...], value: Any) -> str | None:
     if value in (None, ""):
         return "必填项不能为空" if required else None
@@ -173,6 +189,13 @@ def _validate(required: bool, kind: str, allowed: tuple[str, ...], value: Any) -
             return "必须是正整数"
         if kind == "date" and isinstance(value, str):
             date.fromisoformat(value)
+        if kind == "datetime":
+            if isinstance(value, datetime):
+                return None
+            text = str(value).strip()
+            if "T" not in text and " " not in text:
+                raise ValueError
+            datetime.fromisoformat(text)
     except (TypeError, ValueError):
-        return {"positive": "必须是正数", "number": "必须是数字", "integer": "必须是正整数", "date": "日期格式必须为 YYYY-MM-DD"}.get(kind, "格式不正确")
+        return {"positive": "必须是正数", "number": "必须是数字", "integer": "必须是正整数", "date": "日期格式必须为 YYYY-MM-DD", "datetime": "日期时间格式必须为 YYYY-MM-DD HH:MM[:SS]"}.get(kind, "格式不正确")
     return None

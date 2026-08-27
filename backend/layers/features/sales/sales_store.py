@@ -12,6 +12,7 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.revisions import build_revision, save_revision
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
 from backend.layers.common.files.evidence import validate_bound_evidence
+from backend.layers.common.db.repositories.cost_enterprise_repository import require_unlocked
 from backend.layers.features.sales import sales_receipt_reversal_store as reversals
 from backend.layers.features.sales import sales_receipt_store as receipts
 from backend.layers.features.sales.sales_posting import post_delivery
@@ -123,7 +124,9 @@ class MySqlSalesStore:
             before = self._order(cursor, record_id, lock=True)
             if before is None: raise DomainError("SALES_ORDER_NOT_FOUND", "销售单不存在", 404)
             self._require_scope(user, before); extra, params = "", [status, user_id]
-            if status == "approved": require_order_evidence(cursor, before, list(before.get("evidence_attachment_ids") or []))
+            if status == "approved":
+                self._scoped(cursor, before)
+                require_order_evidence(cursor, before, list(before.get("evidence_attachment_ids") or []))
             if status == "approved": extra = ",approved_by=%s,approved_at=CURRENT_TIMESTAMP"; params.append(user_id)
             params.extend([record_id, expected_version]); cursor.execute(f"UPDATE sales_orders SET status=%s,updated_by=%s{extra},row_version=row_version+1 WHERE id=%s AND row_version=%s", tuple(params))
             if cursor.rowcount != 1: raise DomainError("VERSION_CONFLICT", "数据已变化，请刷新后重试", 409)
@@ -237,7 +240,11 @@ class MySqlSalesStore:
             if before is None: raise DomainError("SALES_DELIVERY_NOT_FOUND", "交付单不存在", 404)
             self._require_scope(user, before); order = self._order(cursor, int(before["sales_order_id"]), lock=True) or {}
             evidence = validate_bound_evidence(cursor, organization_id=int(before["organization_id"]), entity_type="sales:delivery", entity_id=record_id, evidence_ids=evidence_attachment_ids or before.get("evidence_attachment_ids"))
-            if status == "verified": self._source(cursor, order, before)
+            if status == "verified":
+                if order.get("status") not in {"approved", "partially_delivered"}:
+                    raise DomainError("SALES_ORDER_NOT_DELIVERABLE", "销售单已取消或完成交付，不能核验交付", 409)
+                require_unlocked(cursor, {**order, **before}, "delivered_at")
+                self._source(cursor, order, before)
             extra, params = "", [status, user_id]
             if evidence: extra += ",evidence_attachment_ids_json=%s"; params.append(json.dumps(evidence))
             if status == "verified": extra += ",verified_by=%s,verified_at=NOW()"; params.append(user_id)

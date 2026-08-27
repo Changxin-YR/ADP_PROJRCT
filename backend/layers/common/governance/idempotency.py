@@ -69,8 +69,9 @@ def execute_idempotent(
                 validate_replay(stored_request_hash=row["request_hash"], incoming_request_hash=digest)
                 if row["status"] == "completed":
                     return json.loads(row["response_json"]), int(row["response_status"] or 200)
-                if row["status"] == "processing" and row["expires_at"] > now:
-                    raise DomainError("IDEMPOTENCY_IN_PROGRESS", "相同请求正在处理中，请稍后重试", 409)
+                if row["status"] == "processing":
+                    # ponytail: retain stale reservations to prevent a post-commit crash from replaying a business write; operator recovery can mark failed.
+                    raise DomainError("IDEMPOTENCY_IN_PROGRESS", "相同请求正在处理或等待恢复，请勿重复提交", 409)
                 cursor.execute(
                     "UPDATE idempotency_keys SET status='processing',response_json=NULL,response_status=NULL,expires_at=%s WHERE user_id=%s AND action_code=%s AND key_hash=%s",
                     (expires_at, user_id, action_code, key_hash(normalized)),

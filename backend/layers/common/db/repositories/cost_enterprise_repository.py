@@ -9,10 +9,10 @@ from backend.layers.common.files.evidence import validate_bound_evidence
 
 
 COST_TARGET_QUERIES = {
-    "area": "SELECT organization_id,farm_id,id AS area_id FROM areas WHERE id=%s AND status<>'archived'",
-    "group": "SELECT organization_id,farm_id,area_id FROM pond_groups WHERE id=%s AND status<>'archived'",
-    "pond": "SELECT organization_id,farm_id,area_id FROM ponds WHERE id=%s AND status<>'archived'",
-    "batch": "SELECT organization_id,farm_id,area_id FROM production_batches WHERE id=%s AND status<>'archived'",
+    "area": "SELECT organization_id,farm_id,id AS area_id FROM areas WHERE id=%s AND status='verified'",
+    "group": "SELECT organization_id,farm_id,area_id FROM pond_groups WHERE id=%s AND status='verified'",
+    "pond": "SELECT organization_id,farm_id,area_id FROM ponds WHERE id=%s AND status='verified'",
+    "batch": "SELECT organization_id,farm_id,area_id FROM production_batches WHERE id=%s AND status='verified'",
 }
 
 

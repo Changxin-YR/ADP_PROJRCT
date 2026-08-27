@@ -191,6 +191,8 @@ class MySqlProductionStore:
             if before is None:
                 raise DomainError("PRODUCTION_RECORD_NOT_FOUND", "生产记录不存在", 404)
             if status == "verified":
+                # 导入草稿也必须在最终核验时重新验证关联对象生命周期。
+                before = {**before, **scope_defaults(cursor, before, resource)}
                 validate_relations(cursor, resource, before)
                 lock_batch_anchors(cursor, resource, before)
             if status == "verified" and resource == "feed-logs":
@@ -218,6 +220,18 @@ class MySqlProductionStore:
                 self._post_stock(cursor, resource, after or {}, user_id)
                 cursor.execute("UPDATE work_items SET status='completed',completed_by=%s,completed_at=CURRENT_TIMESTAMP,completion_note='生产记录核验完成',row_version=row_version+1 WHERE source_key=%s AND status IN ('pending','claimed','in_progress','escalated')", (user_id, source_key))
             self._audit(connection, user_id, status, resource, record_id, before=before, after=after)
+            return after or {}
+
+    def change_batch_status(self, record_id: int, status: str, *, reason: str, expected_version: int, user_id: int) -> dict[str, Any]:
+        with get_connection(self.settings) as connection, connection.cursor() as cursor:
+            before = self._get(cursor, "batches", record_id, lock=True)
+            if before is None or before.get("status") != "verified":
+                raise DomainError("BATCH_NOT_VERIFIED", "仅已核验批次可以变更生命周期", 409)
+            cursor.execute("UPDATE production_batches SET batch_status=%s,updated_by=%s,row_version=row_version+1 WHERE id=%s AND row_version=%s", (status, user_id, record_id, expected_version))
+            if cursor.rowcount != 1:
+                raise DomainError("VERSION_CONFLICT", "批次已被修改，请刷新后重试", 409)
+            after = self._get(cursor, "batches", record_id)
+            self._audit(connection, user_id, "change_status", "batches", record_id, before=before, after={**(after or {}), "reason": reason})
             return after or {}
 
     @staticmethod

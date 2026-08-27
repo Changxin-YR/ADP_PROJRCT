@@ -45,6 +45,26 @@ ATTACHMENT_TARGETS = {
     "cost:asset": ("cost_assets", None, None),
 }
 
+ATTACHMENT_VIEW_PERMISSIONS = {
+    "warehouse:": "warehouse.view",
+    "production:": "production.view",
+    "master:": "master_data.view",
+    "purchase:order": "purchase.view",
+    "purchase:payment": "finance.payable.view",
+    "sales:order": "sales.view",
+    "sales:delivery": "sales.view",
+    "sales:receipt": "finance.receivable.view",
+    "cost:": "cost.view",
+}
+
+
+def attachment_permission_allows(user: dict[str, Any], entity_type: str) -> bool:
+    roles = {str(item.get("code")) for item in user.get("roles") or [] if isinstance(item, dict)}
+    if "super_admin" in roles or not roles:
+        return True
+    permission = next((value for prefix, value in ATTACHMENT_VIEW_PERMISSIONS.items() if entity_type.startswith(prefix)), None)
+    return permission is not None and permission in set(user.get("permissions") or [])
+
 
 def target_scope_allows(user: dict[str, Any], target: dict[str, Any]) -> bool:
     scopes = require_active_scope(user)

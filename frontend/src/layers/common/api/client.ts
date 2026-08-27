@@ -8,22 +8,33 @@ const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 export function createApiClient() {
   // 同一路径+同一请求体的写请求在途时复用同一 Promise：连点/重试不会产生重复 POST（弱网恢复后重提也不重复）
   const inflight = new Map<string, Promise<unknown>>()
+  const operationKeys = new Map<string, string>()
+  const readKey = (dedupeKey: string): string | undefined => operationKeys.get(dedupeKey)
+  const writeKey = (dedupeKey: string, value: string | null) => { if (value) operationKeys.set(dedupeKey, value); else operationKeys.delete(dedupeKey) }
   async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const method = (options.method ?? 'GET').toUpperCase()
     const headers = new Headers(options.headers)
     headers.set('Accept', 'application/json')
     if (options.body !== undefined) headers.set('Content-Type', 'application/json')
     if (stateChangingMethods.has(method) && path !== '/api/v1/auth/csrf') headers.set('X-CSRF-Token', await getCsrfToken())
-    if (method === 'POST' && path !== '/api/v1/auth/csrf' && !headers.has('Idempotency-Key')) {
-      headers.set('Idempotency-Key', globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    }
     const dedupeKey = stateChangingMethods.has(method) ? `${method} ${path} ${JSON.stringify(options.body ?? null)}` : ''
+    let generatedKey = false
+    if (stateChangingMethods.has(method) && path !== '/api/v1/auth/csrf' && !headers.has('Idempotency-Key')) {
+      const key = readKey(dedupeKey) ?? (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      headers.set('Idempotency-Key', key)
+      generatedKey = true
+      if (!readKey(dedupeKey)) writeKey(dedupeKey, key)
+    }
     if (dedupeKey && inflight.has(dedupeKey)) return inflight.get(dedupeKey) as Promise<T>
     const promise = doRequest<T>(path, options, method, headers)
     if (dedupeKey) {
       const tracked = promise.then(
-        (value) => { inflight.delete(dedupeKey); return value },
-        (reason) => { inflight.delete(dedupeKey); throw reason },
+        (value) => { inflight.delete(dedupeKey); if (generatedKey) writeKey(dedupeKey, null); return value },
+        (reason) => {
+          inflight.delete(dedupeKey)
+          if (generatedKey && (!(reason instanceof ApiError) || (reason.status !== 0 && reason.status !== 409 && reason.status < 500))) writeKey(dedupeKey, null)
+          throw reason
+        },
       )
       inflight.set(dedupeKey, tracked)
       return tracked

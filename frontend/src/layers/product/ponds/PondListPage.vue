@@ -7,7 +7,7 @@ import { ApiError, submitErrorText } from '../../common/api/errors'
 import { useSubmitGuard } from '../../common/ui/useSubmitGuard'
 import type { MasterField, MasterRecord } from '../../common/api/master-data.models'
 import type { RecordAction } from '../../common/api/lifecycle.models'
-import { createMasterRecord, deleteMasterDraft, listMasterOptions, listMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
+import { createMasterRecord, deleteMasterDraft, listAllMasterOptions, listAllMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
 
 type PondStatus = 'build' | 'stocked' | 'farming' | 'rest' | 'clean' | 'rebuild'
 type PondRecord = MasterRecord & { pond_status?: PondStatus; area_id?: number; pond_group_id?: number; capacity_mu?: number; species?: string; location_text?: string }
@@ -61,8 +61,8 @@ function errorMessage(error: unknown, fallback: string) { return error instanceo
 async function load() {
   loading.value = true; pageError.value = ''
   try {
-    const [pondPage, areaPage, groupPage] = await Promise.all([listMasterRecords('ponds'), listMasterOptions('areas'), listMasterOptions('pond-groups')])
-    ponds.value = pondPage.items as PondRecord[]; areaOptions.value = areaPage.items; pondGroupOptions.value = groupPage.items
+    const [pondItems, areaOptionsPage, groupOptionsPage] = await Promise.all([listAllMasterRecords('ponds'), listAllMasterOptions('areas'), listAllMasterOptions('pond-groups')])
+    ponds.value = pondItems as PondRecord[]; areaOptions.value = areaOptionsPage; pondGroupOptions.value = groupOptionsPage
   }
   catch (error) { ponds.value = []; pageError.value = errorMessage(error, '塘口数据加载失败') }
   finally { loading.value = false }

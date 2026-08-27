@@ -86,6 +86,7 @@ function toggleSort(column: ColumnItem) {
   if (!sortable(column)) return
   if (sortKey.value === column.key) sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
   else { sortKey.value = column.key; sortDir.value = 'asc' }
+  if (props.serverSide) emit('query', { ...filterState.value, page: 1, page_size: props.pageSize, sort_by: sortKey.value, sort_dir: sortDir.value })
 }
 const toneOf = (column: ColumnItem, row: Record<string, unknown>) => column.tones?.[String(row[column.key])] ?? 'slate'
 const allowedActions = (row: Record<string, unknown>) => Array.isArray(row.allowed_actions) ? row.allowed_actions as RecordAction[] : []
@@ -98,7 +99,8 @@ function goto(value: number) {
   if (props.serverSide) query(target); else page.value = target
 }
 const csvValue = (value: unknown) => {
-  const text = String(value ?? '')
+  const raw = String(value ?? '')
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 function exportCsv() {
@@ -139,7 +141,7 @@ function cellText(row: Record<string, unknown>, column: ColumnItem): string {
   <AppShell :title="title">
     <div class="page-title">
       <div><p class="section-label">{{ label }}</p><h1>{{ title }}</h1><p>{{ description }}</p></div>
-      <div v-if="createLabel || exportable" class="page-title__actions"><button v-if="exportable && exportResource" class="ghost-action" type="button" data-testid="table-export-xlsx" :disabled="exporting" @click="exportRange">{{ exporting ? '导出中…' : '导出当前范围' }}</button><button v-if="exportable" class="ghost-action" type="button" data-testid="table-export-csv" @click="exportCsv">{{ exportResource ? '导出 CSV' : '导出当前范围' }}</button><button v-if="createLabel && !readOnly" class="primary-action" type="button" @click="emit('create')">{{ createLabel }}</button></div>
+      <div v-if="createLabel || exportable" class="page-title__actions"><button v-if="exportable && exportResource" class="ghost-action" type="button" data-testid="table-export-xlsx" :disabled="exporting" @click="exportRange">{{ exporting ? '导出中…' : '导出当前范围' }}</button><button v-else-if="exportable" class="ghost-action" type="button" data-testid="table-export-csv" @click="exportCsv">导出当前范围</button><button v-if="createLabel && !readOnly" class="primary-action" type="button" @click="emit('create')">{{ createLabel }}</button></div>
     </div>
     <slot name="tabs" />
     <section v-if="kpis?.length" class="kpi-grid" :class="kpis.length === 3 ? 'kpi-grid--3' : kpis.length === 2 ? 'kpi-grid--2' : ''" aria-label="模块指标">

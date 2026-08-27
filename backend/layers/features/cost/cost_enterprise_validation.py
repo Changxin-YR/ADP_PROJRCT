@@ -95,5 +95,7 @@ def asset_payload(payload: Any) -> dict[str, Any]:
         result["depreciation_start_date"] = date.fromisoformat(str(result["depreciation_start_date"]))
     except (TypeError, ValueError) as exc:
         raise DomainError("COST_ASSET_DATE_INVALID", "资产日期无效", 400) from exc
+    if result["depreciation_start_date"] < result["purchase_date"]:
+        raise DomainError("COST_ASSET_DATE_INVALID", "折旧开始日不能早于购买日期", 400)
     normalize_target(result)
     return result

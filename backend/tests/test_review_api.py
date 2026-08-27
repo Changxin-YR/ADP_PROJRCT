@@ -8,6 +8,7 @@ import pytest
 from backend.app import create_app
 from backend.config.settings import Settings
 from backend.layers.features.account_review.review_service import ReviewService, ReviewServiceError
+from backend.layers.common.db.repositories.review_repository import ReviewRepository
 from test_auth_api import FakeAuthStore
 
 
@@ -346,3 +347,45 @@ def test_disabled_data_scope_cannot_be_granted() -> None:
 
     with pytest.raises(ValueError, match="数据范围不存在或已停用"):
         ReviewRepository._validate_grant_ids(Cursor(), role_ids=[], scope_ids=[99])
+
+
+def test_registration_approval_uses_only_reviewer_selected_scopes() -> None:
+    class Cursor:
+        def __init__(self) -> None:
+            self.statements: list[str] = []
+            self.calls = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, statement, _params=()):
+            self.statements.append(statement)
+
+        def executemany(self, statement, _params):
+            self.statements.append(statement)
+
+        def fetchone(self):
+            self.calls += 1
+            if self.calls == 1:
+                return {"id": 1, "user_id": 8, "status": "pending", "desired_scope_type": "farm", "area_id": 2}
+            if "COUNT(*)" in self.statements[-1]:
+                return {"total": 1}
+            return None
+
+        def fetchall(self):
+            return []
+
+    class Connection:
+        def __init__(self):
+            self.cursor_value = Cursor()
+
+        def cursor(self):
+            return self.cursor_value
+
+    connection = Connection()
+    cursor = connection.cursor_value
+    ReviewRepository().approve(connection, application_id=1, reviewer_id=7, role_ids=[3], scope_ids=[9])
+    assert not any("scope_type = 'farm'" in statement for statement in cursor.statements)

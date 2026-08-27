@@ -43,6 +43,19 @@ def test_alert_threshold_requires_a_real_new_safety_stock_value() -> None:
         })
 
 
+def test_alert_recheck_requires_a_stocktake_reference() -> None:
+    class Store:
+        @staticmethod
+        def handle_alert(*_args: object, **_kwargs: object) -> dict[str, object]:
+            return {}
+
+    service = WarehouseService(Store())
+    with pytest.raises(DomainError, match="WAREHOUSE_ALERT_REFERENCE_REQUIRED"):
+        service.handle_alert(_actor("warehouse.manage"), "3:8:low_stock", {
+            "action_code": "recheck", "resolution_note": "已完成盘点",
+        })
+
+
 def test_database_idempotency_replays_completed_response_and_rejects_payload_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
     state: dict[tuple[int, str, str], dict[str, object]] = {}
 

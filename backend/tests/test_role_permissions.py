@@ -54,6 +54,16 @@ def test_super_admin_must_keep_management_and_workbench_permissions() -> None:
     assert caught.value.code == "SUPER_ADMIN_PERMISSION_REQUIRED"
 
 
+def test_super_admin_must_keep_all_recovery_permissions() -> None:
+    with pytest.raises(ReviewServiceError, match="超级管理员") as caught:
+        service().update_role_permissions(
+            7,
+            1,
+            {"permission_codes": ["auth.user.manage", "workbench.enter"], "confirm_phrase": "CONFIRM"},
+        )
+    assert caught.value.code == "SUPER_ADMIN_PERMISSION_REQUIRED"
+
+
 def test_role_permissions_are_replaced_as_a_final_set() -> None:
     result = service().update_role_permissions(
         7, 2, {"permission_codes": ["production.view", "work_item.view", "production.view"], "confirm_phrase": "CONFIRM"}

@@ -154,6 +154,15 @@ describe('W4 DataTablePage 移动卡片模式', () => {
     expect(wrapper.find('.data-table-cards .table-empty').text()).toBe('当前没有库存预警')
   })
 
+  it('服务端导出资源不提供当前页 CSV，避免与完整 Excel 范围不一致', () => {
+    const wrapper = mount(DataTablePage, {
+      props: { title: '库存预警', columns, rows, exportResource: 'stock-alerts', serverSide: true, total: 50 },
+      global: { stubs: { AppShell: { template: '<div><slot /></div>' }, RouterLink: { template: '<a><slot /></a>' } } },
+    })
+    expect(wrapper.find('[data-testid="table-export-xlsx"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="table-export-csv"]').exists()).toBe(false)
+  })
+
   it('记录操作按钮防双击：点击后短暂锁定', async () => {
     const wrapper = mount(DataTablePage, {
       props: { title: '库存预警', columns, rows },

@@ -37,9 +37,9 @@ class WorkbenchRepository:
         pond_scope, pond_params = self._scope(user, "p")
         batch_scope, batch_params = self._scope(user, "pb")
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT COUNT(*) AS total FROM ponds p WHERE p.status <> 'archived' AND {pond_scope}", tuple(pond_params))
+            cursor.execute(f"SELECT COUNT(*) AS total FROM ponds p WHERE p.status = 'verified' AND {pond_scope}", tuple(pond_params))
             pond_count = int((cursor.fetchone() or {}).get("total", 0))
-            cursor.execute(f"SELECT p.pond_status AS status, COUNT(*) AS count FROM ponds p WHERE p.status <> 'archived' AND {pond_scope} GROUP BY p.pond_status", tuple(pond_params))
+            cursor.execute(f"SELECT p.pond_status AS status, COUNT(*) AS count FROM ponds p WHERE p.status = 'verified' AND {pond_scope} GROUP BY p.pond_status", tuple(pond_params))
             pond_status = [{"status": row["status"], "label": STATUS_LABELS.get(row["status"], row["status"]), "count": int(row["count"])} for row in cursor.fetchall()]
             cursor.execute(f"SELECT COUNT(*) AS total FROM production_batches pb WHERE pb.status='verified' AND pb.batch_status IN ('stocked','farming') AND {batch_scope}", tuple(batch_params))
             active_batches = int((cursor.fetchone() or {}).get("total", 0))

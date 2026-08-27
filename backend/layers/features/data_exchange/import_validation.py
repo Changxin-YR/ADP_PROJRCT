@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.data_exchange.import_refs import _date, _decimal, _fetch, _int, _text
+from backend.layers.features.data_exchange.feed_plan_validation import check_feed_plan_relations
 
 SALES_UNITS = {"kg", "jin", "tail"}
 RECEIPT_METHODS = {"bank_transfer", "cash", "check", "digital_wallet", "other"}
@@ -57,16 +59,16 @@ REFERENCE_CHECKS: dict[str, list[tuple[str, str, str, str]]] = {
     "transfers": [("batch_id", "production_batches", "批次", ""), ("target_pond_id", "ponds", "目标塘口", "")],
     "losses": [("batch_id", "production_batches", "批次", "")],
     "harvests": [("batch_id", "production_batches", "批次", "")],
-    "feed-plans": [("pond_id", "ponds", "塘口", "")],
+    "feed-plans": [("pond_id", "ponds", "塘口", ""), ("batch_id", "production_batches", "批次", "status='verified'"), ("material_id", "materials", "饲料", "status='verified'")],
     "feed-logs": [("pond_id", "ponds", "塘口", ""), ("material_id", "materials", "饲料", "")],
     "feed-tasks": [("assignee_id", "users", "作业员", "status='active'"), ("pond_id", "ponds", "塘口", "")],
     "daily-operations": [("pond_id", "ponds", "塘口", "")],
     "receipts": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'")],
-    "issues": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'")],
+    "issues": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'"), ("inventory_lot_id", "inventory_lots", "库存批次", "status='available'"), ("source_document_id", "warehouse_documents", "领用申请", "document_type='issue_request' AND status='verified'")],
     "warehouse-transfers": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "调出仓", "status='active'"), ("target_warehouse_id", "warehouses", "调入仓", "status='active'")],
-    "returns": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'")],
-    "stocktakes": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'")],
-    "scraps": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'")],
+    "returns": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'"), ("inventory_lot_id", "inventory_lots", "库存批次", "status='available'"), ("source_document_id", "warehouse_documents", "原出库单", "document_type='issue' AND status='verified'")],
+    "stocktakes": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'"), ("inventory_lot_id", "inventory_lots", "库存批次", "status='available'")],
+    "scraps": [("material_id", "materials", "物料", "status='verified'"), ("warehouse_id", "warehouses", "仓库", "status='active'"), ("inventory_lot_id", "inventory_lots", "库存批次", "status='available'")],
     "purchase-orders": [("supplier_id", "business_partners", "供应商", "partner_type='supplier'"), ("material_id", "materials", "物料", ""), ("warehouse_id", "warehouses", "收货仓", "status='active'")],
     "payments": [("payable_id", "purchase_payables", "应付账款", "")],
     "sales-orders": [("customer_id", "business_partners", "客户", "partner_type='customer'"), ("batch_id", "production_batches", "批次", "")],
@@ -80,8 +82,6 @@ CODE_COLUMN = {"cost_entries": "source_ref"}
 
 def _error(number: int, column: str, message: str, value: Any = None) -> dict[str, Any]:
     return {"row": number, "column": column, "message": message, "value": value}
-
-
 def validate_rows(cursor: Any, organization_id: int, template_code: str, rows: list[dict[str, Any]], row_numbers: list[int]) -> list[dict[str, Any]]:
     """预览阶段业务校验：编号唯一 + 关联对象存在 + 模板特定规则。"""
     errors: list[dict[str, Any]] = []
@@ -133,7 +133,6 @@ def validate_rows(cursor: Any, organization_id: int, template_code: str, rows: l
             checker(cursor, organization_id, rows, row_numbers, errors)
     return errors
 
-
 def _check_stocking(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
     batch_ids = sorted({value for value in (_int(row.get("batch_id")) for row in rows) if value})
     if batch_ids:
@@ -152,16 +151,12 @@ def _check_stocking(cursor: Any, organization_id: int, rows: list[dict[str, Any]
                 errors.append(_error(number, "batch_id", f"该批次已有待处理或历史更正：批次 {batch_id}", row.get("batch_id")))
             if batch_id:
                 seen.add(batch_id)
-
-
 def _check_transfer_targets(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
     for row, number in zip(rows, row_numbers):
         target = _int(row.get("target_pond_id"))
         batch_row = _fetch(cursor, "SELECT pond_id FROM production_batches WHERE id=%s AND organization_id=%s", (_int(row.get("batch_id")), organization_id))
         if target and batch_row and target == int(batch_row["pond_id"]):
             errors.append(_error(number, "target_pond_id", "转入塘口不能与批次当前塘口相同", row.get("target_pond_id")))
-
-
 def _check_warehouse_transfer(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
     del organization_id
     for row, number in zip(rows, row_numbers):
@@ -170,8 +165,6 @@ def _check_warehouse_transfer(cursor: Any, organization_id: int, rows: list[dict
             errors.append(_error(number, "target_warehouse_id", "调拨记录必须填写目标仓（调入仓）", row.get("target_warehouse_id")))
         elif source and target == source:
             errors.append(_error(number, "target_warehouse_id", "调入仓不能与调出仓相同", row.get("target_warehouse_id")))
-
-
 def _check_payments(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
     payable_ids = sorted({value for value in (_int(row.get("payable_id")) for row in rows) if value})
     if not payable_ids:
@@ -219,10 +212,23 @@ def _check_warehouse_presence(cursor: Any, organization_id: int, rows: list[dict
             errors.append(_error(number, "warehouse_id", "企业没有可用仓库，请先在系统中维护仓库或填写仓库ID", row.get("warehouse_id")))
 
 
+def _check_inventory_lot_alignment(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
+    for row, number in zip(rows, row_numbers):
+        lot_id = _int(row.get("inventory_lot_id"))
+        if not lot_id:
+            continue
+        cursor.execute("SELECT organization_id,material_id,status FROM inventory_lots WHERE id=%s", (lot_id,))
+        lot = cursor.fetchone()
+        if lot is None or int(lot.get("organization_id") or 0) != organization_id:
+            continue  # 关联存在性校验负责报告缺失或跨企业批次
+        if int(lot.get("material_id") or 0) != int(_int(row.get("material_id")) or 0):
+            errors.append(_error(number, "inventory_lot_id", "库存批次与导入物料不一致", row.get("inventory_lot_id")))
+
+
 def _check_feed_task_pond(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
     for row, number in zip(rows, row_numbers):
-        if _int(row.get("pond_id")) is None and _fetch(cursor, "SELECT id FROM ponds WHERE organization_id=%s ORDER BY id LIMIT 1", (organization_id,)) is None:
-            errors.append(_error(number, "pond_id", "企业没有塘口，派工任务必须指定塘口", row.get("pond_id")))
+        if _int(row.get("pond_id")) is None:
+            errors.append(_error(number, "pond_id", "派工任务必须明确指定塘口，不能自动绑定默认塘口", row.get("pond_id")))
 
 
 def _check_sales_order(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
@@ -251,6 +257,10 @@ def _check_assets(cursor: Any, organization_id: int, rows: list[dict[str, Any]],
         asset_type = _text(row.get("asset_type"))
         if asset_type and asset_type not in ASSET_TYPES:
             errors.append(_error(number, "asset_type", f"资产类别仅支持：{'/'.join(sorted(ASSET_TYPES))}", row.get("asset_type")))
+        try:
+            if _decimal(row.get("salvage_value", 0)) >= _decimal(row.get("amount")):
+                errors.append(_error(number, "salvage_value", "预计残值必须小于资产原值", row.get("salvage_value")))
+        except DomainError: pass
 
 
 def _check_cost_category(cursor: Any, organization_id: int, rows: list[dict[str, Any]], row_numbers: list[int], errors: list[dict[str, Any]]) -> None:
@@ -268,16 +278,17 @@ def _check_cost_category(cursor: Any, organization_id: int, rows: list[dict[str,
 
 
 SPECIAL_CHECKS: dict[str, Any] = {
+    "feed-plans": check_feed_plan_relations,
     "stocking": _check_stocking,
     "transfers": _check_transfer_targets,
     "warehouse-transfers": _check_warehouse_transfer,
     "payments": _check_payments,
     "customer-receipts": [_check_receipts, _check_receipt_method],
     "receipts": _check_warehouse_presence,
-    "issues": _check_warehouse_presence,
-    "returns": _check_warehouse_presence,
-    "stocktakes": _check_warehouse_presence,
-    "scraps": _check_warehouse_presence,
+    "issues": [_check_warehouse_presence, _check_inventory_lot_alignment],
+    "returns": [_check_warehouse_presence, _check_inventory_lot_alignment],
+    "stocktakes": [_check_warehouse_presence, _check_inventory_lot_alignment],
+    "scraps": [_check_warehouse_presence, _check_inventory_lot_alignment],
     "feed-tasks": _check_feed_task_pond,
     "sales-orders": _check_sales_order,
     "assets": [_check_assets, _check_cost_category],

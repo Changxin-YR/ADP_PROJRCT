@@ -11,6 +11,7 @@ import { cancelPurchasePayment, createPurchasePayment, deletePurchasePayment, li
 
 const tab = ref<'payables' | 'payments'>('payables')
 const payables = ref<PurchasePayable[]>([])
+const payableOptions = ref<PurchasePayable[]>([])
 const payments = ref<PurchasePayment[]>([])
 const payableMeta = reactive({ page: 1, page_size: 20, total: 0 })
 const paymentMeta = reactive({ page: 1, page_size: 20, total: 0 })
@@ -55,10 +56,21 @@ async function load() {
   loading.value = true; pageError.value = ''
   try {
     const [payablePage, paymentPage] = await Promise.all([listPurchasePayables(), listPurchasePayments()])
-    payables.value = payablePage.items; payments.value = paymentPage.items
+    payables.value = payablePage.items; payableOptions.value = payablePage.items; payments.value = paymentPage.items
     Object.assign(payableMeta, payablePage); Object.assign(paymentMeta, paymentPage)
   } catch (error) { payables.value = []; payments.value = []; pageError.value = message(error, '应付与付款数据加载失败') }
   finally { loading.value = false }
+}
+async function loadPayableOptions() {
+  const items: PurchasePayable[] = []
+  let page = 1
+  let result: { items: PurchasePayable[]; has_next: boolean }
+  do {
+    result = await listPurchasePayables({ page, page_size: 100 })
+    items.push(...result.items)
+    page += 1
+  } while (result.has_next)
+  payableOptions.value = items
 }
 async function queryRows(query: Record<string, string | number>) {
   loading.value = true; pageError.value = ''
@@ -78,6 +90,7 @@ function openForm(row?: PurchasePayment) {
   editing.value = row ?? null; dialogError.value = ''
   for (const field of fields) form[field.key] = (row?.[field.key as keyof PurchasePayment] as string | number) ?? ''
   formOpen.value = true
+  void loadPayableOptions().catch(() => { payableOptions.value = payables.value })
 }
 function body() {
   const payload: Record<string, unknown> = {}
@@ -148,7 +161,7 @@ onMounted(load)
     <template #tabs><nav class="filter-bar" aria-label="应付与付款视图" style="justify-content:flex-start"><button type="button" :class="tab === 'payables' ? 'primary-action' : 'ghost-action'" data-testid="purchase-tab-payables" @click="tab = 'payables'">应付账款</button><button type="button" :class="tab === 'payments' ? 'primary-action' : 'ghost-action'" data-testid="purchase-tab-payments" @click="tab = 'payments'">付款记录</button></nav></template>
   </DataTablePage>
   <Teleport to="body">
-    <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="付款记录编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? '编辑付款记录' : '登记付款' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">付款可分次登记；核验时必须上传凭据并由不同人员办理。</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`payment-${field.key}`" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`payment-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" /><select v-else-if="field.type === 'payable'" :id="`payment-${field.key}`" v-model="form[field.key]" :disabled="Boolean(editing)" class="filter-select" style="width:100%"><option value="" disabled>请选择应付来源</option><option v-for="item in payables.filter((row) => Number(row.balance) > 0 || row.id === editing?.payable_id)" :key="item.id" :value="item.id">{{ item.order_code }} · {{ item.supplier_name }} · 余额 {{ item.balance }}</option></select><select v-else-if="field.type === 'payment_method'" :id="`payment-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择付款方式</option><option value="bank_transfer">银行转账</option><option value="cash">现金</option><option value="check">支票</option><option value="digital_wallet">电子钱包</option><option value="other">其他</option></select><input v-else :id="`payment-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%"></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="payment-save" :disabled="submitting" :aria-busy="submitting" @click="save">{{ submitting ? '保存中…' : '保存' }}</button></div></div></div>
+    <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="付款记录编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? '编辑付款记录' : '登记付款' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">付款可分次登记；核验时必须上传凭据并由不同人员办理。</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`payment-${field.key}`" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`payment-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" /><select v-else-if="field.type === 'payable'" :id="`payment-${field.key}`" v-model="form[field.key]" :disabled="Boolean(editing)" class="filter-select" style="width:100%"><option value="" disabled>请选择应付来源</option><option v-for="item in payableOptions.filter((row) => Number(row.balance) > 0 || row.id === editing?.payable_id)" :key="item.id" :value="item.id">{{ item.order_code }} · {{ item.supplier_name }} · 余额 {{ item.balance }}</option></select><select v-else-if="field.type === 'payment_method'" :id="`payment-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择付款方式</option><option value="bank_transfer">银行转账</option><option value="cash">现金</option><option value="check">支票</option><option value="digital_wallet">电子钱包</option><option value="other">其他</option></select><input v-else :id="`payment-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%"></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="payment-save" :disabled="submitting" :aria-busy="submitting" @click="save">{{ submitting ? '保存中…' : '保存' }}</button></div></div></div>
     <div v-if="confirmAction && target" class="modal-overlay" role="dialog" aria-modal="true" aria-label="付款操作确认"><div class="modal-panel" style="width:min(500px,100%)"><div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验付款' : confirmAction === 'reverse' ? '冲销付款' : confirmAction === 'submit' ? '提交核验' : confirmAction === 'cancel' ? '取消付款' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div><p class="section-subtitle">{{ confirmAction === 'verify' ? '核验后付款只读，并在同一事务核销应付余额。' : confirmAction === 'reverse' ? '冲销将追加反向流水并恢复应付余额，原付款不会删除或改写。' : confirmAction === 'cancel' ? '已提交付款将有痕取消，历史仍保留。' : confirmAction === 'submit' ? '提交后仍可编辑，核验待办跟随最新版本。' : '仅未提交付款草稿可以删除。' }}</p><label v-if="confirmAction === 'reverse'" class="modal-field" for="payment-reversal-reason"><span>冲销原因 *</span><textarea id="payment-reversal-reason" v-model="reversalReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label><EvidencePicker v-if="confirmAction === 'verify' || confirmAction === 'reverse'" v-model="evidenceText" input-id="payment-evidence" :organization-id="Number((target as Record<string, unknown>).organization_id ?? 1)" :entity-type="entityType" :entity-id="target.id" :refresh-key="attachmentRefreshKey" /><label v-if="confirmAction === 'cancel'" class="modal-field" for="payment-cancellation-reason"><span>取消原因 *</span><textarea id="payment-cancellation-reason" v-model="cancellationReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">返回</button><button class="primary-action" type="button" data-testid="payment-confirm" :disabled="submitting" :aria-busy="submitting" @click="confirm">{{ submitting ? '处理中…' : '确认' }}</button></div></div></div>
   </Teleport>
 </template>

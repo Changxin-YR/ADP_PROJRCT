@@ -6,6 +6,8 @@ import pytest
 
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.workbench.workbench_service import WorkbenchService, WorkbenchServiceError
+from backend.layers.common.db.repositories.workbench_repository import WorkbenchRepository
+from backend.layers.common.db.repositories.governance_repository import GovernanceRepository
 
 
 class FakeWorkbenchStore:
@@ -99,3 +101,21 @@ def test_transition_rejects_non_positive_or_fractional_versions(invalid_version:
         )
 
     assert caught.value.code == "EXPECTED_VERSION_REQUIRED"
+
+
+def test_workbench_pond_kpi_counts_only_verified_ponds() -> None:
+    import inspect
+
+    source = inspect.getsource(WorkbenchRepository.summary)
+    assert "p.status = 'verified'" in source
+
+
+def test_area_scope_includes_all_master_data_work_items() -> None:
+    predicate, params = GovernanceRepository._area_scope_sql([7, 8])
+
+    for object_type in ("materials", "suppliers", "customers", "settings"):
+        assert f"wi.object_type = 'master:{object_type}'" in predicate
+    assert "FROM materials x" in predicate
+    assert "FROM business_partners x" in predicate
+    assert "FROM business_settings x" in predicate
+    assert len(params) == 19 * 2

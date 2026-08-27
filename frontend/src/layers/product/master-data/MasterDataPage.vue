@@ -43,7 +43,14 @@ const kpis = computed(() => [
 async function load() {
   loading.value = true
   pageError.value = ''
-  try { rows.value = (await listMasterRecords(props.resource)).items }
+  try {
+    const first = await listMasterRecords(props.resource, { page: 1, page_size: 100 })
+    const items = [...first.items]
+    for (let page = 2; first.has_next && page <= Math.ceil(first.total / 100); page += 1) {
+      items.push(...(await listMasterRecords(props.resource, { page, page_size: 100 })).items)
+    }
+    rows.value = items
+  }
   catch (error) { rows.value = []; pageError.value = message(error, '主数据加载失败') }
   finally { loading.value = false }
 }

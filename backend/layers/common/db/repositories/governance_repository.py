@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-
 class GovernanceRepository:
     """SQL access for append-only audit queries and shared governance records."""
 
@@ -19,6 +18,10 @@ class GovernanceRepository:
                 OR (wi.object_type = 'master:pond-groups' AND EXISTS (SELECT 1 FROM pond_groups x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
                 OR (wi.object_type = 'master:ponds' AND EXISTS (SELECT 1 FROM ponds x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
                 OR (wi.object_type = 'master:pond_status_change' AND EXISTS (SELECT 1 FROM ponds p WHERE p.id=wi.object_id AND p.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:materials' AND EXISTS (SELECT 1 FROM materials x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:suppliers' AND EXISTS (SELECT 1 FROM business_partners x WHERE x.id=wi.object_id AND x.partner_type='supplier' AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:customers' AND EXISTS (SELECT 1 FROM business_partners x WHERE x.id=wi.object_id AND x.partner_type='customer' AND x.area_id IN ({placeholders})))
+                OR (wi.object_type = 'master:settings' AND EXISTS (SELECT 1 FROM business_settings x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
                 OR (wi.object_type LIKE 'production:%' AND wi.object_type <> 'production:batches' AND EXISTS (SELECT 1 FROM production_documents x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
                 OR (wi.object_type = 'production:batches' AND EXISTS (SELECT 1 FROM production_batches x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
                 OR (wi.object_type LIKE 'warehouse:%' AND EXISTS (SELECT 1 FROM warehouse_documents x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
@@ -32,8 +35,7 @@ class GovernanceRepository:
                 OR (wi.object_type = 'cost:settlement' AND EXISTS (SELECT 1 FROM cost_settlements x WHERE x.id=wi.object_id AND x.area_id IN ({placeholders})))
             )
         """
-        return predicate, params * 15
-
+        return predicate, params * 19
     def list_audit_logs(
         self,
         connection: Any,

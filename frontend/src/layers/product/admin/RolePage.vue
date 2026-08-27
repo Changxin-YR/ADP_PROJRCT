@@ -25,7 +25,7 @@ async function load() {
     rows.value = result.items.map((role) => ({
       ...role,
       users: Number(role.user_count),
-      summary: role.permissions.map((permission) => permission.name || permission.code).join(' / ') || '未配置功能权限',
+      summary: role.permissions.map((permission) => `${permission.name || permission.code} ${permission.code}`).join(' / ') || '未配置功能权限',
       data_scope: '按成员数据范围授权',
       status_label: role.status === 'active' ? '启用' : '停用',
     }))
@@ -99,7 +99,7 @@ function runAction(action: string, row: Record<string, unknown>) {
     ]"
     :filters="[
       { key: 'status_label', type: 'select', label: '全部状态', options: Object.keys(statusTones).map((status) => ({ value: status, label: status })) },
-      { key: 'name', type: 'search', placeholder: '搜索角色名称 / 编码 / 权限' },
+      { key: 'name', type: 'search', placeholder: '搜索角色名称、编码或权限' },
     ]"
     :columns="[
       { key: 'name', label: '角色名称', type: 'title', sub: 'code' }, { key: 'users', label: '成员数', type: 'number' },

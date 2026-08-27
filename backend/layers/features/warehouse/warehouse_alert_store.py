@@ -19,7 +19,7 @@ def alert_references(action: str, payload: dict[str, Any]) -> dict[str, Any]:
         return {"safety_stock": threshold}
     if action == "replenish":
         field, message = "purchase_order_id", "补货处理必须关联采购单"
-    elif action in {"transfer", "scrap"}:
+    elif action in {"transfer", "scrap", "recheck"}:
         field, message = "resolution_document_id", "该处理动作必须关联仓储单据"
     else:
         return {}
@@ -68,7 +68,8 @@ def list_alerts(store: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
             f"""SELECT l.organization_id,w.id AS warehouse_id,l.id AS inventory_lot_id,m.id AS material_id,
                        m.name AS material_name,l.lot_no,w.name AS warehouse_name,m.safety_stock,l.expiry_date,
                        COALESCE(SUM(g.quantity_delta),0)-COALESCE((
-                         SELECT SUM(d.quantity) FROM warehouse_documents d
+                         SELECT SUM(CASE WHEN d.correction_of_id IS NULL THEN d.quantity ELSE d.quantity-COALESCE(parent.quantity,0) END) FROM warehouse_documents d
+                         LEFT JOIN warehouse_documents parent ON parent.id=d.correction_of_id
                          WHERE d.document_type='scrap' AND d.status='submitted'
                            AND d.warehouse_id=w.id AND d.inventory_lot_id=l.id
                        ),0) AS current_quantity,
@@ -163,6 +164,8 @@ def handle_alert(
     alert = next((item for item in list_alerts(store, user) if item["alert_key"] == alert_key), None)
     if alert is None:
         raise DomainError("WAREHOUSE_ALERT_NOT_FOUND", "预警不存在、已解除或不在授权范围", 404)
+    if action_code == "threshold" and alert.get("alert_type") != "low_stock":
+        raise DomainError("WAREHOUSE_ALERT_ACTION_INVALID", "只有低库存预警可以调整安全库存阈值", 409)
     with get_connection(store.settings) as connection, connection.cursor() as cursor:
         reference_id = None
         if action_code == "replenish":
@@ -174,12 +177,27 @@ def handle_alert(
             if reference is None or reference["status"] not in {"submitted", "approved", "partially_received"}:
                 raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "采购单不存在、未提交或与当前预警不匹配", 409)
             reference_id = int(reference["id"])
-        elif action_code in {"transfer", "scrap"}:
-            document_type = "transfer" if action_code == "transfer" else "scrap"
-            cursor.execute(
-                "SELECT id,status FROM warehouse_documents WHERE id=%s AND organization_id=%s AND document_type=%s AND warehouse_id=%s AND material_id=%s AND (inventory_lot_id=%s OR %s IS NULL)",
-                (resolution_document_id, alert["organization_id"], document_type, alert["warehouse_id"], alert["material_id"], alert["inventory_lot_id"], None if action_code == "transfer" else alert["inventory_lot_id"]),
-            )
+        elif action_code in {"transfer", "scrap", "recheck"}:
+            document_type = {"transfer": "transfer", "scrap": "scrap", "recheck": "stocktake"}[action_code]
+            if action_code == "transfer":
+                cursor.execute(
+                    "SELECT id,status FROM warehouse_documents "
+                    "WHERE id=%s AND organization_id=%s AND document_type='transfer' "
+                    "AND target_warehouse_id=%s AND warehouse_id<>target_warehouse_id AND material_id=%s",
+                    (resolution_document_id, alert["organization_id"], alert["warehouse_id"], alert["material_id"]),
+                )
+            elif action_code == "scrap":
+                cursor.execute(
+                    "SELECT id,status FROM warehouse_documents WHERE id=%s AND organization_id=%s "
+                    "AND document_type='scrap' AND warehouse_id=%s AND material_id=%s AND inventory_lot_id=%s",
+                    (resolution_document_id, alert["organization_id"], alert["warehouse_id"], alert["material_id"], alert["inventory_lot_id"]),
+                )
+            else:
+                cursor.execute(
+                    "SELECT id,status FROM warehouse_documents WHERE id=%s AND organization_id=%s "
+                    "AND document_type='stocktake' AND warehouse_id=%s AND material_id=%s AND inventory_lot_id=%s",
+                    (resolution_document_id, alert["organization_id"], alert["warehouse_id"], alert["material_id"], alert["inventory_lot_id"]),
+                )
             reference = cursor.fetchone()
             if reference is None or reference["status"] not in {"submitted", "in_transit", "verified"}:
                 raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "仓储单据不存在、未提交或与当前预警不匹配", 409)
@@ -195,7 +213,7 @@ def handle_alert(
                ON DUPLICATE KEY UPDATE condition_fingerprint=VALUES(condition_fingerprint),status='handled',action_code=VALUES(action_code),resolution_note=VALUES(resolution_note),resolution_reference_type=VALUES(resolution_reference_type),resolution_reference_id=VALUES(resolution_reference_id),handled_by=VALUES(handled_by),handled_at=CURRENT_TIMESTAMP""",
             (alert["organization_id"], alert_key, alert["warehouse_id"], alert["material_id"], alert["inventory_lot_id"],
              alert["alert_type"], alert["condition_fingerprint"], action_code, resolution_note,
-             "purchase_order" if action_code == "replenish" else "warehouse_document" if action_code in {"transfer", "scrap"} else None,
+             "purchase_order" if action_code == "replenish" else "warehouse_document" if action_code in {"transfer", "scrap", "recheck"} else None,
              reference_id, user_id),
         )
         result = {**alert, "status": "handled", "action_code": action_code, "resolution_note": resolution_note, "handled_by": user_id, "allowed_actions": []}

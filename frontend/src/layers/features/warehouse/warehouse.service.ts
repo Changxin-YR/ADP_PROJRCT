@@ -4,10 +4,14 @@ import type { WarehouseLedgerRow, WarehousePage, WarehouseRecord, WarehouseResou
 const api = createApiClient()
 const base = (resource: WarehouseResource) => `/api/v1/warehouse/${resource}`
 
-export const listWarehouseRecords = (resource: WarehouseResource) => api.get<WarehousePage>(base(resource))
+export const listWarehouseRecords = (resource: WarehouseResource, query: { page?: number; page_size?: number } = {}) => {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) if (value != null) params.set(key, String(value))
+  return api.get<WarehousePage>(params.size ? `${base(resource)}?${params}` : base(resource))
+}
 export const listWarehouseOptions = () => api.get<{ items: Array<{ id: number; code: string; name: string }> }>('/api/v1/warehouse/warehouses')
 export const listWarehouseMasters = () => api.get<{ items: WarehouseMaster[] }>('/api/v1/warehouse/warehouses?include_disabled=1')
-export interface WarehouseMaster { id: number; organization_id: number; farm_id: number; area_id?: number | null; code: string; name: string; location?: string | null; status: 'active' | 'disabled' }
+export interface WarehouseMaster { id: number; organization_id: number; farm_id: number; area_id?: number | null; code: string; name: string; location?: string | null; status: 'active' | 'disabled'; row_version: number }
 export const createWarehouse = (payload: Record<string, unknown>) => api.post<{ warehouse: WarehouseMaster }>('/api/v1/warehouse/warehouses', payload)
 export const updateWarehouse = (id: number, payload: Record<string, unknown>) => api.patch<{ warehouse: WarehouseMaster }>(`/api/v1/warehouse/warehouses/${id}`, payload)
 export const createWarehouseRecord = (resource: WarehouseResource, payload: Record<string, unknown>) => api.post<{ record: WarehouseRecord }>(base(resource), payload)
@@ -19,6 +23,6 @@ export const verifyWarehouseRecord = (resource: WarehouseResource, id: number, e
 export const dispatchWarehouseTransfer = (id: number, expectedVersion: number) => api.post<{ record: WarehouseRecord }>(`${base('transfers')}/${id}/dispatch`, { expected_version: expectedVersion })
 export const receiveWarehouseTransfer = (id: number, expectedVersion: number, receivedQuantity: number, differenceReason?: string) => api.post<{ record: WarehouseRecord }>(`${base('transfers')}/${id}/receive`, { expected_version: expectedVersion, received_quantity: receivedQuantity, ...(differenceReason ? { receipt_difference_reason: differenceReason } : {}) })
 export const cancelWarehouseTransfer = (id: number, expectedVersion: number, reason: string) => api.post<{ record: WarehouseRecord }>(`${base('transfers')}/${id}/cancel`, { expected_version: expectedVersion, cancellation_reason: reason })
-export const listWarehouseLedger = () => api.get<{ items: WarehouseLedgerRow[]; page: number; page_size: number; total: number; has_next: boolean }>('/api/v1/warehouse/ledger')
+export const listWarehouseLedger = (query: { page?: number; page_size?: number } = {}) => api.get<{ items: WarehouseLedgerRow[]; page: number; page_size: number; total: number; has_next: boolean }>(`/api/v1/warehouse/ledger?page=${query.page ?? 1}&page_size=${query.page_size ?? 50}`)
 export const listWarehouseAlerts = () => api.get<{ items: Array<Record<string, unknown>> }>('/api/v1/warehouse/alerts')
 export const handleWarehouseAlert = (alertKey: string, payload: Record<string, unknown>) => api.post<{ alert: Record<string, unknown> }>(`/api/v1/warehouse/alerts/${encodeURIComponent(alertKey)}/handle`, payload)

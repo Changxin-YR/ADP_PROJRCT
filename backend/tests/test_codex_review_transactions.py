@@ -151,6 +151,16 @@ def test_cost_asset_useful_life_requires_a_positive_whole_month(invalid_life: An
         })
 
 
+def test_cost_asset_depreciation_cannot_start_before_purchase() -> None:
+    with pytest.raises(DomainError, match="COST_ASSET_DATE_INVALID"):
+        asset_payload({
+            "code": "ASSET-DATE", "name": "增氧机", "asset_type": "equipment",
+            "category_code": "equipment", "purchase_date": "2026-09-01",
+            "original_value": "100.00", "useful_life_months": 12,
+            "depreciation_start_date": "2026-08-01",
+        })
+
+
 def test_purchase_order_import_calculates_total_without_runtime_name_error() -> None:
     cursor = RecordingCursor([
         {"organization_id": 1, "farm_id": 2, "area_id": 3},
