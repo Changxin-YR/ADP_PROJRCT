@@ -24,6 +24,7 @@ def test_blue_green_nginx_template_switches_frontend_and_api_together():
     assert "listen 443 ssl" in nginx
     assert "location /api/" in nginx
     assert "location /api-docs/" in nginx
+    assert "alias /var/lib/adp-acme/;" in nginx
 
 
 def test_deploy_requires_backups_and_verifies_before_switching():
