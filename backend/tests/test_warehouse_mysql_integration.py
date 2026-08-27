@@ -97,7 +97,7 @@ def _bind_receipt_evidence(settings: Any, record_id: int, attachment_id: int) ->
 
 
 def test_real_mysql_warehouse_business_chain_is_transactional_and_immutable() -> None:
-    with disposable_database("adp_warehouse_test", through=25) as database:
+    with disposable_database("adp_warehouse_test", through=26) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         service = WarehouseService(MySqlWarehouseStore(settings))
