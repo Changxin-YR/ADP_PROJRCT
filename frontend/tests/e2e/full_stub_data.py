@@ -14,10 +14,10 @@ AREAS = [
     {"id": 2, "code": "south-farm", "name": "南区基地"},
 ]
 SCOPES = [
-    {"id": 1, "code": "farm-all", "name": "全场数据（所有基地）", "scope_type": "farm", "area_id": None, "area_name": None},
-    {"id": 2, "code": "north-farm-all", "name": "北区基地全部数据", "scope_type": "area", "area_id": 1, "area_name": "北区基地"},
-    {"id": 3, "code": "south-farm-all", "name": "南区基地全部数据", "scope_type": "area", "area_id": 2, "area_name": "南区基地"},
-    {"id": 4, "code": "personal-self", "name": "仅本人数据", "scope_type": "personal", "area_id": None, "area_name": None},
+    {"id": 1, "code": "farm-all", "name": "全场数据（所有基地）", "scope_type": "farm", "organization_id": 1, "area_id": None, "area_name": None},
+    {"id": 2, "code": "north-farm-all", "name": "北区基地全部数据", "scope_type": "area", "organization_id": 1, "area_id": 1, "area_name": "北区基地"},
+    {"id": 3, "code": "south-farm-all", "name": "南区基地全部数据", "scope_type": "area", "organization_id": 1, "area_id": 2, "area_name": "南区基地"},
+    {"id": 4, "code": "personal-self", "name": "仅本人数据", "scope_type": "personal", "organization_id": 1, "area_id": None, "area_name": None},
 ]
 ADMIN_USER = {
     "id": 1, "name": "系统管理员", "phone": "13800000000", "login_name": "admin", "status": "active",
@@ -99,7 +99,7 @@ PONDS = [
         "location_text": "北区东侧", "manager_name": "李养殖", "description": "主养鲈鱼",
         "water_source": "外河水", "active_batch_count": 1,
         "aerator_count": 4, "stocking_spec": "5cm/尾", "current_spec": "350g/尾",
-        "stock_quantity": 12000, "stock_quantity_source": "sampling",
+        "stock_quantity": 12000, "stock_quantity_source": "sampled",
         "allowed_actions": ["view", "edit"],
         "timeline_preview": [],
         "status_change_targets": ["rest", "clean"],

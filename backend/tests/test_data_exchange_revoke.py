@@ -105,6 +105,7 @@ def test_data_exchange_migration_protects_audit_and_import_facts() -> None:
     sql = migration.read_text(encoding="utf-8")
     for marker in ("CREATE TABLE data_import_batches", "UNIQUE KEY uq_data_import_file", "CREATE TABLE data_export_audits", "data_export_audits_no_update", "data_export_audits_no_delete"):
         assert marker in sql
+    assert "breed_worker" not in sql
 
 
 def test_follow_up_migration_revokes_breed_worker_data_exchange_overgrant() -> None:

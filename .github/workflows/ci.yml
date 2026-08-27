@@ -5,12 +5,32 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
+      - run: sudo apt-get update && sudo apt-get install -y mysql-client
       - run: pip install -r backend/requirements.txt
       - run: python -m pytest backend/tests -q
+        env:
+          ADP_TEST_MYSQL_ALLOW_DISPOSABLE: '1'
+          ADP_TEST_MYSQL_CLIENT: mysql
+          ADP_TEST_MYSQL_HOST: 127.0.0.1
+          ADP_TEST_MYSQL_PORT: '3306'
+          ADP_TEST_MYSQL_USER: root
+          ADP_TEST_MYSQL_PASSWORD: root
   frontend:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: frontend } }
@@ -21,3 +41,5 @@ jobs:
       - run: npm ci
       - run: npm test -- --run
       - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

@@ -16,7 +16,7 @@ const ok = (data: unknown) => ({ code: 'OK', message: '操作成功', data, requ
 const fail = (code: string, message: string) => ({ code, message, data: null, request_id: 'enterprise-e2e' })
 
 function user(role: RoleCase) {
-  return { id: roles.findIndex(item => item.code === role.code) + 1, name: role.name, phone: '13900000000', status: 'active', roles: [{ id: 1, code: role.code, name: role.name }], data_scopes: [{ id: 1, code: 'farm-all', name: '全场', scope_type: 'farm' }], permissions: role.permissions }
+  return { id: roles.findIndex(item => item.code === role.code) + 1, name: role.name, phone: '13900000000', status: 'active', roles: [{ id: 1, code: role.code, name: role.name }], data_scopes: [{ id: 1, code: 'farm-all', name: '全场', scope_type: 'farm', organization_id: 1 }], permissions: role.permissions }
 }
 
 async function fulfill(route: Route, data: unknown, status = 200) {
