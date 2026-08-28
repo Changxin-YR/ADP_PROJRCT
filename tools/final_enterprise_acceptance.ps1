@@ -56,9 +56,13 @@ if ([string]::IsNullOrWhiteSpace($Release)) {
     $Release = (ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 $Server 'basename $(readlink -f /opt/adp/slots/green)').Trim()
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Release)) { throw "Cannot resolve active release from cloud" }
 }
+if ($Release -notmatch '^[A-Za-z0-9._-]+$') { throw "Invalid release id" }
+$serverHost = (($Server -split '@')[-1] -split ':')[0]
+$publicUri = [Uri]$PublicBaseUrl
+if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $serverHost) { throw "PublicBaseUrl must target the SSH server over HTTPS" }
 
 $report = Get-Content -Raw -LiteralPath "docs/audits/final-enterprise-acceptance.md"
-if (-not $report.Contains("最终结果") -and -not $report.Contains("Final result")) { throw "Acceptance report is missing a result marker" }
+if ($report -notmatch '(Final result:\s*PASS|最终结果[：:]\s*PASS)') { throw "Acceptance report is not marked PASS" }
 $trackedDirty = git status --porcelain --untracked-files=no
 if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Tracked implementation worktree must be clean before acceptance" }
 
@@ -88,14 +92,13 @@ Invoke-SshStep "Old API health" "curl --fail --silent http://127.0.0.1:5001/api/
 Invoke-SshStep "New API health" "curl --fail --silent http://127.0.0.1:5002/api/v1/health"
 Invoke-SshStep "Active release root" "grep -F '/opt/adp/releases/$Release/frontend/dist' /etc/nginx/conf.d/adp-auth.conf"
 Invoke-SshStep "Active API upstream" "grep -F 'proxy_pass http://127.0.0.1:5002;' /etc/nginx/conf.d/adp-auth.conf"
-Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'database=' $state/release.env"
+Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'release_id=$Release' $state/release.env && grep -E '^release_sha256=[a-f0-9]{64}$' $state/release.env && grep -E '^database=[A-Za-z0-9_]+$' $state/release.env"
 Invoke-SshStep "Backup checksums" "cd $backup && sha256sum -c SHA256SUMS"
 Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/adp-auth.conf"
 
-$remoteReconciliation = ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $Server "cat $state/*-reconciliation.json"
-if ($LASTEXITCODE -ne 0) { throw "Cloud reconciliation evidence is unavailable" }
-$remoteText = $remoteReconciliation -join "`n"
-if ($remoteText -notmatch '"ok": true' -or $remoteText -notmatch '"total_issues": 0') { throw "Cloud reconciliation reports issues" }
+$reconciliationCheck = 'set -e; found=0; for f in ' + $state + '/*-reconciliation.json; do test -f "$f" || exit 1; grep -q ''"ok": true'' "$f" || exit 1; grep -q ''"total_issues": 0'' "$f" || exit 1; found=1; done; test "$found" = 1'
+ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $Server $reconciliationCheck
+if ($LASTEXITCODE -ne 0) { throw "Cloud reconciliation evidence is unavailable or reports issues" }
 
 foreach ($path in @("/healthz", "/api/v1/health", "/api-docs/", "/workbench")) {
     Invoke-Step "Public $path" { curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "$PublicBaseUrl$path" }

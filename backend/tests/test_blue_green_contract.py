@@ -98,5 +98,8 @@ def test_rollback_restores_the_previous_config_without_reversing_migrations():
     assert "nginx -t" in script
     assert "systemctl reload nginx" in script
     assert "127.0.0.1:5001" in script
+    assert "previous-release" in script
+    assert "systemctl restart adp-next" in script
+    assert "127.0.0.1:5002" in script
     assert "DROP DATABASE" not in script
     assert "DELETE FROM schema_migrations" not in script

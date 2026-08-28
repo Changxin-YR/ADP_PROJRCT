@@ -7,6 +7,7 @@ exec 9>/run/lock/adp-blue-green.lock
 flock -n 9 || { echo "another ADP deployment is running" >&2; exit 1; }
 
 STATE_ROOT=/var/lib/adp/deployments
+SLOT_ROOT=/opt/adp/slots
 NGINX_LIVE=/etc/nginx/conf.d/adp-auth.conf
 MYSQL_CNF=""
 cleanup() {
@@ -41,6 +42,14 @@ RELEASE_ID="${1:-$(find "$STATE_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%
 STATE_DIR="$STATE_ROOT/$RELEASE_ID"
 PREVIOUS="$STATE_DIR/previous-nginx.conf"
 [[ -f "$PREVIOUS" ]] || { echo "previous-nginx.conf not found for $RELEASE_ID" >&2; exit 1; }
+PREVIOUS_RELEASE="$(cat "$STATE_DIR/previous-release" 2>/dev/null || true)"
+[[ -n "$PREVIOUS_RELEASE" && -d "$PREVIOUS_RELEASE" ]] || { echo "previous release not found for $RELEASE_ID" >&2; exit 1; }
+
+ln -sfn "$PREVIOUS_RELEASE" "$SLOT_ROOT/green.rollback"
+mv -Tf "$SLOT_ROOT/green.rollback" "$SLOT_ROOT/green"
+systemctl restart adp-next
+for _ in $(seq 1 30); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null && break; sleep 1; done
+curl --fail --silent --show-error http://127.0.0.1:5002/api/v1/health >/dev/null
 
 temporary=/etc/nginx/conf.d/.adp-auth.conf.rollback
 install -o root -g root -m 0644 "$PREVIOUS" "$temporary"

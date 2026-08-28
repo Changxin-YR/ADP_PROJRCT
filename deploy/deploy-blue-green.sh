@@ -112,6 +112,16 @@ cleanup_on_error() {
     if [[ -n "${STATE_DIR:-}" && -f "${STATE_DIR}/previous-nginx.conf" ]]; then
       restore_previous || true
     fi
+    if [[ -n "${PREVIOUS_RELEASE:-}" && -d "$PREVIOUS_RELEASE" ]]; then
+      current_release="$(readlink -f "$SLOT_ROOT/green" 2>/dev/null || true)"
+      if [[ "$current_release" != "$PREVIOUS_RELEASE" ]]; then
+        ln -sfn "$PREVIOUS_RELEASE" "$SLOT_ROOT/green.rollback"
+        mv -Tf "$SLOT_ROOT/green.rollback" "$SLOT_ROOT/green"
+      fi
+    fi
+    if [[ "${NEXT_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
+      systemctl start adp-next || true
+    fi
     if [[ "${OLD_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
       systemctl start adp-auth || true
     fi
@@ -188,9 +198,14 @@ chmod -R u=rwX,go=rX frontend/dist api-docs
 backup_live
 # ponytail: a short maintenance window prevents writes while the shared production schema is migrated.
 MAINTENANCE_MARKER="$STATE_DIR/maintenance"
+PREVIOUS_RELEASE="$(readlink -f "$SLOT_ROOT/green" 2>/dev/null || true)"
+if [[ -n "$PREVIOUS_RELEASE" ]]; then printf '%s\n' "$PREVIOUS_RELEASE" > "$STATE_DIR/previous-release"; fi
 OLD_SERVICE_WAS_ACTIVE=0
+NEXT_SERVICE_WAS_ACTIVE=0
 if systemctl is-active --quiet adp-auth; then OLD_SERVICE_WAS_ACTIVE=1; fi
+if systemctl is-active --quiet adp-next; then NEXT_SERVICE_WAS_ACTIVE=1; fi
 systemctl stop adp-auth
+systemctl stop adp-next
 date --iso-8601=seconds > "$MAINTENANCE_MARKER"
 migrate_database "$MYSQL_DATABASE"
 reconcile_database "$MYSQL_DATABASE"
