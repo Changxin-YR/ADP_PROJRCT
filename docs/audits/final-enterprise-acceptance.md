@@ -1,5 +1,15 @@
 # ADP 最终企业业务验收
 
+## 2026-08-28 Web 交付复核附录
+
+- 验收源码基线：`8055c718a12c6136f39f88ed849d2573d082ce54`
+- GitHub `main` 与本地基线一致；云端 release：`20260828-8055c71-r10`
+- 后端真实 MySQL 9.7：`483 passed`
+- 前端 Vitest：`112 passed`；Playwright E2E：`34 passed`；生产构建与 `npm audit` 通过
+- 云端 `adp-auth`、`adp-next` active，Nginx 配置、备份校验、生产数据对账（`total_issues=0`）及公网 HTTP/HTTPS 探测通过
+- 当前最终结果：`PASS WITH KNOWN ISSUES`
+- 已知阻塞：验收脚本自带 E2E 启动时，本机 `5173` 被其他项目占用；独立 E2E 已在端口空闲时完整通过。清理该外部进程后可重新运行门禁脚本取得最终 `PASS`。
+
 验收日期：2026-08-24（Asia/Shanghai）  
 验收源码：`C:\Users\27363\Desktop\ADP` 与 `C:\Users\27363\Desktop\adp_phone`  
 最终结果：PASS（微信预览上传需配置正式 AppID 并登录）
