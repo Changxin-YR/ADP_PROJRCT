@@ -53,7 +53,7 @@ function Invoke-MySqlTests {
 }
 
 if ([string]::IsNullOrWhiteSpace($Release)) {
-    $Release = (ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 $Server "basename \$(readlink -f /opt/adp/slots/green)").Trim()
+    $Release = (ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 $Server 'basename $(readlink -f /opt/adp/slots/green)').Trim()
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Release)) { throw "Cannot resolve active release from cloud" }
 }
 
