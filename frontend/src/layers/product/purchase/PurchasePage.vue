@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { submitErrorText, messageWithContext as message } from '../../common/api/errors'
 import type { MasterRecord } from '../../common/api/master-data.models'
 import type { PurchaseOrder } from '../../common/api/purchase.models'
 import DataTablePage from '../../common/ui/DataTablePage.vue'
+import { clearOfflineDraft, loadOfflineDraft, saveOfflineDraft } from '../../common/ui/offlineDraft'
 import { listAllMasterOptions } from '../../features/master-data/master-data.service'
 import { approvePurchaseOrder, cancelPurchaseOrder, createPurchaseOrder, deletePurchaseOrder, listPurchaseOrders, submitPurchaseOrder, updatePurchaseOrder } from '../../features/purchase/purchase.service'
 
@@ -17,6 +18,7 @@ const loading = ref(true)
 const pageError = ref('')
 const dialogError = ref('')
 const formOpen = ref(false)
+const draftNotice = ref('')
 const editing = ref<PurchaseOrder | null>(null)
 const target = ref<PurchaseOrder | null>(null)
 const confirmAction = ref<'delete' | 'submit' | 'approve' | 'cancel' | null>(null)
@@ -25,6 +27,7 @@ const form = reactive<Record<string, string | number>>({})
 const suppliers = ref<MasterRecord[]>([])
 const materials = ref<MasterRecord[]>([])
 const warehouses = ref<Array<{ id: number; code: string; name: string }>>([])
+const draftScope = 'purchase:orders'
 const option = (row: { id: number; code: string; name: string }) => ({ value: row.id, label: `${row.code} · ${row.name}` })
 const fields = computed(() => [
   { key: 'code', label: '采购单号', required: true }, { key: 'name', label: '采购名称', required: true },
@@ -61,7 +64,7 @@ async function load() {
 async function queryOrders(query: Record<string, string | number>) {
   loading.value = true; pageError.value = ''
   try {
-    const result = await listPurchaseOrders({ page: Number(query.page), page_size: Number(query.page_size), status: String(query.status ?? ''), search: String(query.name ?? '') })
+    const result = await listPurchaseOrders({ page: Number(query.page), page_size: Number(query.page_size), status: String(query.status ?? ''), search: String(query.name ?? ''), sort_by: String(query.sort_by ?? ''), sort_dir: String(query.sort_dir ?? '') as 'asc' | 'desc' })
     rows.value = result.items; Object.assign(pageMeta, result)
   } catch (error) { rows.value = []; pageError.value = message(error, '采购数据加载失败') }
   finally { loading.value = false }
@@ -69,8 +72,14 @@ async function queryOrders(query: Record<string, string | number>) {
 function openForm(row?: PurchaseOrder) {
   editing.value = row ?? null; dialogError.value = ''
   for (const field of fields.value) form[field.key] = (row?.[field.key as keyof PurchaseOrder] as string | number) ?? ''
+  draftNotice.value = ''
+  if (!row) {
+    const draft = loadOfflineDraft<Record<string, string | number>>(draftScope)
+    if (draft) { Object.assign(form, draft.payload); draftNotice.value = '已恢复本地草稿，保存后将清除本地副本。' }
+  }
   formOpen.value = true
 }
+function discardDraft() { clearOfflineDraft(draftScope); draftNotice.value = ''; formOpen.value = false }
 function body() {
   const payload: Record<string, unknown> = {}
   for (const field of fields.value) {
@@ -94,6 +103,7 @@ async function save() {
       ? await updatePurchaseOrder(editing.value.id, { ...payload, expected_version: editing.value.version })
       : await createPurchaseOrder(payload)
     replace(result.record); formOpen.value = false
+    if (!editing.value) clearOfflineDraft(draftScope)
   } catch (error) { dialogError.value = error instanceof Error ? submitErrorText(error, error.message) : '采购单保存失败' }
   finally { submitting.value = false }
 }
@@ -127,6 +137,9 @@ function action(name: string, raw: Record<string, unknown>) {
   }
 }
 onMounted(load)
+watch(form, (value) => {
+  if (formOpen.value && !editing.value && Object.values(value).some((item) => String(item ?? '').trim())) saveOfflineDraft(draftScope, { ...value })
+}, { deep: true })
 </script>
 
 <template>
@@ -136,6 +149,7 @@ onMounted(load)
     :columns="[{ key: 'code', label: '采购单号', type: 'title', sub: 'name' }, { key: 'supplier_name', label: '供应商' }, { key: 'material_name', label: '采购物料' }, { key: 'warehouse_name', label: '收货仓' }, { key: 'quantity', label: '数量', type: 'number' }, { key: 'received_quantity', label: '已到货', type: 'number' }, { key: 'total_amount', label: '金额', type: 'amount' }, { key: 'unpaid_amount', label: '待付', type: 'amount' }, { key: 'lifecycle_label', label: '状态', type: 'badge', tones }]"
     :rows="displayRows" action-test-id-prefix="purchase-action" server-side :total="pageMeta.total" :current-page="pageMeta.page" :page-size="pageMeta.page_size" :empty-text="loading ? '正在加载采购记录…' : '当前授权范围内暂无采购单'" @create="openForm()" @action="action" @query="queryOrders" />
   <Teleport to="body">
+    <p v-if="formOpen && draftNotice" class="offline-draft-notice" role="status">{{ draftNotice }} <button type="button" data-testid="purchase-discard-draft" @click="discardDraft">丢弃本地草稿</button></p>
     <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="采购单编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? '编辑采购单' : '新增采购单' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">提交后仍可编辑并递增版本；审批后业务字段只读。</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`purchase-${field.key}`" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`purchase-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" /><select v-else-if="field.type === 'select'" :id="`purchase-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择{{ field.label }}</option><option v-for="item in field.options" :key="item.value" :value="item.value">{{ item.label }}</option></select><input v-else :id="`purchase-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%"></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="purchase-save" :disabled="submitting" :aria-busy="submitting" @click="save">{{ submitting ? '保存中…' : '保存' }}</button></div></div></div>
     <div v-if="confirmAction && target" class="modal-overlay" role="dialog" aria-modal="true" aria-label="采购操作确认"><div class="modal-panel" style="width:min(500px,100%)"><div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'approve' ? '审批采购单' : confirmAction === 'submit' ? '提交审批' : confirmAction === 'cancel' ? '取消采购单' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div><p class="section-subtitle">{{ confirmAction === 'approve' ? '审批只确认采购，不会增加库存或生成应付。' : confirmAction === 'cancel' ? '取消将保留业务记录与原因；已有到货不能取消。' : confirmAction === 'submit' ? '提交后仍可编辑，审批待办跟随最新版本。' : '仅无引用的未提交草稿可以删除。' }}</p><label v-if="confirmAction === 'cancel'" class="modal-field" for="purchase-cancellation-reason"><span>取消原因 *</span><textarea id="purchase-cancellation-reason" v-model="cancellationReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">返回</button><button class="primary-action" type="button" data-testid="purchase-confirm" :disabled="submitting" :aria-busy="submitting" @click="confirm">{{ submitting ? '处理中…' : '确认' }}</button></div></div></div>
   </Teleport>

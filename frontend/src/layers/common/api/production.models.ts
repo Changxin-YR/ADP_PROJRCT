@@ -28,6 +28,8 @@ export interface BatchReconciliation {
 export interface ProductionField {
   key: string
   label: string
-  type?: 'text' | 'number' | 'datetime-local' | 'textarea'
+  type?: 'text' | 'number' | 'datetime-local' | 'textarea' | 'select' | 'json'
   required?: boolean
+  options?: Array<{ value: string; label: string }>
+  placeholder?: string
 }

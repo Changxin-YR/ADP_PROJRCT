@@ -1,9 +1,7 @@
 from __future__ import annotations
-
 import json
 from decimal import Decimal
 from typing import Any
-
 import pymysql
 
 from backend.layers.common.audit.audit_logger import AuditLogger
@@ -12,7 +10,7 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.revisions import build_revision, save_revision
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
 from backend.layers.common.files.evidence import validate_bound_evidence
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, scope_predicate, unrestricted
 from backend.layers.features.production.production_service import FIELDS
 from backend.layers.features.production.production_material_control import require_material_issue
 from backend.layers.features.production.production_relations import validate_relations
@@ -47,15 +45,7 @@ class MySqlProductionStore:
         return result
     @staticmethod
     def _scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return "", []
-        areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        if areas:
-            return f"area_id IN ({','.join(['%s'] * len(areas))})", areas
-        if any(item.get("scope_type") == "personal" for item in scopes):
-            return "created_by = %s", [int(user["id"])]
-        return "1=0", []
+        return scope_predicate(user)
 
     def list_records(self, resource: str, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, pond_id: Any = None, area_id: Any = None, **_: Any) -> dict[str, Any]:
         table, doc_type = self._table(resource)
@@ -78,7 +68,6 @@ class MySqlProductionStore:
             cursor.execute(f"SELECT {select} FROM {table} {where} ORDER BY updated_at DESC,id DESC LIMIT %s OFFSET %s", tuple(values + [page_size, (page - 1) * page_size]))
             items = [self._decode(row) or {} for row in cursor.fetchall()]
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
-
     _scope_defaults = staticmethod(scope_defaults)
     @staticmethod
     def require_write_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
@@ -86,9 +75,12 @@ class MySqlProductionStore:
         if unrestricted(user):
             return
         allowed = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
+        allowed_farms = {int(item["farm_id"]) for item in scopes if item.get("scope_type") == "farm" and item.get("farm_id")}
+        allowed_orgs = {int(item["organization_id"]) for item in scopes if item.get("scope_type") == "farm" and item.get("organization_id") and not item.get("farm_id")}
         actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
         personal = any(item.get("scope_type") == "personal" for item in scopes)
-        if actual and actual <= allowed and (not personal or int(row.get("created_by") or 0) == int(user["id"])):
+        tenant_allowed = (actual and actual <= allowed) or int(row.get("farm_id") or 0) in allowed_farms or int(row.get("organization_id") or 0) in allowed_orgs
+        if tenant_allowed and (not personal or int(row.get("created_by") or 0) == int(user["id"])):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的生产记录", 403)
     @staticmethod
@@ -97,7 +89,6 @@ class MySqlProductionStore:
         if "payload" in clean: clean["payload_json"] = json.dumps(clean.pop("payload"), ensure_ascii=False, default=str)
         if "evidence_attachment_ids" in clean: clean["evidence_attachment_ids_json"] = json.dumps(clean.pop("evidence_attachment_ids"))
         return clean
-
     _validate_relations = staticmethod(validate_relations)
 
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
@@ -227,6 +218,18 @@ class MySqlProductionStore:
             before = self._get(cursor, "batches", record_id, lock=True)
             if before is None or before.get("status") != "verified":
                 raise DomainError("BATCH_NOT_VERIFIED", "仅已核验批次可以变更生命周期", 409)
+            if status == "pending_settlement":
+                cursor.execute("SELECT 1 FROM production_documents WHERE batch_id=%s AND status IN ('draft','submitted') LIMIT 1", (record_id,))
+                if cursor.fetchone():
+                    raise DomainError("BATCH_OPEN_WORK", "批次仍有未完成生产业务，不能进入待结算", 409)
+            elif status == "closed":
+                cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight FROM batch_stock_records WHERE batch_id=%s FOR UPDATE", (record_id,))
+                stock = cursor.fetchone() or {}
+                if float(stock.get("quantity") or 0) != 0 or float(stock.get("weight") or 0) != 0:
+                    raise DomainError("BATCH_STOCK_NOT_ZERO", "批次仍有存塘量，不能关闭", 409)
+                cursor.execute("SELECT 1 FROM production_documents WHERE batch_id=%s AND status IN ('draft','submitted') LIMIT 1", (record_id,))
+                if cursor.fetchone():
+                    raise DomainError("BATCH_OPEN_WORK", "批次仍有未完成生产业务，不能关闭", 409)
             cursor.execute("UPDATE production_batches SET batch_status=%s,updated_by=%s,row_version=row_version+1 WHERE id=%s AND row_version=%s", (status, user_id, record_id, expected_version))
             if cursor.rowcount != 1:
                 raise DomainError("VERSION_CONFLICT", "批次已被修改，请刷新后重试", 409)

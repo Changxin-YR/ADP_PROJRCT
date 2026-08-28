@@ -8372,6 +8372,38 @@
           }
         ]
       }
+    },
+    "/api/v1/purchase/returns": {
+      "get": {"operationId": "purchase_list_returns", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}},
+      "post": {"operationId": "purchase_create_return", "responses": {"201": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/purchase/returns/{record_id}/submit": {
+      "post": {"operationId": "purchase_submit_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/purchase/returns/{record_id}/verify": {
+      "post": {"operationId": "purchase_verify_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/purchase/returns/{record_id}/cancel": {
+      "post": {"operationId": "purchase_cancel_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/purchase/returns/{record_id}": {
+      "delete": {"operationId": "purchase_delete_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/sales/returns": {
+      "get": {"operationId": "sales_list_returns", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}},
+      "post": {"operationId": "sales_create_return", "responses": {"201": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/sales/returns/{record_id}/submit": {
+      "post": {"operationId": "sales_submit_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/sales/returns/{record_id}/verify": {
+      "post": {"operationId": "sales_verify_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/sales/returns/{record_id}/cancel": {
+      "post": {"operationId": "sales_cancel_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/sales/returns/{record_id}": {
+      "delete": {"operationId": "sales_delete_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
     }
   },
   "components": {

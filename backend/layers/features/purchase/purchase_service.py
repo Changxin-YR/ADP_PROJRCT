@@ -234,3 +234,38 @@ class PurchaseService:
         expected = self._expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
         self.store.reverse_payment(payment_id, expected_version=expected, user=user, user_id=int(user["id"]), reason=reason, evidence_attachment_ids=evidence)
         return self.payment_result(self._payment(user, payment_id), user)
+
+    # Supplier returns are append-only inventory and payable adjustments.
+    def list_returns(self, user: dict[str, Any], **query: Any) -> dict[str, Any]:
+        self.require(user, "purchase.view")
+        return self.store.list_returns("purchase", user=user, **query)
+
+    def create_return(self, user: dict[str, Any], payload: Any) -> dict[str, Any]:
+        if not ({"purchase.return.manage", "purchase.manage"} & set(user.get("permissions") or [])):
+            raise DomainError("FORBIDDEN", "当前账号没有采购退货权限", 403)
+        if not isinstance(payload, dict) or not all(str(payload.get(k) or "").strip() for k in ("code", "name", "reason")):
+            raise DomainError("RETURN_REQUIRED_FIELDS", "退货单号、名称和原因不能为空", 400)
+        return self.store.create_return("purchase", payload, user=user, user_id=int(user["id"]))
+
+    def _return_transition(self, user: dict[str, Any], record_id: int, payload: Any, before: str, after: str) -> dict[str, Any]:
+        current = self.store.get_return("purchase", record_id, user=user)
+        if current is None: raise DomainError("RETURN_NOT_FOUND", "采购退货单不存在", 404)
+        if current.get("status") != before: raise DomainError("INVALID_STATE_TRANSITION", "当前退货状态不允许执行该操作", 409)
+        expected = self._expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
+        return self.store.set_return_status("purchase", record_id, after, expected_version=expected, user=user, user_id=int(user["id"]))
+
+    def submit_return(self, user: dict[str, Any], record_id: int, payload: Any) -> dict[str, Any]:
+        if not ({"purchase.return.manage", "purchase.manage"} & set(user.get("permissions") or [])): raise DomainError("FORBIDDEN", "当前账号没有采购退货权限", 403)
+        return self._return_transition(user, record_id, payload, "draft", "submitted")
+
+    def verify_return(self, user: dict[str, Any], record_id: int, payload: Any) -> dict[str, Any]:
+        if not ({"purchase.return.verify", "purchase.verify"} & set(user.get("permissions") or [])): raise DomainError("FORBIDDEN", "当前账号没有采购退货核验权限", 403)
+        return self._return_transition(user, record_id, payload, "submitted", "verified")
+    def cancel_return(self, user: dict[str, Any], record_id: int, payload: Any) -> dict[str, Any]:
+        if not ({"purchase.return.verify", "purchase.verify"} & set(user.get("permissions") or [])): raise DomainError("FORBIDDEN", "当前账号没有采购退货核验权限", 403)
+        reason = str((payload or {}).get("cancellation_reason") or "").strip()
+        if not reason: raise DomainError("CANCELLATION_REASON_REQUIRED", "取消退货必须填写原因", 400)
+        return self._return_transition(user, record_id, payload, "submitted", "cancelled")
+    def delete_return(self, user: dict[str, Any], record_id: int) -> dict[str, Any]:
+        if not ({"purchase.return.manage", "purchase.manage"} & set(user.get("permissions") or [])): raise DomainError("FORBIDDEN", "当前账号没有采购退货权限", 403)
+        return self.store.delete_return("purchase", record_id, user=user, user_id=int(user["id"]))

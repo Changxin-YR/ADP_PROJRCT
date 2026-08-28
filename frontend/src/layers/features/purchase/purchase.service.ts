@@ -1,11 +1,12 @@
 import { createApiClient } from '../../common/api/client'
-import type { PurchaseOrder, PurchasePage, PurchasePayable, PurchasePayment } from '../../common/api/purchase.models'
+import type { PurchaseOrder, PurchasePage, PurchasePayable, PurchasePayment, PurchaseReturn } from '../../common/api/purchase.models'
 
 const api = createApiClient()
 const orders = '/api/v1/purchase/orders'
 const payments = '/api/v1/purchase/payments'
+const returns = '/api/v1/purchase/returns'
 
-interface ListQuery { page?: number; page_size?: number; status?: string; search?: string }
+interface ListQuery { page?: number; page_size?: number; status?: string; search?: string; sort_by?: string; sort_dir?: 'asc' | 'desc' }
 const path = (base: string, query?: ListQuery) => {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query ?? {})) if (value !== undefined && value !== '') params.set(key, String(value))
@@ -29,3 +30,9 @@ export const submitPurchasePayment = (id: number, version: number) => api.post<{
 export const verifyPurchasePayment = (id: number, version: number, evidence: number[]) => api.post<{ record: PurchasePayment }>(`${payments}/${id}/verify`, { expected_version: version, evidence_attachment_ids: evidence })
 export const cancelPurchasePayment = (id: number, version: number, reason: string) => api.post<{ record: PurchasePayment }>(`${payments}/${id}/cancel`, { expected_version: version, cancellation_reason: reason })
 export const reversePurchasePayment = (id: number, version: number, reason: string, evidence: number[]) => api.post<{ record: PurchasePayment }>(`${payments}/${id}/reverse`, { expected_version: version, reversal_reason: reason, evidence_attachment_ids: evidence })
+export const listPurchaseReturns = (query?: ListQuery) => api.get<PurchasePage<PurchaseReturn>>(path(returns, query))
+export const createPurchaseReturn = (payload: Record<string, unknown>) => api.post<{ record: PurchaseReturn }>(returns, payload)
+export const submitPurchaseReturn = (id: number, version: number) => api.post<{ record: PurchaseReturn }>(`${returns}/${id}/submit`, { expected_version: version })
+export const verifyPurchaseReturn = (id: number, version: number) => api.post<{ record: PurchaseReturn }>(`${returns}/${id}/verify`, { expected_version: version })
+export const cancelPurchaseReturn = (id: number, version: number, reason: string) => api.post<{ record: PurchaseReturn }>(`${returns}/${id}/cancel`, { expected_version: version, cancellation_reason: reason })
+export const deletePurchaseReturn = (id: number) => api.delete<{ record: PurchaseReturn }>(`${returns}/${id}`)

@@ -6,7 +6,7 @@ from backend.layers.common.governance.lifecycle import DomainError, parse_expect
 from backend.layers.features.production.daily_operation_rules import normalize_daily_operation_payload
 from backend.layers.features.production.production_validation import require_stock_measurement, validate_batch_seed, validate_loss_reason
 from backend.layers.common.files.evidence import evidence_from_payload
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, unrestricted
 RESOURCES = {
     "batches", "samplings", "transfers", "losses", "harvests",
     "feed-plans", "feed-tasks", "feed-logs", "daily-operations",
@@ -169,12 +169,7 @@ class ProductionService:
 
     @staticmethod
     def _require_record_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return
-        areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
-        personal = any(item.get("scope_type") == "personal" for item in scopes)
-        if (areas and int(row.get("area_id") or 0) in areas) or (personal and int(row.get("created_by") or 0) == int(user["id"])):
+        if row_in_scope(user, row):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的生产记录", 403)
 

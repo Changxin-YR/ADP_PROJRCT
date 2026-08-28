@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { ColumnItem, FilterItem } from '../../common/ui/DataTablePage.vue'
 import DataTablePage from '../../common/ui/DataTablePage.vue'
 import { submitErrorText, messageWithContext as message } from '../../common/api/errors'
 import AttachmentList from '../../common/ui/AttachmentList.vue'
 import AttachmentUpload from '../../common/ui/AttachmentUpload.vue'
 import { useSubmitGuard } from '../../common/ui/useSubmitGuard'
+import { clearOfflineDraft, loadOfflineDraft, saveOfflineDraft } from '../../common/ui/offlineDraft'
 import type { ProductionField, ProductionRecord, ProductionResource } from '../../common/api/production.models'
 import { createProductionCorrection, createProductionRecord, deleteProductionDraft, listProductionRecords, submitProductionRecord, updateProductionRecord, verifyProductionRecord } from '../../features/production/production.service'
 
@@ -19,6 +20,7 @@ const loading = ref(true)
 const pageError = ref('')
 const dialogError = ref('')
 const formOpen = ref(false)
+const draftNotice = ref('')
 const editing = ref<ProductionRecord | null>(null)
 const correcting = ref<ProductionRecord | null>(null)
 const form = reactive<Record<string, string | number>>({})
@@ -27,6 +29,7 @@ const target = ref<ProductionRecord | null>(null)
 const evidenceText = ref('')
 const entityType = computed(() => `production:${props.resource}`)
 const attachmentRefreshKey = ref(0)
+const draftScope = computed(() => `production:${props.resource}`)
 function onEvidenceUploaded(attachment: { id: number }) { addEvidenceId(attachment.id); attachmentRefreshKey.value += 1 }
 function addEvidenceId(id: number) {
   const ids = evidenceText.value.split(',').map((item) => item.trim()).filter(Boolean)
@@ -63,15 +66,32 @@ async function load() {
 }
 function openForm(row?: ProductionRecord, correction = false) {
   editing.value = correction ? null : row ?? null; correcting.value = correction ? row ?? null : null; dialogError.value = ''
-  for (const field of props.fields) form[field.key] = correction && field.key === 'note' ? '' : (row?.[field.key] as string | number) ?? ''
+  for (const field of props.fields) {
+    const value = row?.[field.key]
+    form[field.key] = correction && field.key === 'note' ? '' : field.type === 'json' && value && typeof value === 'object' ? JSON.stringify(value, null, 2) : (value as string | number) ?? ''
+  }
+  draftNotice.value = ''
+  if (!row && !correction) {
+    const draft = loadOfflineDraft<Record<string, string | number>>(draftScope.value)
+    if (draft) { Object.assign(form, draft.payload); draftNotice.value = '已恢复本地草稿，保存后将清除本地副本。' }
+  }
   formOpen.value = true
+}
+function discardDraft() {
+  clearOfflineDraft(draftScope.value); draftNotice.value = ''; formOpen.value = false
 }
 function body() {
   const payload: Record<string, unknown> = {}
   for (const field of props.fields) {
     const value = form[field.key]
     if (field.required && !String(value ?? '').trim()) throw new Error(`请填写${field.label}`)
-    if (value !== '') payload[field.key] = field.type === 'number' ? Number(value) : String(value).trim()
+    if (value !== '') {
+      if (field.type === 'number') payload[field.key] = Number(value)
+      else if (field.type === 'json') {
+        try { payload[field.key] = JSON.parse(String(value)) }
+        catch { throw new Error(`${field.label}必须是有效 JSON`) }
+      } else payload[field.key] = String(value).trim()
+    }
   }
   return payload
 }
@@ -91,6 +111,7 @@ async function save() {
           ? await updateProductionRecord(props.resource, editing.value.id, { ...payload, expected_version: editing.value.version })
           : await createProductionRecord(props.resource, payload)
       replace(result.record); formOpen.value = false
+      if (!editing.value && !correcting.value) clearOfflineDraft(draftScope.value)
     } catch (error) { dialogError.value = error instanceof Error ? submitErrorText(error, error.message) : '生产记录保存失败' }
   })
 }
@@ -126,6 +147,9 @@ function action(name: string, raw: Record<string, unknown>) {
   else if (name === 'delete' || name === 'submit' || name === 'verify') ask(name, row)
 }
 onMounted(load)
+watch(form, (value) => {
+  if (formOpen.value && !editing.value && !correcting.value && Object.values(value).some((item) => String(item ?? '').trim())) saveOfflineDraft(draftScope.value, { ...value })
+}, { deep: true })
 </script>
 
 <template>
@@ -135,7 +159,8 @@ onMounted(load)
     :columns="tableColumns" :rows="displayRows" action-test-id-prefix="production-action"
     :empty-text="loading ? '正在加载生产记录…' : '当前授权范围内暂无记录'" @create="openForm()" @action="action" />
   <Teleport to="body">
-    <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="生产记录编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ correcting ? 'Correction' : editing ? 'Edit' : 'Create' }}</p><h2>{{ correcting ? `更正 · ${title}` : editing ? `编辑 · ${title}` : `新增 · ${title}` }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">{{ correcting ? '将创建关联更正单；原核验记录保持只读且不会被修改。' : '提交后仍可编辑并保留版本；核验后只能查看或发起更正。' }}</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`production-${field.key}`" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ correcting && field.key === 'note' ? '更正原因' : field.label }}{{ field.required || correcting && field.key === 'note' ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`production-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" /><input v-else :id="`production-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%"></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="production-save" :disabled="saving" :aria-busy="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button></div></div></div>
+    <p v-if="formOpen && draftNotice" class="offline-draft-notice" role="status">{{ draftNotice }} <button type="button" data-testid="production-discard-draft" @click="discardDraft">丢弃本地草稿</button></p>
+    <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="生产记录编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ correcting ? 'Correction' : editing ? 'Edit' : 'Create' }}</p><h2>{{ correcting ? `更正 · ${title}` : editing ? `编辑 · ${title}` : `新增 · ${title}` }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">{{ correcting ? '将创建关联更正单；原核验记录保持只读且不会被修改。' : '提交后仍可编辑并保留版本；核验后只能查看或发起更正。' }}</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`production-${field.key}`" :style="field.type === 'textarea' || field.type === 'json' ? 'grid-column:1/-1' : ''"><span>{{ correcting && field.key === 'note' ? '更正原因' : field.label }}{{ field.required || correcting && field.key === 'note' ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea' || field.type === 'json'" :id="`production-${field.key}`" v-model="form[field.key]" :rows="field.type === 'json' ? 7 : 3" class="filter-input" style="width:100%;resize:vertical" :placeholder="field.placeholder" /><select v-else-if="field.type === 'select'" :id="`production-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择</option><option v-for="option in field.options ?? []" :key="option.value" :value="option.value">{{ option.label }}</option></select><input v-else :id="`production-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%" :placeholder="field.placeholder"></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="production-save" :disabled="saving" :aria-busy="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button></div></div></div>
     <div v-if="confirmAction && target" class="modal-overlay" role="dialog" aria-modal="true" aria-label="生产操作确认"><div class="modal-panel" style="width:min(500px,100%)"><div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验并入账' : confirmAction === 'submit' ? '提交核验' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div><p class="section-subtitle">{{ confirmAction === 'verify' ? '核验使用当前最新版本，完成后记录永久只读。' : confirmAction === 'submit' ? '提交后仍可编辑，待办将跟随最新版本。' : '仅无引用、未提交的草稿可以删除。' }}</p><div v-if="confirmAction === 'verify' && highRisk" class="modal-row" style="grid-template-columns:1fr"><label class="modal-field"><span>凭据附件 ID *</span><input id="production-evidence" v-model="evidenceText" class="filter-input" style="width:100%" placeholder="上传或选择附件后自动回填，多个 ID 用英文逗号分隔"></label><div class="modal-field"><span>上传凭据</span><AttachmentUpload :organization-id="Number((target as Record<string, unknown>).organization_id ?? 1)" :entity-type="entityType" :entity-id="target.id" @uploaded="onEvidenceUploaded" /></div><div class="modal-field"><span>已有凭据</span><AttachmentList :entity-type="entityType" :entity-id="target.id" :refresh-key="attachmentRefreshKey" selectable @select="addEvidenceId" /></div></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">取消</button><button class="primary-action" type="button" data-testid="production-confirm" :disabled="confirming" :aria-busy="confirming" @click="confirm">{{ confirming ? '处理中…' : '确认' }}</button></div></div></div>
   </Teleport>
 </template>

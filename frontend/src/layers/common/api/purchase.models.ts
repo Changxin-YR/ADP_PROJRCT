@@ -48,6 +48,11 @@ export interface PurchasePayment extends LifecycleRecord {
   note?: string
 }
 
+export interface PurchaseReturn extends LifecycleRecord {
+  id: number; code: string; name: string; source_receipt_id: number; payable_id: number
+  warehouse_id: number; material_id: number; inventory_lot_id: number; quantity: number; amount: number; reason: string
+}
+
 export interface PurchasePage<T> {
   items: T[]
   page: number

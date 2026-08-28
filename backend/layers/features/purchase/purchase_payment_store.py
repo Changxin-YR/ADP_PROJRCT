@@ -28,7 +28,11 @@ def decode_payment(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return result
 
 
-def list_payables(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
+def _sort(sort_by: str | None, sort_dir: str | None, mapping: dict[str, str], default: str, tie: str) -> str:
+    column = mapping.get(str(sort_by or ""), default)
+    return f"{column} {'ASC' if str(sort_dir or '').lower() == 'asc' else 'DESC'},{tie} DESC"
+
+def list_payables(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, sort_by: str | None = None, sort_dir: str | None = None, **_: Any) -> dict[str, Any]:
     page, page_size = max(1, int(page)), min(100, max(1, int(page_size)))
     clauses, values = ["1=1"], []
     if status:
@@ -46,7 +50,7 @@ def list_payables(store: Any, *, user: dict[str, Any], page: int = 1, page_size:
             f"SELECT p.*,p.amount+COALESCE((SELECT SUM(a.amount_delta) FROM purchase_payable_adjustments a WHERE a.payable_id=p.id),0) AS effective_amount,"
             f"p.amount+COALESCE((SELECT SUM(a.amount_delta) FROM purchase_payable_adjustments a WHERE a.payable_id=p.id),0)-p.paid_amount AS balance,DATEDIFF(CURRENT_DATE,p.due_date) AS overdue_days,o.code AS order_code,s.name AS supplier_name "
             f"FROM purchase_payables p JOIN purchase_orders o ON o.id=p.purchase_order_id JOIN business_partners s ON s.id=p.supplier_id WHERE {where} "
-            "ORDER BY p.due_date,p.id LIMIT %s OFFSET %s",
+            f"ORDER BY {_sort(sort_by, sort_dir, {'due_date':'p.due_date','amount':'p.amount','status':'p.status','order_code':'o.code'}, 'p.due_date', 'p.id')} LIMIT %s OFFSET %s",
             tuple(values + [page_size, (page - 1) * page_size]),
         )
         items = list(cursor.fetchall())
@@ -56,7 +60,7 @@ def list_payables(store: Any, *, user: dict[str, Any], page: int = 1, page_size:
     return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
 
 
-def list_payments(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
+def list_payments(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, sort_by: str | None = None, sort_dir: str | None = None, **_: Any) -> dict[str, Any]:
     page, page_size = max(1, int(page)), min(100, max(1, int(page_size)))
     clauses, values = ["1=1"], []
     if status:
@@ -71,7 +75,7 @@ def list_payments(store: Any, *, user: dict[str, Any], page: int = 1, page_size:
         cursor.execute(f"SELECT COUNT(*) AS total FROM purchase_payments m JOIN purchase_payables p ON p.id=m.payable_id JOIN purchase_orders o ON o.id=p.purchase_order_id JOIN business_partners s ON s.id=p.supplier_id WHERE {where}", tuple(values))
         total = int(cursor.fetchone()["total"])
         cursor.execute(
-            f"SELECT m.*,r.id AS reversal_id,o.code AS order_code,s.name AS supplier_name FROM purchase_payments m LEFT JOIN purchase_payment_reversals r ON r.payment_id=m.id JOIN purchase_payables p ON p.id=m.payable_id JOIN purchase_orders o ON o.id=p.purchase_order_id JOIN business_partners s ON s.id=p.supplier_id WHERE {where} ORDER BY m.updated_at DESC,m.id DESC LIMIT %s OFFSET %s",
+            f"SELECT m.*,r.id AS reversal_id,o.code AS order_code,s.name AS supplier_name FROM purchase_payments m LEFT JOIN purchase_payment_reversals r ON r.payment_id=m.id JOIN purchase_payables p ON p.id=m.payable_id JOIN purchase_orders o ON o.id=p.purchase_order_id JOIN business_partners s ON s.id=p.supplier_id WHERE {where} ORDER BY {_sort(sort_by, sort_dir, {'amount':'m.amount','status':'m.status','paid_at':'m.paid_at','order_code':'o.code','updated_at':'m.updated_at'}, 'm.updated_at', 'm.id')} LIMIT %s OFFSET %s",
             tuple(values + [page_size, (page - 1) * page_size]),
         )
         items = [decode_payment(row) or {} for row in cursor.fetchall()]

@@ -6,7 +6,7 @@ from typing import Any
 
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.common.files.evidence import evidence_from_payload
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, unrestricted
 from backend.layers.features.warehouse.warehouse_alert_store import alert_references
 RESOURCES = {"receipts", "issue-requests", "issues", "returns", "transfers", "stocktakes", "scraps"}
 EVIDENCE_REQUIRED = {"receipts", "stocktakes", "scraps"}
@@ -78,19 +78,7 @@ class WarehouseService:
 
     @staticmethod
     def _scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return
-        allowed = {int(item["area_id"]) for item in scopes if item.get("area_id")}
-        actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
-        if actual and actual <= allowed:
-            return
-        if not actual:
-            personal = any(item.get("scope_type") == "personal" for item in scopes)
-            if not personal or int(row.get("created_by") or 0) != int(user["id"]):
-                raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的仓储记录", 403)
-            return
-        if any(item.get("scope_type") == "personal" for item in scopes) and int(row.get("created_by") or 0) == int(user["id"]):
+        if row_in_scope(user, row) and (not row.get("_target_area_id") or row_in_scope(user, {**row, "area_id": row.get("_target_area_id")})):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的仓储记录", 403)
 

@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/workbench/workbench"],
+  "window": {
+    "navigationBarTitleText": "ADP 工作台",
+    "navigationBarBackgroundColor": "#f5faf8",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5faf8"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

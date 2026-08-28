@@ -11,7 +11,7 @@ from backend.layers.common.http.request_helpers import json_object, require_csrf
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.security.csrf import CsrfError, generate_csrf_token
 from backend.layers.common.security.password import hash_password
-from backend.layers.common.security.session import hash_session_token, new_session_token
+from backend.layers.common.security.session import hash_session_token, new_session_token, request_session_token
 from backend.layers.common.validation.auth_validation import ValidationError, validate_password
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.registration.registration_service import RegistrationService, RegistrationServiceError
@@ -38,7 +38,7 @@ def create_auth_blueprint(settings: Settings, store: Any) -> Blueprint:
         require_csrf()
 
     def session_token() -> str | None:
-        return request.cookies.get("adp_session")
+        return request_session_token(request)
 
     def set_session_cookie(response: Response, token: str) -> Response:
         response.set_cookie(

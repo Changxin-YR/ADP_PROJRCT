@@ -10,6 +10,7 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.http.request_helpers import json_object as request_json_object, pagination, require_csrf
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.security.csrf import CsrfError
+from backend.layers.common.security.session import request_session_token
 from backend.layers.features.account_review.review_service import ReviewService, ReviewServiceError
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 
@@ -29,7 +30,7 @@ def create_admin_blueprint(settings: Settings, store: Any) -> Blueprint:
         return jsonify(fail(getattr(error, "code", fallback), getattr(error, "message", str(error)), getattr(error, "status", status))), getattr(error, "status", status)
 
     def authorized_user(*required: str) -> dict[str, Any]:
-        user = auth_service.current_user(request.cookies.get("adp_session"))
+        user = auth_service.current_user(request_session_token(request))
         if not set(required).intersection(user.get("permissions") or []):
             raise ReviewServiceError("FORBIDDEN", "当前账号没有所需管理权限", 403)
         return user

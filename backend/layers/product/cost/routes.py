@@ -11,6 +11,7 @@ from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.http.request_helpers import pagination
 from backend.layers.common.security.csrf import CsrfError, validate_csrf_token
+from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.cost.cost_service import CostService, CostServiceError
 from backend.layers.features.cost.cost_enterprise_service import CostEnterpriseService
@@ -24,7 +25,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     enterprise_service = CostEnterpriseService(cost_store)
 
     def current_user() -> dict[str, Any]:
-        return auth_service.current_user(request.cookies.get("adp_session"))
+        return auth_service.current_user(request_session_token(request))
 
     def parse_date(name: str, default: date | None = None) -> date:
         raw = request.args.get(name)

@@ -15,6 +15,8 @@ from backend.layers.features.warehouse.warehouse_store import MySqlWarehouseStor
 from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
 from backend.layers.features.data_exchange.template_catalog import get_template
 from backend.layers.features.data_exchange.importers_finance import import_payment, import_purchase_order, import_sales_order
+from backend.layers.common.security.session import request_session_token
+from backend.layers.common.http.request_helpers import require_csrf
 from test_master_data_api import FakeMasterStore
 from test_production_flow import FakeProductionStore, user
 
@@ -102,12 +104,69 @@ def test_return_must_match_source_issue_warehouse_and_material() -> None:
         WarehouseLedgerPoster._validate_return(Cursor(), {"source_document_id": 5, "organization_id": 1, "warehouse_id": 2, "material_id": 7, "inventory_lot_id": 8, "quantity": 1})
 
 
+def test_return_quota_uses_issue_ledger_root_not_issue_request_id() -> None:
+    class Cursor:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def execute(self, sql: str, _params: tuple[object, ...]) -> None:
+            self.sql = sql
+            self.calls += 1
+
+        def fetchone(self) -> dict[str, object] | None:
+            if self.calls == 1:
+                return {"organization_id": 1, "warehouse_id": 2, "material_id": 7, "document_type": "issue", "status": "verified"}
+            if "correction_of_id" in self.sql:
+                return {"correction_of_id": None}
+            if "document_type='return'" in self.sql:
+                return {"returned": 0}
+            return None
+
+        def fetchall(self) -> list[dict[str, object]]:
+            return [{"warehouse_id": 2, "inventory_lot_id": 8, "quantity_delta": -10}]
+
+    row = {"source_document_id": 5, "organization_id": 1, "warehouse_id": 2, "material_id": 7, "inventory_lot_id": 8, "quantity": 3}
+    WarehouseLedgerPoster._validate_return(Cursor(), row)
+
+
 def test_empty_active_scope_fails_closed_for_real_accounts() -> None:
     account = {"id": 7, "roles": [{"code": "breed_manager"}], "permissions": ["production.manage"], "data_scopes": []}
     with pytest.raises(DomainError, match="DATA_SCOPE_REQUIRED"):
         ProductionService._require_record_scope(account, {"area_id": 2, "created_by": 7})
     with pytest.raises(DomainError, match="DATA_SCOPE_REQUIRED"):
         WarehouseService._scope(account, {"area_id": 2, "created_by": 7})
+
+
+def test_request_session_token_accepts_bearer_and_falls_back_to_cookie() -> None:
+    class Request:
+        def __init__(self, authorization: str = "", cookie: str | None = None) -> None:
+            self.headers = {"Authorization": authorization}
+            self.cookies = {"adp_session": cookie} if cookie else {}
+
+    assert request_session_token(Request("Bearer mobile-token", "cookie-token")) == "mobile-token"
+    assert request_session_token(Request("", "cookie-token")) == "cookie-token"
+    assert request_session_token(Request("Bearer   ", "cookie-token")) is None
+
+
+def test_bearer_requests_do_not_depend_on_browser_csrf_session() -> None:
+    class Request:
+        headers = {"Authorization": "Bearer mobile-token"}
+
+    from flask import Flask
+    app = Flask(__name__)
+    app.secret_key = "test"
+    with app.test_request_context("/", headers=Request.headers):
+        require_csrf()
+
+
+def test_combined_tenant_and_personal_scope_keeps_creator_restriction() -> None:
+    from backend.layers.common.security.data_scope import scope_predicate
+
+    predicate, values = scope_predicate({"id": 7, "roles": [{"code": "breed_worker"}], "data_scopes": [
+        {"scope_type": "area", "area_id": 2}, {"scope_type": "personal"},
+    ]}, "p")
+    assert "p.created_by=%s" in predicate
+    assert values == [2, 7]
 
 
 def test_non_super_admin_farm_scope_does_not_become_cross_tenant_global_access() -> None:

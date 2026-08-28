@@ -9,6 +9,9 @@ from backend.layers.common.security.csrf import validate_csrf_token
 
 
 def require_csrf() -> None:
+    authorization = str(request.headers.get("Authorization", ""))
+    if authorization.lower().startswith("bearer ") and authorization[7:].strip():
+        return
     validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
 
 

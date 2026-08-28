@@ -35,7 +35,11 @@ def receivable_snapshot(store: Any, cursor: Any, user: dict[str, Any], receivabl
     store._require_scope(user, row); row["balance"] = Decimal(str(row["effective_amount"])) - Decimal(str(row["received_amount"])); return row
 
 
-def list_receivables(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
+def _sort(sort_by: str | None, sort_dir: str | None, mapping: dict[str, str], default: str, tie: str) -> str:
+    column = mapping.get(str(sort_by or ""), default)
+    return f"{column} {'ASC' if str(sort_dir or '').lower() == 'asc' else 'DESC'},{tie} DESC"
+
+def list_receivables(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, sort_by: str | None = None, sort_dir: str | None = None, **_: Any) -> dict[str, Any]:
     clauses, values = ["1=1"], []; scope, scoped = store._scope(user, "o")
     if scope: clauses.append(scope); values.extend(scoped)
     if status: clauses.append("r.status=%s"); values.append(status)
@@ -46,12 +50,12 @@ def list_receivables(store: Any, *, user: dict[str, Any], page: int = 1, page_si
     with get_connection(store.settings) as connection, connection.cursor() as cursor:
         cursor.execute(f"SELECT COUNT(*) AS total{joins} WHERE {where}", tuple(values)); total = int(cursor.fetchone()["total"])
         cursor.execute(f"SELECT COALESCE(SUM({effective}),0) AS total_amount,COALESCE(SUM(GREATEST({effective}-r.received_amount,0)),0) AS total_balance,COALESCE(SUM(GREATEST(r.received_amount-{effective},0)),0) AS overpaid_amount,SUM(CASE WHEN r.due_date<CURRENT_DATE AND {effective}-r.received_amount>0 THEN 1 ELSE 0 END) AS overdue_count{joins} WHERE {where}", tuple(values)); summary = dict(cursor.fetchone())
-        cursor.execute(f"SELECT r.id,r.sales_order_id,r.source_delivery_id,r.customer_id,r.due_date,r.status,r.created_at,o.code AS order_code,o.area_id,c.name AS customer_name,{effective} AS amount,r.received_amount,{effective}-r.received_amount AS balance,DATEDIFF(CURRENT_DATE,r.due_date) AS overdue_days{joins} WHERE {where} ORDER BY r.due_date,r.id LIMIT %s OFFSET %s", tuple(values + [page_size, (page - 1) * page_size])); items = [dict(row) for row in cursor.fetchall()]
+        cursor.execute(f"SELECT r.id,r.sales_order_id,r.source_delivery_id,r.customer_id,r.due_date,r.status,r.created_at,o.code AS order_code,o.area_id,c.name AS customer_name,{effective} AS amount,r.received_amount,{effective}-r.received_amount AS balance,DATEDIFF(CURRENT_DATE,r.due_date) AS overdue_days{joins} WHERE {where} ORDER BY {_sort(sort_by, sort_dir, {'due_date':'r.due_date','amount':'r.amount','balance':'r.received_amount','status':'r.status','order_code':'o.code'}, 'r.due_date', 'r.id')} LIMIT %s OFFSET %s", tuple(values + [page_size, (page - 1) * page_size])); items = [dict(row) for row in cursor.fetchall()]
     summary["overdue_count"] = int(summary.get("overdue_count") or 0)
     return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total, "summary": summary}
 
 
-def list_receipts(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
+def list_receipts(store: Any, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, sort_by: str | None = None, sort_dir: str | None = None, **_: Any) -> dict[str, Any]:
     clauses, values = ["1=1"], []; scope, scoped = store._scope(user, "o")
     if scope: clauses.append(scope); values.extend(scoped)
     if status: clauses.append("m.status=%s"); values.append(status)
@@ -60,7 +64,7 @@ def list_receipts(store: Any, *, user: dict[str, Any], page: int = 1, page_size:
     joins = " FROM sales_receipts m JOIN sales_receivables r ON r.id=m.receivable_id JOIN sales_orders o ON o.id=r.sales_order_id JOIN business_partners c ON c.id=r.customer_id"
     with get_connection(store.settings) as connection, connection.cursor() as cursor:
         cursor.execute(f"SELECT COUNT(*) AS total{joins} WHERE {where}", tuple(values)); total = int(cursor.fetchone()["total"])
-        cursor.execute(f"SELECT m.*,x.id AS reversal_id,o.code AS order_code,o.area_id,c.name AS customer_name{joins} LEFT JOIN sales_receipt_reversals x ON x.receipt_id=m.id WHERE {where} ORDER BY m.updated_at DESC,m.id DESC LIMIT %s OFFSET %s", tuple(values + [page_size, (page - 1) * page_size])); items = [decode(row) or {} for row in cursor.fetchall()]
+        cursor.execute(f"SELECT m.*,x.id AS reversal_id,o.code AS order_code,o.area_id,c.name AS customer_name{joins} LEFT JOIN sales_receipt_reversals x ON x.receipt_id=m.id WHERE {where} ORDER BY {_sort(sort_by, sort_dir, {'amount':'m.amount','status':'m.status','received_at':'m.received_at','order_code':'o.code','updated_at':'m.updated_at'}, 'm.updated_at', 'm.id')} LIMIT %s OFFSET %s", tuple(values + [page_size, (page - 1) * page_size])); items = [decode(row) or {} for row in cursor.fetchall()]
     return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
 
 

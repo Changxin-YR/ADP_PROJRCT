@@ -1,0 +1,1 @@
+{ "desc": "ADP mini program", "rules": [{ "action": "allow", "page": "pages/workbench/workbench" }] }

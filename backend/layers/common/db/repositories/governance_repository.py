@@ -1,11 +1,7 @@
 from __future__ import annotations
-
 from datetime import date, datetime
 from typing import Any
-
 class GovernanceRepository:
-    """SQL access for append-only audit queries and shared governance records."""
-
     @staticmethod
     def _area_scope_sql(area_ids: list[int] | None) -> tuple[str, list[Any]]:
         if not area_ids:
@@ -91,13 +87,13 @@ class GovernanceRepository:
             )
             items = list(cursor.fetchall())
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": offset + len(items) < total}
-
     def list_work_items(
         self,
         connection: Any,
         *,
         user_id: int,
         allowed_modules: list[str] | None = None,
+        allowed_object_types: list[str] | None = None,
         allow_unassigned: bool = True,
         allowed_area_ids: list[int] | None = None,
         status: str | None = None,
@@ -115,6 +111,12 @@ class GovernanceRepository:
             else:
                 conditions.append(f"wi.module_code IN ({','.join(['%s'] * len(allowed_modules))})")
                 params.extend(allowed_modules)
+        if allowed_object_types is not None:
+            if allowed_object_types:
+                conditions.append(f"(wi.module_code <> 'finance' OR wi.object_type IN ({','.join(['%s'] * len(allowed_object_types))}))")
+                params.extend(allowed_object_types)
+            else:
+                conditions.append("wi.module_code <> 'finance'")
         area_sql, area_params = self._area_scope_sql(allowed_area_ids)
         if area_sql:
             conditions.append(area_sql.strip()[4:].strip())
@@ -148,7 +150,6 @@ class GovernanceRepository:
             )
             items = list(cursor.fetchall())
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": offset + len(items) < total}
-
     def transition_work_item(
         self,
         connection: Any,
@@ -156,6 +157,7 @@ class GovernanceRepository:
         item_id: int,
         user_id: int,
         allowed_modules: list[str],
+        allowed_object_types: list[str] | None = None,
         allow_unassigned: bool,
         allowed_area_ids: list[int] | None = None,
         action: str,
@@ -173,6 +175,8 @@ class GovernanceRepository:
                 raise ValueError("待办不存在")
             if item.get("module_code") not in allowed_modules:
                 raise PermissionError("无权处理该业务模块的待办")
+            if item.get("module_code") == "finance" and allowed_object_types is not None and item.get("object_type") not in allowed_object_types:
+                raise PermissionError("无权处理该财务待办")
             if item.get("module_code") != "workbench" or item.get("object_type") != "workbench:manual":
                 raise PermissionError("领域待办必须进入对应业务完成处理")
             if item.get("assignee_user_id") is None and not allow_unassigned:
@@ -218,7 +222,6 @@ class GovernanceRepository:
         result = dict(updated or {**item, "status": "completed" if action == "complete" else action})
         result["_audit_before_status"] = current
         return result
-
     def list_notifications(
         self,
         connection: Any,
@@ -259,7 +262,6 @@ class GovernanceRepository:
             )
             items = list(cursor.fetchall())
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": offset + len(items) < total}
-
     def mark_notification_read(self, connection: Any, *, notification_id: int, user_id: int) -> dict[str, Any]:
         with connection.cursor() as cursor:
             cursor.execute("UPDATE notifications SET status = 'read', read_at = COALESCE(read_at, CURRENT_TIMESTAMP) WHERE id = %s AND recipient_user_id = %s AND status = 'unread'", (notification_id, user_id))
@@ -267,7 +269,6 @@ class GovernanceRepository:
                 raise ValueError("消息不存在或已处理")
             cursor.execute("SELECT * FROM notifications WHERE id = %s", (notification_id,))
             return dict(cursor.fetchone() or {})
-
     def close_notification(self, connection: Any, *, notification_id: int, user_id: int, conclusion: str) -> dict[str, Any]:
         if not conclusion.strip():
             raise ValueError("关闭消息必须填写处理结论")
@@ -277,7 +278,6 @@ class GovernanceRepository:
                 raise ValueError("消息不存在或已关闭")
             cursor.execute("SELECT * FROM notifications WHERE id = %s", (notification_id,))
             return dict(cursor.fetchone() or {})
-
     def upsert_notification(self, connection: Any, *, payload: dict[str, Any]) -> dict[str, Any]:
         required = ("recipient_user_id", "module_code", "notification_type", "dedup_key", "title")
         if any(not payload.get(key) for key in required):

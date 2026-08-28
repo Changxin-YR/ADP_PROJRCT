@@ -108,6 +108,7 @@ export interface WorkbenchSummary {
     current_stock: number | null
     todo_open: number
   }
+  operating_metrics?: { feed_today: number | null; payable_open: number | null; receivable_open: number | null; confirmed_cost: number | null }
   pond_status: Array<{ status: PondStatus; label: string; count: number }>
   todos: Array<{ id: number; title: string; type: string; due_at: string; overdue: boolean }>
   alerts: Array<{ id: number; title: string; level: 'low' | 'medium' | 'high'; created_at: string }>

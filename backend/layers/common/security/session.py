@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 
 class SessionExpiredError(ValueError):
@@ -18,6 +19,14 @@ def new_session_token() -> str:
 
 def hash_session_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def request_session_token(request: Any) -> str | None:
+    """Read mobile Bearer tokens while preserving the browser cookie contract."""
+    authorization = str(request.headers.get("Authorization", ""))
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip() or None
+    return request.cookies.get("adp_session")
 
 
 def _as_utc(value: datetime) -> datetime:

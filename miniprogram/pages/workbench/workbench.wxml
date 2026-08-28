@@ -1,0 +1,12 @@
+<view class="page">
+  <view class="eyebrow">ADP WORKBENCH</view>
+  <view class="title">今日工作台</view>
+  <view class="date">{{summary.date_label || (loading ? '正在连接服务…' : '')}}</view>
+  <view wx:if="{{error}}" class="error">暂时无法加载：{{error}}</view>
+  <view wx:else class="grid">
+    <view class="card"><view class="label">塘口总数</view><view class="value">{{summary.kpis.ponds === null ? '—' : summary.kpis.ponds}}</view></view>
+    <view class="card"><view class="label">养殖中批次</view><view class="value">{{summary.kpis.active_batches === null ? '—' : summary.kpis.active_batches}}</view></view>
+    <view class="card"><view class="label">当前存量</view><view class="value">{{summary.kpis.current_stock === null ? '—' : summary.kpis.current_stock}}</view></view>
+    <view class="card"><view class="label">我的待办</view><view class="value">{{summary.kpis.todo_open || 0}}</view></view>
+  </view>
+</view>

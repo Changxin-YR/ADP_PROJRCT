@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { ColumnItem } from '../../common/ui/DataTablePage.vue'
 import DataTablePage from '../../common/ui/DataTablePage.vue'
 import { submitErrorText, messageWithContext as message } from '../../common/api/errors'
 import AttachmentList from '../../common/ui/AttachmentList.vue'
 import AttachmentUpload from '../../common/ui/AttachmentUpload.vue'
 import { useSubmitGuard } from '../../common/ui/useSubmitGuard'
+import { clearOfflineDraft, loadOfflineDraft, saveOfflineDraft } from '../../common/ui/offlineDraft'
 import type { WarehouseField, WarehouseRecord, WarehouseResource } from '../../common/api/warehouse.models'
 import { cancelWarehouseTransfer, createWarehouseCorrection, createWarehouseRecord, deleteWarehouseDraft, dispatchWarehouseTransfer, listWarehouseRecords, receiveWarehouseTransfer, submitWarehouseRecord, updateWarehouseRecord, verifyWarehouseRecord } from '../../features/warehouse/warehouse.service'
 
@@ -18,6 +19,7 @@ const loading = ref(true)
 const pageError = ref('')
 const dialogError = ref('')
 const formOpen = ref(false)
+const draftNotice = ref('')
 const editing = ref<WarehouseRecord | null>(null)
 const correcting = ref<WarehouseRecord | null>(null)
 const form = reactive<Record<string, string | number>>({})
@@ -30,6 +32,7 @@ const correctionReason = ref('')
 const cancellationReason = ref('')
 const entityType = computed(() => `warehouse:${props.resource}`)
 const attachmentRefreshKey = ref(0)
+const draftScope = computed(() => `warehouse:${props.resource}`)
 function onEvidenceUploaded(attachment: { id: number }) { addEvidenceId(attachment.id); attachmentRefreshKey.value += 1 }
 function addEvidenceId(id: number) {
   const ids = evidenceText.value.split(',').map((item) => item.trim()).filter(Boolean)
@@ -62,7 +65,15 @@ async function load() {
 function openForm(row?: WarehouseRecord, correction = false) {
   editing.value = correction ? null : row ?? null; correcting.value = correction ? row ?? null : null; dialogError.value = ''; correctionReason.value = ''
   for (const field of props.fields) form[field.key] = (row?.[field.key] as string | number) ?? props.initialValues[field.key] ?? ''
+  draftNotice.value = ''
+  if (!row && !correction) {
+    const draft = loadOfflineDraft<Record<string, string | number>>(draftScope.value)
+    if (draft) { Object.assign(form, draft.payload); draftNotice.value = '已恢复本地草稿，保存后将清除本地副本。' }
+  }
   formOpen.value = true
+}
+function discardDraft() {
+  clearOfflineDraft(draftScope.value); draftNotice.value = ''; formOpen.value = false
 }
 function body() {
   const payload: Record<string, unknown> = {}
@@ -93,6 +104,7 @@ async function save() {
           ? await updateWarehouseRecord(props.resource, editing.value.id, { ...payload, expected_version: editing.value.version })
           : await createWarehouseRecord(props.resource, payload)
       replace(result.record); formOpen.value = false
+      if (!editing.value && !correcting.value) clearOfflineDraft(draftScope.value)
     } catch (error) { dialogError.value = error instanceof Error ? submitErrorText(error, error.message) : '仓储记录保存失败' }
   })
 }
@@ -134,6 +146,9 @@ function action(name: string, raw: Record<string, unknown>) {
   else if (name === 'delete' || name === 'submit' || name === 'verify' || name === 'dispatch' || name === 'receive' || name === 'cancel') ask(name, row)
 }
 onMounted(load)
+watch(form, (value) => {
+  if (formOpen.value && !editing.value && !correcting.value && Object.values(value).some((item) => String(item ?? '').trim())) saveOfflineDraft(draftScope.value, { ...value })
+}, { deep: true })
 </script>
 
 <template>
@@ -143,6 +158,7 @@ onMounted(load)
     :columns="tableColumns" :rows="displayRows" action-test-id-prefix="warehouse-action"
     :empty-text="loading ? '正在加载仓储记录…' : '当前授权范围内暂无记录'" @create="openForm()" @action="action" />
   <Teleport to="body">
+    <p v-if="formOpen && draftNotice" class="offline-draft-notice" role="status">{{ draftNotice }} <button type="button" data-testid="warehouse-discard-draft" @click="discardDraft">丢弃本地草稿</button></p>
     <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="仓储记录编辑"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ correcting ? 'Correction' : editing ? 'Edit' : 'Create' }}</p><h2>{{ correcting ? `更正 · ${title}` : editing ? `编辑 · ${title}` : `新增 · ${title}` }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">{{ correcting ? '将创建关联更正单；原核验单据和库存流水保持只读，仅追加差额流水。' : '提交后仍可编辑并保留版本；核验后永久只读，库存只由正式流水汇总。' }}</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field" :for="`warehouse-${field.key}`" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`warehouse-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" /><select v-else-if="field.type === 'select'" :id="`warehouse-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择{{ field.label }}</option><option v-for="item in field.options" :key="item.value" :value="item.value">{{ item.label }}</option></select><input v-else :id="`warehouse-${field.key}`" v-model="form[field.key]" :type="field.type ?? 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%"></label><label v-if="correcting" class="modal-field" for="warehouse-correction-reason" style="grid-column:1/-1"><span>更正原因 *</span><textarea id="warehouse-correction-reason" v-model="correctionReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="warehouse-save" :disabled="saving" :aria-busy="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button></div></div></div>
     <div v-if="confirmAction && target" class="modal-overlay" role="dialog" aria-modal="true" aria-label="仓储操作确认"><div class="modal-panel" style="width:min(500px,100%)"><div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验并入账' : confirmAction === 'submit' ? '提交核验' : confirmAction === 'dispatch' ? '确认发出调拨' : confirmAction === 'receive' ? '确认接收调拨' : confirmAction === 'cancel' ? '取消调拨' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div><p class="section-subtitle">{{ confirmAction === 'dispatch' ? '发出后库存从调出仓扣减并进入在途，尚不计入调入仓。' : confirmAction === 'receive' ? '接收后按实际接收量计入调入仓，差异必须留痕。' : confirmAction === 'cancel' ? '在途取消会用追加流水恢复调出仓库存，原发出流水仍永久保留。' : confirmAction === 'verify' ? '核验后单据永久只读，库存影响以追加流水入账。' : confirmAction === 'submit' ? '提交后仍可编辑，待办跟随最新版本。' : '仅无引用、未提交的草稿可以删除。' }}</p><div v-if="confirmAction === 'verify' && evidenceRequired" class="modal-row" style="grid-template-columns:1fr"><label class="modal-field" for="warehouse-evidence"><span>凭据附件 ID *</span><input id="warehouse-evidence" v-model="evidenceText" class="filter-input" style="width:100%" placeholder="上传或选择附件后自动回填，多个 ID 用英文逗号分隔"></label><div class="modal-field"><span>上传凭据</span><AttachmentUpload :organization-id="Number((target as Record<string, unknown>).organization_id ?? 1)" :entity-type="entityType" :entity-id="target.id" @uploaded="onEvidenceUploaded" /></div><div class="modal-field"><span>已有凭据</span><AttachmentList :entity-type="entityType" :entity-id="target.id" :refresh-key="attachmentRefreshKey" selectable @select="addEvidenceId" /></div></div><template v-if="confirmAction === 'receive'"><label class="modal-field" for="warehouse-received-quantity"><span>实际接收数量 *</span><input id="warehouse-received-quantity" v-model.number="receivedQuantity" type="number" min="0" class="filter-input" style="width:100%"></label><label class="modal-field" for="warehouse-difference-reason"><span>接收差异与处理结果</span><textarea id="warehouse-difference-reason" v-model="differenceReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label></template><label v-if="confirmAction === 'cancel'" class="modal-field" for="warehouse-cancellation-reason"><span>取消原因 *</span><textarea id="warehouse-cancellation-reason" v-model="cancellationReason" rows="3" class="filter-input" style="width:100%;resize:vertical" /></label><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">返回</button><button class="primary-action" type="button" data-testid="warehouse-confirm" :disabled="confirming" :aria-busy="confirming" @click="confirm">{{ confirming ? '处理中…' : '确认' }}</button></div></div></div>
   </Teleport>

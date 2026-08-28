@@ -77,6 +77,7 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
 
     def list_work_items(self, *, user: dict[str, Any], status: str | None = None, include_history: bool = True, page: int = 1, page_size: int = 20) -> dict[str, Any]:
         modules = self._work_item_modules(set(user.get("permissions") or []))
+        object_types = self._work_item_object_types(set(user.get("permissions") or []))
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
         # Unassigned domain work is tenant-safe only for a super admin or an
@@ -85,7 +86,7 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         allow_unassigned = "super_admin" in roles or ("work_item.view" in set(user.get("permissions") or []) and any(item.get("scope_type") == "area" for item in scopes))
         area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
-            return self.governance.list_work_items(connection, user_id=int(user["id"]), allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, status=status, include_history=include_history, page=page, page_size=page_size)
+            return self.governance.list_work_items(connection, user_id=int(user["id"]), allowed_modules=modules, allowed_object_types=object_types, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, status=status, include_history=include_history, page=page, page_size=page_size)
 
     @staticmethod
     def _work_item_modules(permissions: set[str]) -> list[str]:
@@ -97,15 +98,25 @@ class MySqlAuthStore(AuthSessionStoreMixin, AuthAdminStoreMixin):
         }
         return sorted({module for permission, module in mapping.items() if permission in permissions})
 
+    @staticmethod
+    def _work_item_object_types(permissions: set[str]) -> list[str]:
+        allowed: list[str] = []
+        if "finance.payable.view" in permissions:
+            allowed.append("purchase:payment")
+        if "finance.receivable.view" in permissions:
+            allowed.append("sales:receipt")
+        return sorted(allowed)
+
     def transition_work_item(self, item_id: int, *, user: dict[str, Any], action: str, expected_version: int | None = None, note: str | None = None) -> dict[str, Any]:
         user_id = int(user["id"])
         modules = self._work_item_modules(set(user.get("permissions") or []))
+        object_types = self._work_item_object_types(set(user.get("permissions") or []))
         scopes = user.get("data_scopes") or []
         roles = {item.get("code") for item in user.get("roles") or []}
         allow_unassigned = "super_admin" in roles or ("work_item.view" in set(user.get("permissions") or []) and any(item.get("scope_type") == "area" for item in scopes))
         area_ids = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
         with self.transaction() as connection:
-            result = self.governance.transition_work_item(connection, item_id=item_id, user_id=user_id, allowed_modules=modules, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, action=action, expected_version=expected_version, note=note)
+            result = self.governance.transition_work_item(connection, item_id=item_id, user_id=user_id, allowed_modules=modules, allowed_object_types=object_types, allow_unassigned=allow_unassigned, allowed_area_ids=area_ids, action=action, expected_version=expected_version, note=note)
             before_status = result.pop("_audit_before_status", None)
             self.audit.write(
                 connection,

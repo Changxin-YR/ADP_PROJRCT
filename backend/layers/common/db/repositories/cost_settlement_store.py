@@ -87,7 +87,12 @@ class MySqlCostSettlementStore:
             if not run or run["period_start"] != payload["period_start"] or run["period_end"] != payload["period_end"]:
                 raise DomainError("COST_SETTLEMENT_RUN_INVALID", "结算期间与有效分摊结果不匹配", 422)
             require_scope(user, {**run, "created_by": user_id})
-            cursor.execute("SELECT id FROM cost_settlements WHERE organization_id=%s AND farm_id=%s AND area_id<=>%s AND status<>'reversed' AND period_start<=%s AND period_end>=%s LIMIT 1", (run["organization_id"], run["farm_id"], run.get("area_id"), payload["period_end"], payload["period_start"]))
+            # Farm-wide settlements overlap every area settlement in the same
+            # period; area settlements overlap only their own area.
+            cursor.execute(
+                "SELECT id FROM cost_settlements WHERE organization_id=%s AND farm_id=%s AND status<>'reversed' AND (area_id IS NULL OR %s IS NULL OR area_id=%s) AND period_start<=%s AND period_end>=%s LIMIT 1",
+                (run["organization_id"], run["farm_id"], run.get("area_id"), run.get("area_id"), payload["period_end"], payload["period_start"]),
+            )
             if cursor.fetchone():
                 raise DomainError("COST_SETTLEMENT_PERIOD_OVERLAP", "结算期间与已有未反结算期间重叠", 409)
             cursor.execute("SELECT 1 FROM cost_entries WHERE organization_id=%s AND farm_id=%s AND (%s IS NULL OR area_id=%s) AND status='confirmed' AND period_start<=%s AND period_end>=%s AND COALESCE(verified_at,created_at)>%s LIMIT 1", (run["organization_id"], run["farm_id"], run.get("area_id"), run.get("area_id"), payload["period_end"], payload["period_start"], run["created_at"]))

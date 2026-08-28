@@ -140,6 +140,15 @@ class MySqlCostAssetStore:
             if not asset or asset["status"] != "confirmed":
                 raise DomainError("COST_ASSET_NOT_CONFIRMED", "仅已确认资产可计提折旧", 409)
             require_scope(user, asset); require_unlocked(cursor, {**asset, "period_date": period_end}, "period_date")
+            cursor.execute(
+                "SELECT period_start,period_end FROM accounting_periods "
+                "WHERE organization_id=%s AND farm_id=%s AND status='open' "
+                "ORDER BY period_start DESC LIMIT 1 FOR UPDATE",
+                (asset["organization_id"], asset["farm_id"]),
+            )
+            open_period = cursor.fetchone()
+            if open_period is None or period_start < open_period["period_start"] or period_end > open_period["period_end"]:
+                raise DomainError("ACCOUNTING_PERIOD_CLOSED", "折旧期间不是当前开放会计期间", 409)
             start = asset["depreciation_start_date"]
             month_offset = (period_start.year - start.year) * 12 + period_start.month - start.month
             if month_offset < 0 or month_offset >= int(asset["useful_life_months"]):

@@ -13,7 +13,8 @@ from backend.layers.common.governance.revisions import build_revision, save_revi
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
 from backend.layers.features.purchase import purchase_payment_store as payments
 from backend.layers.features.purchase import purchase_payment_reversal_store as reversals
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, scope_predicate, unrestricted
+from backend.layers.features.returns.return_store import MySqlReturnStore
 
 
 ORDER_FIELDS = {
@@ -21,11 +22,18 @@ ORDER_FIELDS = {
     "expected_delivery_date", "due_date", "note", "evidence_attachment_ids",
 }
 
+def _sort_clause(sort_by: str | None, sort_dir: str | None, allowed: dict[str, str], default: str) -> str:
+    """Build ORDER BY from a fixed column map; client input never reaches SQL."""
+    column = allowed.get(str(sort_by or ""), default)
+    direction = "ASC" if str(sort_dir or "").lower() == "asc" else "DESC"
+    return f"{column} {direction},o.id DESC"
+
 
 class MySqlPurchaseStore:
     def __init__(self, settings: Any) -> None:
         self.settings = settings
         self.audit = AuditLogger()
+        self.returns = MySqlReturnStore(settings)
 
     @staticmethod
     def _decode(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -40,15 +48,7 @@ class MySqlPurchaseStore:
 
     @staticmethod
     def _scope(user: dict[str, Any], alias: str = "o") -> tuple[str, list[Any]]:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return "", []
-        areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        if areas:
-            return f"{alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas
-        if any(item.get("scope_type") == "personal" for item in scopes):
-            return f"{alias}.created_by=%s", [int(user["id"])]
-        return "1=0", []
+        return scope_predicate(user, alias)
 
     @staticmethod
     def _scoped(cursor: Any, payload: dict[str, Any]) -> dict[str, Any]:
@@ -65,13 +65,7 @@ class MySqlPurchaseStore:
 
     @staticmethod
     def _require_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return
-        areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
-        if int(row.get("area_id") or 0) in areas:
-            return
-        if any(item.get("scope_type") == "personal" for item in scopes) and not row.get("area_id") and int(row.get("created_by") or 0) == int(user["id"]):
+        if row_in_scope(user, row):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的采购记录", 403)
 
@@ -98,7 +92,7 @@ class MySqlPurchaseStore:
                 self._require_scope(user, row)
             return row
 
-    def list_orders(self, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, **_: Any) -> dict[str, Any]:
+    def list_orders(self, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, sort_by: str | None = None, sort_dir: str | None = None, **_: Any) -> dict[str, Any]:
         clauses, values = ["1=1"], []
         scope, scoped = self._scope(user)
         if scope:
@@ -112,7 +106,7 @@ class MySqlPurchaseStore:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute(f"SELECT COUNT(*) AS total{joins} WHERE {where}", tuple(values)); total = int(cursor.fetchone()["total"])
             cursor.execute(
-                f"SELECT o.*,s.name AS supplier_name,m.name AS material_name,w.name AS warehouse_name,COALESCE((SELECT SUM(CASE WHEN d.correction_of_id IS NULL THEN d.quantity ELSE d.quantity-parent.quantity END) FROM warehouse_documents d LEFT JOIN warehouse_documents parent ON parent.id=d.correction_of_id WHERE d.purchase_order_id=o.id AND d.document_type='receipt' AND d.status='verified'),0) AS received_quantity,COALESCE((SELECT SUM(p.paid_amount) FROM purchase_payables p WHERE p.purchase_order_id=o.id),0) AS paid_amount{joins} WHERE {where} ORDER BY o.updated_at DESC,o.id DESC LIMIT %s OFFSET %s",
+                f"SELECT o.*,s.name AS supplier_name,m.name AS material_name,w.name AS warehouse_name,COALESCE((SELECT SUM(CASE WHEN d.correction_of_id IS NULL THEN d.quantity ELSE d.quantity-parent.quantity END) FROM warehouse_documents d LEFT JOIN warehouse_documents parent ON parent.id=d.correction_of_id WHERE d.purchase_order_id=o.id AND d.document_type='receipt' AND d.status='verified'),0) AS received_quantity,COALESCE((SELECT SUM(p.paid_amount) FROM purchase_payables p WHERE p.purchase_order_id=o.id),0) AS paid_amount{joins} WHERE {where} ORDER BY {_sort_clause(sort_by, sort_dir, {'code':'o.code','name':'o.name','supplier_name':'s.name','quantity':'o.quantity','total_amount':'o.total_amount','status':'o.status','updated_at':'o.updated_at'}, 'o.updated_at') } LIMIT %s OFFSET %s",
                 tuple(values + [page_size, (page - 1) * page_size]),
             )
             items = [self._decode(row) or {} for row in cursor.fetchall()]
@@ -215,6 +209,11 @@ class MySqlPurchaseStore:
     def cancel_payment(self, payment_id: int, **context: Any) -> dict[str, Any]: return payments.cancel_payment(self, payment_id, **context)
     def delete_payment_draft(self, payment_id: int, **context: Any) -> dict[str, Any]: return payments.delete_payment_draft(self, payment_id, **context)
     def reverse_payment(self, payment_id: int, **context: Any) -> dict[str, Any]: return reversals.reverse_payment(self, payment_id, **context)
+    def list_returns(self, kind: str, **context: Any) -> dict[str, Any]: return self.returns.list_returns(kind, **context)
+    def get_return(self, kind: str, record_id: int, **context: Any) -> dict[str, Any] | None: return self.returns.get_return(kind, record_id, **context)
+    def create_return(self, kind: str, payload: dict[str, Any], **context: Any) -> dict[str, Any]: return self.returns.create_return(kind, payload, **context)
+    def set_return_status(self, kind: str, record_id: int, status: str, **context: Any) -> dict[str, Any]: return self.returns.set_return_status(kind, record_id, status, **context)
+    def delete_return(self, kind: str, record_id: int, **context: Any) -> dict[str, Any]: return self.returns.delete_return(kind, record_id, **context)
 
     def _audit(self, connection: Any, user_id: int, action: str, resource: str, record_id: int, *, before: Any = None, after: Any = None) -> None:
         self.audit.write(connection, user_id=user_id, action=f"{action}_purchase", object_type=f"purchase:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", result="success", ip_address=None, module_code="purchase", before=before, after=after)

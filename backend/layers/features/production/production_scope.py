@@ -54,8 +54,9 @@ def scope_defaults(cursor: Any, payload: dict[str, Any], resource: str | None = 
             "JOIN user_data_scopes uds ON uds.user_id=ur.user_id "
             "JOIN data_scopes ds ON ds.id=uds.data_scope_id AND ds.status='active' "
             "WHERE ur.user_id=%s AND r.code IN ('breed_worker','breed_manager') "
-            "AND (ds.scope_type='farm' OR ds.area_id=%s) LIMIT 1",
-            (assignee, result.get("area_id")),
+            "AND ((ds.scope_type='area' AND ds.area_id=%s AND ds.organization_id=%s) "
+            "OR (ds.scope_type='farm' AND ds.organization_id=%s AND (ds.farm_id=%s OR ds.farm_id IS NULL))) LIMIT 1",
+            (assignee, result.get("area_id"), result.get("organization_id"), result.get("organization_id"), result.get("farm_id")),
         )
         if cursor.fetchone() is None:
             raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "投喂任务只能指派养殖岗位人员", 400)

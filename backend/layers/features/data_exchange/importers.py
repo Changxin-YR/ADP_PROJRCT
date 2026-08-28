@@ -113,8 +113,10 @@ def _import_production_document(cursor: Any, row: dict[str, Any], *, organizatio
             cursor,
             "SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id AND r.status='active' "
             "JOIN user_data_scopes uds ON uds.user_id=ur.user_id JOIN data_scopes ds ON ds.id=uds.data_scope_id AND ds.status='active' "
-            "WHERE ur.user_id=%s AND r.code IN ('breed_worker','breed_manager') AND (ds.scope_type='farm' OR ds.area_id=%s) LIMIT 1",
-            (assignee_id, pond["area_id"]),
+            "WHERE ur.user_id=%s AND r.code IN ('breed_worker','breed_manager') "
+            "AND ((ds.scope_type='area' AND ds.area_id=%s AND ds.organization_id=%s) "
+            "OR (ds.scope_type='farm' AND ds.organization_id=%s AND (ds.farm_id=%s OR ds.farm_id IS NULL))) LIMIT 1",
+            (assignee_id, pond["area_id"], pond["organization_id"], pond["organization_id"], pond["farm_id"]),
         ) is None:
             raise DomainError("FEED_TASK_ASSIGNEE_INVALID", "投喂任务只能指派授权养殖岗位人员", 400)
     target = _int(row.get("target_pond_id"))

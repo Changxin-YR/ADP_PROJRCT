@@ -118,7 +118,10 @@ async function exportRange() {
   if (!props.exportResource || exporting.value) return
   exporting.value = true; exportNotice.value = ''
   try {
-    await exportData({ organization_id: resolveOrganizationId(), resource: props.exportResource, format: 'xlsx', filters: { status: filterState.value.status ?? '', search: filterState.value.search ?? '' } })
+    const aliases: Record<string, string> = { name: 'search', code: 'search', supplier_name: 'search', material_name: 'search', period: 'search', batch_status: 'status' }
+    const filters: Record<string, string> = {}
+    for (const [key, value] of Object.entries(filterState.value)) if (value) filters[aliases[key] ?? key] = value
+    await exportData({ organization_id: resolveOrganizationId(), resource: props.exportResource, format: 'xlsx', filters })
     exportNotice.value = '已导出当前范围（Excel，含生成时间/导出人/筛选条件元数据）'
   } catch (error) {
     exportNotice.value = error instanceof ApiError ? `导出失败：${error.message}` : '导出失败，请稍后重试'

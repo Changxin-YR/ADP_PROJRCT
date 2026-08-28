@@ -13,7 +13,7 @@ from backend.layers.features.warehouse.warehouse_alert_store import handle_alert
 from backend.layers.features.warehouse.warehouse_service import FIELDS
 from backend.layers.features.warehouse.warehouse_transfer_store import cancel_transfer, dispatch_transfer, receive_transfer
 from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, scope_predicate, unrestricted
 DOC_TYPES = {
     "receipts": "receipt", "issue-requests": "issue_request", "issues": "issue",
     "returns": "return", "transfers": "transfer", "stocktakes": "stocktake", "scraps": "scrap",
@@ -36,15 +36,7 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
         return result
     @staticmethod
     def _scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return "", []
-        areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-        if areas:
-            return f"d.area_id IN ({','.join(['%s'] * len(areas))})", areas
-        if any(item.get("scope_type") == "personal" for item in scopes):
-            return "d.created_by=%s", [int(user["id"])]
-        return "1=0", []
+        return scope_predicate(user, "d")
     @staticmethod
     def _transfer_target_scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
         scopes = require_active_scope(user)
@@ -105,14 +97,7 @@ class MySqlWarehouseStore(WarehouseMasterStoreMixin):
         return result
     @staticmethod
     def _require_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-        scopes = require_active_scope(user)
-        if unrestricted(user):
-            return
-        allowed = {int(item["area_id"]) for item in scopes if item.get("area_id")}
-        actual = {int(row[key]) for key in ("area_id", "_target_area_id") if row.get(key)}
-        if actual and actual <= allowed:
-            return
-        if any(item.get("scope_type") == "personal" for item in scopes) and int(row.get("created_by") or 0) == int(user["id"]):
+        if row_in_scope(user, row) and (not row.get("_target_area_id") or row_in_scope(user, {**row, "area_id": row.get("_target_area_id")})):
             return
         raise DomainError("DATA_SCOPE_FORBIDDEN", "无权写入授权范围之外的仓储记录", 403)
     @staticmethod

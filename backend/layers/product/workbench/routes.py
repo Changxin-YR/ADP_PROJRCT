@@ -8,6 +8,7 @@ from backend.config.settings import Settings
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import json_object, pagination, require_csrf
+from backend.layers.common.security.session import request_session_token
 from backend.layers.common.security.csrf import CsrfError
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.workbench.workbench_service import WorkbenchService, WorkbenchServiceError
@@ -26,7 +27,7 @@ def create_workbench_blueprint(settings: Settings, store: Any) -> Blueprint:
         require_csrf()
 
     def current_user() -> dict[str, Any]:
-        return auth_service.current_user(request.cookies.get("adp_session"), request_id=getattr(g, "request_id", None))
+        return auth_service.current_user(request_session_token(request), request_id=getattr(g, "request_id", None))
 
     @blueprint.get("/workbench/summary")
     def summary() -> tuple[Response, int] | Response:

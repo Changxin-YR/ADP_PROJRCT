@@ -10,6 +10,7 @@ from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import json_object, pagination, require_csrf
 from backend.layers.common.security.csrf import CsrfError
+from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.production.production_service import ProductionService
 
@@ -20,7 +21,7 @@ def create_production_blueprint(settings: Settings, auth_store: Any, production_
     service = ProductionService(production_store)
 
     def user() -> dict[str, Any]:
-        return auth.current_user(request.cookies.get("adp_session"), request_id=getattr(g, "request_id", None))
+        return auth.current_user(request_session_token(request), request_id=getattr(g, "request_id", None))
 
     def csrf() -> None:
         require_csrf()

@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "ADP Mobile",
+    "slug": "adp-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": { "backgroundColor": "#f5faf8" },
+    "assetBundlePatterns": ["**/*"]
+  }
+}

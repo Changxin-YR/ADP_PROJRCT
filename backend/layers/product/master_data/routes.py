@@ -11,6 +11,7 @@ from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import json_object, pagination, require_csrf
 from backend.layers.common.security.csrf import CsrfError
+from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.master_data.master_data_service import MasterDataService
 
@@ -21,7 +22,7 @@ def create_master_data_blueprint(settings: Settings, auth_store: Any, master_sto
     service = MasterDataService(master_store)
 
     def user() -> dict[str, Any]:
-        return auth.current_user(request.cookies.get("adp_session"), request_id=getattr(g, "request_id", None))
+        return auth.current_user(request_session_token(request), request_id=getattr(g, "request_id", None))
 
     def csrf() -> None:
         require_csrf()

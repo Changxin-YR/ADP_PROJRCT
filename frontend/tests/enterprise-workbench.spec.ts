@@ -168,7 +168,7 @@ describe('enterprise workbench data sources', () => {
 
   it('contains no production static fallback or browser business storage', async () => {
     const modules = import.meta.glob('../src/**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
-    const offenders = Object.entries(modules).filter(([path, source]) => !path.includes('/features/dataset/') && !path.includes('/features/workbench/workbench.mock') && /dataset\/dataset|workbench\.mock|localStorage|sessionStorage/.test(source))
+    const offenders = Object.entries(modules).filter(([path, source]) => !path.includes('/features/dataset/') && !path.includes('/features/workbench/workbench.mock') && !path.includes('/common/ui/offlineDraft') && /dataset\/dataset|workbench\.mock|localStorage|sessionStorage/.test(source))
     expect(offenders.map(([path]) => path)).toEqual([])
   })
 })

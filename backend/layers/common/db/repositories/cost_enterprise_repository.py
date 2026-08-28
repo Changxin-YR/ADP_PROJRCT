@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 from backend.layers.common.governance.lifecycle import DomainError
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, scope_predicate, unrestricted
 from backend.layers.common.files.evidence import validate_bound_evidence
 
 
@@ -31,25 +31,11 @@ def decode(row: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def scope_clause(user: dict[str, Any], alias: str = "r") -> tuple[str, list[Any]]:
-    scopes = require_active_scope(user)
-    if unrestricted(user):
-        return "", []
-    areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
-    if areas:
-        return f"{alias}.area_id IN ({','.join(['%s'] * len(areas))})", areas
-    if any(item.get("scope_type") == "personal" for item in scopes):
-        return f"{alias}.created_by=%s", [int(user["id"])]
-    return "1=0", []
+    return scope_predicate(user, alias)
 
 
 def require_scope(user: dict[str, Any], row: dict[str, Any]) -> None:
-    scopes = require_active_scope(user)
-    if unrestricted(user):
-        return
-    areas = {int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")}
-    if int(row.get("area_id") or 0) in areas:
-        return
-    if any(item.get("scope_type") == "personal" for item in scopes) and not row.get("area_id") and int(row.get("created_by") or 0) == int(user["id"]):
+    if row_in_scope(user, row):
         return
     raise DomainError("DATA_SCOPE_FORBIDDEN", "无权访问授权范围之外的成本记录", 403)
 

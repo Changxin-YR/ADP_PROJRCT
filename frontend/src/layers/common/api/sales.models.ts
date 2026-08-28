@@ -24,5 +24,10 @@ export interface SalesReceipt extends LifecycleRecord {
   amount: number; received_at: string; receipt_method: string; reversal_id?: number; row_version: number; note?: string
 }
 
+export interface SalesReturn extends LifecycleRecord {
+  id: number; code: string; name: string; source_delivery_id: number; receivable_id: number
+  quantity: number; amount: number; refund_amount: number; reason: string
+}
+
 export interface SalesReceivableSummary { total_amount: number; total_balance: number; overpaid_amount: number; overdue_count: number }
 export interface SalesPage<T> { items: T[]; page: number; page_size: number; total: number; has_next: boolean; summary?: SalesReceivableSummary }

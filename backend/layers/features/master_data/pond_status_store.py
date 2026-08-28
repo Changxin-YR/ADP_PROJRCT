@@ -83,6 +83,22 @@ class MySqlPondStatusStore:
                 raise DomainError("MASTER_RECORD_NOT_FOUND", "塘口不存在", 404)
             if pond["status"] != "verified" or pond["pond_status"] != change["from_status"] or int(pond["row_version"]) != expected_pond_version:
                 raise DomainError("VERSION_CONFLICT", "塘口状态或版本已变化，请刷新后重试", 409)
+            if change["to_status"] in {"rest", "clean", "rebuild"}:
+                cursor.execute(
+                    "SELECT COALESCE(SUM(bsr.quantity_delta),0) AS quantity, COALESCE(SUM(bsr.weight_delta_kg),0) AS weight "
+                    "FROM batch_stock_records bsr JOIN production_batches b ON b.id=bsr.batch_id "
+                    "WHERE bsr.pond_id=%s AND b.status='verified' AND b.batch_status<>'closed'",
+                    (pond_id,),
+                )
+                stock = cursor.fetchone() or {}
+                if float(stock.get("quantity") or 0) > 0 or float(stock.get("weight") or 0) > 0:
+                    raise DomainError("POND_STATUS_STOCK_REMAINING", "塘口仍有存塘量，不能进入休养、清塘或改造状态", 409)
+                cursor.execute(
+                    "SELECT 1 FROM production_documents WHERE pond_id=%s AND document_type IN ('feed_plan','feed_task','feed_log','daily_operation') AND status IN ('draft','submitted') LIMIT 1",
+                    (pond_id,),
+                )
+                if cursor.fetchone():
+                    raise DomainError("POND_STATUS_OPEN_WORK", "塘口仍有未完成生产作业，不能变更为非养殖状态", 409)
             cursor.execute("UPDATE pond_status_change_requests SET status='verified',verified_by=%s,verified_at=CURRENT_TIMESTAMP,row_version=row_version+1 WHERE id=%s AND row_version=%s", (user_id, request_id, expected_version))
             cursor.execute("UPDATE ponds SET pond_status=%s,updated_by=%s,row_version=row_version+1 WHERE id=%s AND row_version=%s", (change["to_status"], user_id, pond_id, expected_pond_version))
             if cursor.rowcount != 1:

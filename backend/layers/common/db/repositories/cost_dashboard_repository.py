@@ -6,13 +6,29 @@ from typing import Any
 from backend.layers.common.security.data_scope import require_active_scope, unrestricted
 
 
-def _scope(user: dict[str, Any], area_sql: str, creator_sql: str) -> tuple[str, list[int]]:
+def _scope(user: dict[str, Any], area_sql: str, creator_sql: str, farm_sql: str | None = None, organization_sql: str | None = None) -> tuple[str, list[int]]:
     scopes = require_active_scope(user)
     if unrestricted(user):
         return "", []
-    areas = [int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")]
+    terms: list[str] = []
+    values: list[int] = []
+    areas = sorted({int(item["area_id"]) for item in scopes if item.get("scope_type") == "area" and item.get("area_id")})
+    farms = sorted({int(item["farm_id"]) for item in scopes if item.get("scope_type") == "farm" and item.get("farm_id")})
+    organizations = sorted({int(item["organization_id"]) for item in scopes if item.get("scope_type") == "farm" and item.get("organization_id") and not item.get("farm_id")})
     if areas:
-        return f" AND {area_sql} IN ({','.join(['%s'] * len(areas))})", areas
+        terms.append(f"{area_sql} IN ({','.join(['%s'] * len(areas))})")
+        values.extend(areas)
+    if farms and farm_sql:
+        terms.append(f"{farm_sql} IN ({','.join(['%s'] * len(farms))})")
+        values.extend(farms)
+    if organizations and organization_sql:
+        terms.append(f"{organization_sql} IN ({','.join(['%s'] * len(organizations))})")
+        values.extend(organizations)
+    if terms:
+        predicate = " AND (" + " OR ".join(terms) + ")"
+        if any(item.get("scope_type") == "personal" for item in scopes):
+            return predicate + f" AND {creator_sql}=%s", [*values, int(user["id"])]
+        return predicate, values
     if any(item.get("scope_type") == "personal" for item in scopes):
         return f" AND {creator_sql}=%s", [int(user["id"])]
     return " AND 1=0", []
@@ -28,7 +44,7 @@ class CostDashboardRepository:
 
     def warehouse_costs(self, connection: Any, *, period_start: Any, period_end: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
         area = "COALESCE(p.area_id,d.area_id,w.area_id)"
-        scope, values = _scope(user, area, "d.created_by")
+        scope, values = _scope(user, area, "d.created_by", "COALESCE(p.farm_id,d.farm_id,w.farm_id)", "COALESCE(p.organization_id,d.organization_id,w.organization_id)")
         category = self._warehouse_category()
         with connection.cursor() as cursor:
             cursor.execute(
@@ -54,8 +70,8 @@ class CostDashboardRepository:
             return list(cursor.fetchall())
 
     def confirmed_entries(self, connection: Any, *, category_code: str, period_start: Any, period_end: Any, page: int, page_size: int, user: dict[str, Any], **_: Any) -> dict[str, Any]:
-        cost_scope, cost_values = _scope(user, "ce.area_id", "ce.created_by")
-        warehouse_scope, warehouse_values = _scope(user, "COALESCE(p.area_id,d.area_id,w.area_id)", "d.created_by")
+        cost_scope, cost_values = _scope(user, "ce.area_id", "ce.created_by", "ce.farm_id", "ce.organization_id")
+        warehouse_scope, warehouse_values = _scope(user, "COALESCE(p.area_id,d.area_id,w.area_id)", "d.created_by", "COALESCE(p.farm_id,d.farm_id,w.farm_id)", "COALESCE(p.organization_id,d.organization_id,w.organization_id)")
         category = self._warehouse_category()
         cte = f"""
           WITH facts AS (
@@ -100,11 +116,11 @@ class CostDashboardRepository:
         return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}
 
     def facts(self, connection: Any, *, period_start: Any, period_end: Any, user: dict[str, Any]) -> dict[str, Any]:
-        cost_scope, cost_values = _scope(user, "ce.area_id", "ce.created_by")
-        purchase_scope, purchase_values = _scope(user, "COALESCE(o.area_id,d.area_id,w.area_id)", "d.created_by")
-        production_scope, production_values = _scope(user, "pd.area_id", "pd.created_by")
-        sales_scope, sales_values = _scope(user, "o.area_id", "d.created_by")
-        warehouse_scope, warehouse_values = _scope(user, "COALESCE(p.area_id,d.area_id,w.area_id)", "d.created_by")
+        cost_scope, cost_values = _scope(user, "ce.area_id", "ce.created_by", "ce.farm_id", "ce.organization_id")
+        purchase_scope, purchase_values = _scope(user, "COALESCE(o.area_id,d.area_id,w.area_id)", "d.created_by", "COALESCE(o.farm_id,d.farm_id,w.farm_id)", "COALESCE(o.organization_id,d.organization_id,w.organization_id)")
+        production_scope, production_values = _scope(user, "pd.area_id", "pd.created_by", "pd.farm_id", "pd.organization_id")
+        sales_scope, sales_values = _scope(user, "o.area_id", "d.created_by", "o.farm_id", "o.organization_id")
+        warehouse_scope, warehouse_values = _scope(user, "COALESCE(p.area_id,d.area_id,w.area_id)", "d.created_by", "COALESCE(p.farm_id,d.farm_id,w.farm_id)", "COALESCE(p.organization_id,d.organization_id,w.organization_id)")
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""SELECT

@@ -42,12 +42,12 @@ class UserRepository:
             roles = list(cursor.fetchall())
             cursor.execute(
                 """
-                SELECT ds.id, ds.code, ds.name, ds.scope_type, ds.area_id,
-                       COALESCE(area.organization_id, farm.organization_id) AS organization_id
+                SELECT ds.id, ds.code, ds.name, ds.scope_type, ds.organization_id, ds.farm_id, ds.area_id,
+                       COALESCE(ds.organization_id, area.organization_id, farm.organization_id) AS organization_id
                 FROM user_data_scopes AS uds
                 INNER JOIN data_scopes AS ds ON ds.id = uds.data_scope_id
                 LEFT JOIN areas AS area ON area.id = ds.area_id
-                LEFT JOIN farms AS farm ON farm.id = area.farm_id
+                LEFT JOIN farms AS farm ON farm.id = COALESCE(ds.farm_id, area.farm_id)
                 WHERE uds.user_id = %s AND ds.status = 'active'
                 ORDER BY ds.id
                 """,

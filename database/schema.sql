@@ -28,6 +28,9 @@ SOURCE database/migrations/024_pond_extended_fields.sql;
 SOURCE database/migrations/025_warehouse_alert_resolution.sql;
 SOURCE database/migrations/026_warehouse_lifecycle_hardening.sql;
 SOURCE database/migrations/027_revoke_breed_worker_data_exchange.sql;
+SOURCE database/migrations/028_r3_hardening.sql;
+SOURCE database/migrations/029_supplier_customer_returns.sql;
+SOURCE database/migrations/030_accounting_periods.sql;
 
 -- Contract index for source readers and schema checks:
 -- CREATE TABLE work_items: 004_enterprise_governance_foundation.sql

@@ -13,6 +13,7 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.http.request_helpers import json_object, require_csrf
 from backend.layers.common.security.csrf import CsrfError
+from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.data_exchange.data_exchange_service import DataExchangeService
 
@@ -34,7 +35,7 @@ def create_data_exchange_blueprint(settings: Settings, auth_store: Any, exchange
     service = DataExchangeService(exchange_store, Path(settings.attachment_root), scanner)
 
     def user() -> dict[str, Any]:
-        return auth.current_user(request.cookies.get("adp_session"), request_id=getattr(g, "request_id", None))
+        return auth.current_user(request_session_token(request), request_id=getattr(g, "request_id", None))
 
     def error(exc: Exception) -> tuple[Response, int]:
         if type(exc) in (TypeError, ValueError):

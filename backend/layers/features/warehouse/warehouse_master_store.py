@@ -33,7 +33,7 @@ class WarehouseMasterStoreMixin:
 
     def create_warehouse(self, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
-            cursor.execute("SELECT organization_id FROM farms WHERE id=%s AND status<>'archived'", (payload.get("farm_id"),))
+            cursor.execute("SELECT organization_id FROM farms WHERE id=%s AND status='verified'", (payload.get("farm_id"),))
             farm = cursor.fetchone()
             if farm is None:
                 raise DomainError("WAREHOUSE_FARM_INVALID", "所属基地不存在或已归档", 400)
@@ -66,7 +66,7 @@ class WarehouseMasterStoreMixin:
             if not clean:
                 raise DomainError("WAREHOUSE_NO_CHANGES", "没有可保存的修改", 400)
             merged = {**before, **clean}
-            cursor.execute("SELECT organization_id FROM farms WHERE id=%s AND status<>'archived'", (merged["farm_id"],))
+            cursor.execute("SELECT organization_id FROM farms WHERE id=%s AND status='verified'", (merged["farm_id"],))
             farm = cursor.fetchone()
             if farm is None or int(farm["organization_id"]) != int(before["organization_id"]):
                 raise DomainError("WAREHOUSE_SCOPE_INVALID", "基地不属于当前企业", 400)
@@ -76,9 +76,11 @@ class WarehouseMasterStoreMixin:
             if clean.get("status") == "disabled" and str(before.get("status")) != "disabled":
                 cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS balance FROM inventory_ledger WHERE warehouse_id=%s", (warehouse_id,))
                 balance = cursor.fetchone() or {}
-                cursor.execute("SELECT COUNT(*) AS pending FROM warehouse_documents WHERE warehouse_id=%s AND status IN ('draft','submitted','in_transit')", (warehouse_id,))
+                cursor.execute("SELECT COUNT(*) AS pending FROM warehouse_documents WHERE (warehouse_id=%s OR target_warehouse_id=%s) AND status IN ('draft','submitted','in_transit')", (warehouse_id, warehouse_id))
                 pending = cursor.fetchone() or {}
-                if float(balance.get("balance") or 0) != 0 or int(pending.get("pending") or 0):
+                cursor.execute("SELECT COUNT(*) AS pending FROM purchase_orders WHERE warehouse_id=%s AND status NOT IN ('closed','cancelled')", (warehouse_id,))
+                purchase_pending = cursor.fetchone() or {}
+                if float(balance.get("balance") or 0) != 0 or int(pending.get("pending") or 0) or int(purchase_pending.get("pending") or 0):
                     raise DomainError("WAREHOUSE_DISABLE_BLOCKED", "仓库存在库存或未完成业务，暂不能停用", 409)
             assignments = ",".join(f"{key}=%s" for key in clean)
             try:

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AuthLayout from './AuthLayout.vue'
 import FormField from '../../common/ui/FormField.vue'
-import { changePassword, getCurrentUser, logout } from '../../features/auth/public'
+import { changePassword, logout } from '../../features/auth/public'
 import { createSessionStore } from '../../common/session/session.store'
 import { ApiError } from '../../common/api/errors'
 
@@ -27,8 +27,10 @@ async function submit() {
   try {
     if (!currentPassword.value) { error.value = firstLogin.value ? '请输入当前临时密码' : '请输入当前密码'; return }
     await changePassword(currentPassword.value, newPassword.value, confirmPassword.value)
-    const current = await getCurrentUser(); session.setUser(current.user); currentPassword.value = ''; newPassword.value = ''; confirmPassword.value = ''
-    await router.push(current.next_path)
+    // The API revokes every active session, including this browser session.
+    // Do not call /auth/me with the now-invalid cookie.
+    session.clear(); currentPassword.value = ''; newPassword.value = ''; confirmPassword.value = ''
+    await router.replace('/auth/login')
   } catch (reason) {
       // 后端弱密码校验（BUG-M4-08）：WEAK_PASSWORD 消息直接映射到新密码提示
       if (reason instanceof ApiError && reason.code === 'WEAK_PASSWORD') error.value = `新密码不符合安全要求：${reason.message}`

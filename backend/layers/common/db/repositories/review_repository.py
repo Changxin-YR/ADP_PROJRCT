@@ -92,7 +92,13 @@ class ReviewRepository:
     def _resolve_scope_id(self, cursor: Any, scope_type: str, area_id: Any) -> int | None:
         """按申请的数据范围类型解析对应 data_scope id：farm→全场，personal→本人，area→所属区域。"""
         if scope_type == "farm":
-            cursor.execute("SELECT id FROM data_scopes WHERE scope_type = 'farm' AND status = 'active' ORDER BY id LIMIT 1", ())
+            cursor.execute(
+                "SELECT ds.id FROM data_scopes ds LEFT JOIN areas a ON a.id=ds.area_id "
+                "WHERE ds.scope_type='farm' AND ds.status='active' "
+                "AND (ds.farm_id=(SELECT farm_id FROM areas WHERE id=%s) OR ds.organization_id=(SELECT organization_id FROM areas WHERE id=%s) OR (ds.farm_id IS NULL AND ds.organization_id IS NULL)) "
+                "ORDER BY (ds.farm_id IS NOT NULL) DESC, ds.id LIMIT 1",
+                (area_id, area_id),
+            )
         elif scope_type == "personal":
             cursor.execute("SELECT id FROM data_scopes WHERE scope_type = 'personal' AND status = 'active' ORDER BY id LIMIT 1", ())
         else:
@@ -210,7 +216,7 @@ class ReviewRepository:
         with connection.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT ds.id, ds.code, ds.name, ds.scope_type, ds.area_id, a.name AS area_name
+                SELECT ds.id, ds.code, ds.name, ds.scope_type, ds.organization_id, ds.farm_id, ds.area_id, a.name AS area_name
                 FROM data_scopes AS ds
                 LEFT JOIN areas AS a ON a.id = ds.area_id
                 WHERE ds.status = 'active'
