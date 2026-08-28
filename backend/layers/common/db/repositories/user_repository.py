@@ -40,14 +40,28 @@ class UserRepository:
                 (user_id,),
             )
             roles = list(cursor.fetchall())
+            # Older migration chains do not have organization_id/farm_id on data_scopes.
+            # Keep the returned shape stable while resolving those values through area/farm.
+            has_scope_org = has_scope_farm = True
+            if hasattr(cursor, "fetchone"):
+                cursor.execute(
+                    "SELECT COLUMN_NAME FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='data_scopes' "
+                    "AND COLUMN_NAME IN ('organization_id','farm_id')"
+                )
+                columns = {str(row["COLUMN_NAME"]) for row in cursor.fetchall()}
+                has_scope_org = "organization_id" in columns
+                has_scope_farm = "farm_id" in columns
+            scope_farm_value = "COALESCE(ds.farm_id, area.farm_id)" if has_scope_farm else "area.farm_id"
+            scope_org_value = "COALESCE(ds.organization_id, area.organization_id, farm.organization_id)" if has_scope_org else "COALESCE(area.organization_id, farm.organization_id)"
             cursor.execute(
-                """
-                SELECT ds.id, ds.code, ds.name, ds.scope_type, ds.organization_id, ds.farm_id, ds.area_id,
-                       COALESCE(ds.organization_id, area.organization_id, farm.organization_id) AS organization_id
+                f"""
+                SELECT ds.id, ds.code, ds.name, ds.scope_type, {scope_farm_value} AS farm_id, ds.area_id,
+                       {scope_org_value} AS organization_id
                 FROM user_data_scopes AS uds
                 INNER JOIN data_scopes AS ds ON ds.id = uds.data_scope_id
                 LEFT JOIN areas AS area ON area.id = ds.area_id
-                LEFT JOIN farms AS farm ON farm.id = COALESCE(ds.farm_id, area.farm_id)
+                LEFT JOIN farms AS farm ON farm.id = {scope_farm_value}
                 WHERE uds.user_id = %s AND ds.status = 'active'
                 ORDER BY ds.id
                 """,
