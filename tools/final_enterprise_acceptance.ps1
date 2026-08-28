@@ -87,7 +87,12 @@ try {
         & $MySqlClient @mysqlRehearsalArgs --execute="CREATE DATABASE $acceptanceDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     }
     Invoke-Step "Load canonical schema for reconciliation" {
-        Get-Content -Raw -LiteralPath "database/schema.sql" | & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase
+        Get-ChildItem -LiteralPath "database/migrations" -Filter "*.sql" |
+            Sort-Object Name |
+            ForEach-Object {
+                Get-Content -Raw -LiteralPath $_.FullName | & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase
+                if ($LASTEXITCODE -ne 0) { throw "Migration load failed: $($_.Name)" }
+            }
     }
     Invoke-Step "Local production rehearsal reconciliation" {
         python backend/scripts/reconcile_enterprise_data.py --database $acceptanceDatabase --output $reconciliation
