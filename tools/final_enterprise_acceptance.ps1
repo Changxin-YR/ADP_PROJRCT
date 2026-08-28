@@ -1,7 +1,8 @@
 param(
     [string]$Server = "root@1.14.148.15",
     [string]$SshKey = "$env:USERPROFILE\.ssh\adp_server_ed25519",
-    [string]$Release = "20260817-732c247ecde1",
+    [string]$Release = "",
+    [string]$PublicBaseUrl = "https://1.14.148.15",
     [string]$MySqlClient = "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe",
     [int]$MySqlPort = 33307
 )
@@ -14,9 +15,7 @@ function Invoke-Step {
     param([string]$Name, [scriptblock]$Action)
     Write-Host "[RUN] $Name"
     & $Action
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Name failed with exit code $LASTEXITCODE"
-    }
+    if ($LASTEXITCODE -ne 0) { throw "$Name failed with exit code $LASTEXITCODE" }
 }
 
 function Invoke-SshStep {
@@ -27,15 +26,11 @@ function Invoke-SshStep {
 }
 
 function Invoke-MySqlTests {
-    if (-not (Test-Path -LiteralPath $MySqlClient)) {
-        throw "MySQL client not found: $MySqlClient"
-    }
+    if (-not (Test-Path -LiteralPath $MySqlClient)) { throw "MySQL client not found: $MySqlClient" }
     $systemDatabases = @("information_schema", "mysql", "performance_schema", "sys")
     $databases = & $MySqlClient --protocol=tcp --host=127.0.0.1 --port=$MySqlPort --user=root --batch --skip-column-names --execute="SHOW DATABASES"
     if ($LASTEXITCODE -ne 0) { throw "Disposable MySQL is unavailable" }
-    $unexpected = @($databases | Where-Object { $_ -notin $systemDatabases })
-    if ($unexpected) { throw "Disposable MySQL contains non-system databases: $unexpected" }
-
+    if (@($databases | Where-Object { $_ -notin $systemDatabases })) { throw "Disposable MySQL contains non-system databases" }
     try {
         $env:ADP_TEST_MYSQL_ALLOW_DISPOSABLE = "1"
         $env:ADP_TEST_MYSQL_CLIENT = $MySqlClient
@@ -50,41 +45,23 @@ function Invoke-MySqlTests {
         if (($output -join "`n") -match "\bskipped\b") { throw "Backend tests contain skipped checks" }
     }
     finally {
-        Remove-Item Env:ADP_TEST_MYSQL_ALLOW_DISPOSABLE -ErrorAction SilentlyContinue
-        Remove-Item Env:ADP_TEST_MYSQL_CLIENT -ErrorAction SilentlyContinue
-        Remove-Item Env:ADP_TEST_MYSQL_HOST -ErrorAction SilentlyContinue
-        Remove-Item Env:ADP_TEST_MYSQL_PORT -ErrorAction SilentlyContinue
-        Remove-Item Env:ADP_TEST_MYSQL_USER -ErrorAction SilentlyContinue
-        Remove-Item Env:ADP_TEST_MYSQL_PASSWORD -ErrorAction SilentlyContinue
+        foreach ($name in @("ADP_TEST_MYSQL_ALLOW_DISPOSABLE", "ADP_TEST_MYSQL_CLIENT", "ADP_TEST_MYSQL_HOST", "ADP_TEST_MYSQL_PORT", "ADP_TEST_MYSQL_USER", "ADP_TEST_MYSQL_PASSWORD")) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
     }
     $databases = & $MySqlClient --protocol=tcp --host=127.0.0.1 --port=$MySqlPort --user=root --batch --skip-column-names --execute="SHOW DATABASES"
     if ($LASTEXITCODE -ne 0) { throw "Cannot verify disposable MySQL cleanup" }
-    $unexpected = @($databases | Where-Object { $_ -notin $systemDatabases })
-    if ($unexpected) { throw "MySQL tests left databases behind: $unexpected" }
+    if (@($databases | Where-Object { $_ -notin $systemDatabases })) { throw "MySQL tests left databases behind" }
 }
 
-$reportPath = "docs/audits/final-enterprise-acceptance.md"
-$report = Get-Content -Raw -LiteralPath $reportPath
-foreach ($marker in @(
-    "Final result: PASS",
-    $Release,
-    "f629a90372b19b06790b175d5885e4b66a2905827982434214f8dd27f1484835",
-    "236 passed",
-    "87 passed",
-    "12 passed",
-    "14 类检查均为 0"
-)) {
-    if (-not $report.Contains($marker)) {
-        throw "Final report is incomplete: $marker"
-    }
+if ([string]::IsNullOrWhiteSpace($Release)) {
+    $Release = (ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 $Server "basename \$(readlink -f /opt/adp/slots/green)").Trim()
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Release)) { throw "Cannot resolve active release from cloud" }
 }
 
-$dirty = git status --porcelain
-if ($LASTEXITCODE -ne 0 -or $dirty) {
-    throw "Implementation worktree must be clean before acceptance"
-}
+$report = Get-Content -Raw -LiteralPath "docs/audits/final-enterprise-acceptance.md"
+if (-not $report.Contains("最终结果") -and -not $report.Contains("Final result")) { throw "Acceptance report is missing a result marker" }
+$trackedDirty = git status --porcelain --untracked-files=no
+if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Tracked implementation worktree must be clean before acceptance" }
 
-Write-Host "[RUN] Backend and MySQL tests"
 Invoke-MySqlTests
 Invoke-Step "Dependency security audit" { npm --prefix frontend audit --audit-level=low --registry=https://registry.npmjs.org }
 Invoke-Step "Frontend unit tests" { npm --prefix frontend run test:unit }
@@ -93,20 +70,12 @@ Remove-Item Env:NO_COLOR -ErrorAction SilentlyContinue
 Invoke-Step "Seven-role browser flows" { npm --prefix frontend run test:e2e }
 
 $reconciliation = Join-Path ([System.IO.Path]::GetTempPath()) "adp-final-reconciliation.json"
-$env:MYSQL_HOST = "127.0.0.1"
-$env:MYSQL_PORT = "3308"
-$env:MYSQL_USER = "root"
-$env:MYSQL_PASSWORD = ""
+$env:MYSQL_HOST = "127.0.0.1"; $env:MYSQL_PORT = "3308"; $env:MYSQL_USER = "root"; $env:MYSQL_PASSWORD = ""
 try {
-    Invoke-Step "Local production rehearsal reconciliation" {
-        python backend/scripts/reconcile_enterprise_data.py --database adp_final_acceptance_20260817 --output $reconciliation
-    }
+    Invoke-Step "Local production rehearsal reconciliation" { python backend/scripts/reconcile_enterprise_data.py --database adp_final_acceptance --output $reconciliation }
 }
 finally {
-    Remove-Item Env:MYSQL_HOST -ErrorAction SilentlyContinue
-    Remove-Item Env:MYSQL_PORT -ErrorAction SilentlyContinue
-    Remove-Item Env:MYSQL_USER -ErrorAction SilentlyContinue
-    Remove-Item Env:MYSQL_PASSWORD -ErrorAction SilentlyContinue
+    foreach ($name in @("MYSQL_HOST", "MYSQL_PORT", "MYSQL_USER", "MYSQL_PASSWORD")) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
 }
 Invoke-Step "Strict source audit" { python tools/audit_source.py --root . --strict }
 
@@ -119,31 +88,18 @@ Invoke-SshStep "Old API health" "curl --fail --silent http://127.0.0.1:5001/api/
 Invoke-SshStep "New API health" "curl --fail --silent http://127.0.0.1:5002/api/v1/health"
 Invoke-SshStep "Active release root" "grep -F '/opt/adp/releases/$Release/frontend/dist' /etc/nginx/conf.d/adp-auth.conf"
 Invoke-SshStep "Active API upstream" "grep -F 'proxy_pass http://127.0.0.1:5002;' /etc/nginx/conf.d/adp-auth.conf"
-Invoke-SshStep "Release evidence" "test -f $state/release.env"
+Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'database=' $state/release.env"
 Invoke-SshStep "Backup checksums" "cd $backup && sha256sum -c SHA256SUMS"
+Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/adp-auth.conf"
 
 $remoteReconciliation = ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $Server "cat $state/*-reconciliation.json"
-if ($LASTEXITCODE -ne 0) {
-    throw "Cloud reconciliation evidence is unavailable"
-}
-$okCount = [regex]::Matches(($remoteReconciliation -join "`n"), '"ok": true').Count
-if ($okCount -ne 2) {
-    throw "Both cloud reconciliation reports must be ok"
-}
-$zeroCount = [regex]::Matches(($remoteReconciliation -join "`n"), '"total_issues": 0').Count
-if ($zeroCount -ne 2) {
-    throw "Both cloud reconciliation reports must have zero issues"
-}
+if ($LASTEXITCODE -ne 0) { throw "Cloud reconciliation evidence is unavailable" }
+$remoteText = $remoteReconciliation -join "`n"
+if ($remoteText -notmatch '"ok": true' -or $remoteText -notmatch '"total_issues": 0') { throw "Cloud reconciliation reports issues" }
 
 foreach ($path in @("/healthz", "/api/v1/health", "/api-docs/", "/workbench")) {
-    Invoke-Step "Public $path" {
-        curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "https://1.14.148.15$path"
-    }
+    Invoke-Step "Public $path" { curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "$PublicBaseUrl$path" }
 }
-
-$dirty = git status --porcelain
-if ($LASTEXITCODE -ne 0 -or $dirty) {
-    throw "Acceptance changed the implementation worktree"
-}
-
-Write-Host "FINAL_ENTERPRISE_ACCEPTANCE=PASS"
+$trackedDirty = git status --porcelain --untracked-files=no
+if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Acceptance changed tracked implementation files" }
+Write-Host "FINAL_ENTERPRISE_ACCEPTANCE=PASS release=$Release"

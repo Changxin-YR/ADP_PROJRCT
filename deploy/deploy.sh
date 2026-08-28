@@ -107,6 +107,7 @@ mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < database
 chown -R adp:adp "$APP_ROOT"
 chmod 0755 "$APP_ROOT" "$APP_ROOT/实现文档" "$APP_ROOT/实现文档/登陆注册"
 NGINX_CONFIG="$(mktemp /etc/adp/nginx-adp.XXXXXX)"
+install -d -o root -g root -m 0755 /var/lib/adp-acme
 sed \
   -e "s|__ADP_SERVER_NAME__|$ADP_SERVER_NAME|g" \
   -e "s|__ADP_TLS_CERTIFICATE__|$ADP_TLS_CERTIFICATE|g" \

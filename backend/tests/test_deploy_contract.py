@@ -49,17 +49,22 @@ def test_production_deploy_requires_tls_and_does_not_install_an_http_only_site()
 
 
 def test_http_site_serves_acme_challenges_before_redirecting_to_https() -> None:
-    nginx = Path("deploy/nginx-adp.conf").read_text(encoding="utf-8")
+    for name in ("nginx-adp.conf", "nginx-adp-blue-green.conf", "nginx-adp-manual-test.conf"):
+        nginx = Path("deploy", name).read_text(encoding="utf-8")
+        challenge = nginx.index("location ^~ /.well-known/acme-challenge/")
+        redirect = nginx.index("return 301 https://__ADP_SERVER_NAME__$request_uri")
+        assert "root /var/lib/adp-acme;" in nginx[challenge:redirect]
+        assert "try_files $uri =404;" in nginx[challenge:redirect]
+        assert challenge < redirect
 
-    expected_http_locations = """    root /opt/adp/login-registration/实现文档/登陆注册/frontend/dist;
 
-    location ^~ /.well-known/acme-challenge/ {
-        default_type text/plain;
-        try_files $uri =404;
-    }
+def test_blue_green_deploy_does_not_clone_or_switch_production_databases() -> None:
+    script = Path("deploy/deploy-blue-green.sh").read_text(encoding="utf-8")
 
-    location / {
-        return 301 https://__ADP_SERVER_NAME__$request_uri;
-    }"""
-
-    assert expected_http_locations in nginx
+    assert "clone_database" not in script
+    assert "CREATE DATABASE" not in script
+    assert "ACCEPTANCE_DB" not in script
+    assert "PRODUCTION_DB" not in script
+    assert "MAINTENANCE_MARKER" in script
+    assert "systemctl stop adp-auth" in script
+    assert "MYSQL_DATABASE" in script

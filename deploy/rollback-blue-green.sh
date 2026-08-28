@@ -18,8 +18,8 @@ env_value() {
   local key="$1" line value
   line="$(grep -m1 -E "^${key}=" /etc/adp/auth.env)" || { echo "missing $key" >&2; return 1; }
   value="${line#*=}"
-  if [[ "$value" == \"* && "$value" == *\" ]]; then value="${value:1:${#value}-2}"; fi
-  if [[ "$value" == \'* && "$value" == *\' ]]; then value="${value:1:${#value}-2}"; fi
+  if [[ "$value" == \"*\" && "$value" == *\" ]]; then value="${value:1:${#value}-2}"; fi
+  if [[ "$value" == \'*\' && "$value" == *\' ]]; then value="${value:1:${#value}-2}"; fi
   printf '%s' "$value"
 }
 
@@ -49,7 +49,7 @@ nginx -t
 systemctl reload nginx
 curl --fail --silent --show-error http://127.0.0.1:5001/api/v1/health >/dev/null
 
-server_name="$(awk -F= '$1=="ADP_SERVER_NAME" {sub(/^[^=]*=/, ""); print; exit}' /etc/adp/auth.env)"
+server_name="$(env_value ADP_SERVER_NAME)"
 curl --fail --silent --show-error --resolve "$server_name:443:127.0.0.1" "https://$server_name/healthz" >/dev/null
 date --iso-8601=seconds > "$STATE_DIR/rolled-back-at"
 echo "traffic rolled back for $RELEASE_ID; databases and green service were preserved"

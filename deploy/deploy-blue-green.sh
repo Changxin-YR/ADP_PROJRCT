@@ -36,21 +36,6 @@ write_env() {
   rm -f -- "$temporary"
 }
 
-grant_database() {
-  local database="$1" host
-  while IFS= read -r host; do
-    [[ "$host" =~ ^[A-Za-z0-9.%:_-]+$ ]] || { echo "unsafe MySQL host" >&2; exit 1; }
-    mysql --execute="GRANT ALL PRIVILEGES ON \`${database}\`.* TO '${MYSQL_USER}'@'${host}'"
-  done < <(mysql --batch --skip-column-names --execute="SELECT Host FROM mysql.user WHERE User='${MYSQL_USER}'")
-}
-
-clone_database() {
-  local destination="$1"
-  mysql --execute="CREATE DATABASE \`${destination}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-  mysqldump --single-transaction --routines --triggers --events "$MYSQL_DATABASE" | mysql "$destination"
-  grant_database "$destination"
-}
-
 migrate_database() {
   local database="$1" migration version checksum legacy_crlf_checksum recorded
   mysql "$database" < database/migrations/000_schema_migrations.sql
@@ -121,11 +106,29 @@ restore_previous() {
   systemctl reload nginx
 }
 
+cleanup_on_error() {
+  local status=$?
+  if (( status != 0 )); then
+    if [[ -n "${STATE_DIR:-}" && -f "${STATE_DIR}/previous-nginx.conf" ]]; then
+      restore_previous || true
+    fi
+    if [[ "${OLD_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
+      systemctl start adp-auth || true
+    fi
+    if [[ -n "${MAINTENANCE_MARKER:-}" ]]; then
+      rm -f -- "$MAINTENANCE_MARKER"
+    fi
+  fi
+  exit "$status"
+}
+trap cleanup_on_error EXIT
+
 verify_public() {
-  curl --fail --silent --show-error --resolve "$SERVER_NAME:443:127.0.0.1" "https://$SERVER_NAME/healthz" >/dev/null
-  curl --fail --silent --show-error --resolve "$SERVER_NAME:443:127.0.0.1" "https://$SERVER_NAME/api/v1/health" >/dev/null
-  curl --fail --silent --show-error --resolve "$SERVER_NAME:443:127.0.0.1" "https://$SERVER_NAME/workbench" >/dev/null
-  curl --fail --silent --show-error --resolve "$SERVER_NAME:443:127.0.0.1" "https://$SERVER_NAME/api-docs/" >/dev/null
+  local base="${ADP_PUBLIC_BASE_URL:-https://$SERVER_NAME}"
+  curl --fail --silent --show-error "$base/healthz" >/dev/null
+  curl --fail --silent --show-error "$base/api/v1/health" >/dev/null
+  curl --fail --silent --show-error "$base/workbench" >/dev/null
+  curl --fail --silent --show-error "$base/api-docs/" >/dev/null
 }
 
 activate_release() {
@@ -161,9 +164,6 @@ ACTUAL_SHA="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 RELEASE_DIR="$RELEASE_ROOT/$RELEASE_ID"
 STATE_DIR="$STATE_ROOT/$RELEASE_ID"
 BACKUP_DIR="/opt/adp/backups/${RELEASE_ID}-blue-green"
-DB_SUFFIX="${RELEASE_ID//[^A-Za-z0-9]/_}"
-ACCEPTANCE_DB="adp_acceptance_${DB_SUFFIX}"
-PRODUCTION_DB="adp_production_${DB_SUFFIX}"
 MYSQL_HOST="$(env_value MYSQL_HOST)"; MYSQL_PORT="$(env_value MYSQL_PORT)"
 MYSQL_USER="$(env_value MYSQL_USER)"; MYSQL_PASSWORD="$(env_value MYSQL_PASSWORD)"
 MYSQL_DATABASE="$(env_value MYSQL_DATABASE)"; SERVER_NAME="$(env_value ADP_SERVER_NAME)"
@@ -174,6 +174,7 @@ TLS_CERT="$(env_value ADP_TLS_CERTIFICATE)"; TLS_KEY="$(env_value ADP_TLS_CERTIF
 install -d -o root -g root -m 0711 "$RELEASE_ROOT" "$SLOT_ROOT"
 install -d -o root -g root -m 0750 "$STATE_DIR"
 install -d -m 0755 "$RELEASE_DIR"
+install -d -o root -g root -m 0755 /var/lib/adp-acme
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 cd "$RELEASE_DIR"
 "/opt/adp-venv/bin/python" -m venv .venv
@@ -185,10 +186,15 @@ chmod -R u=rwX,go=rX frontend/dist api-docs
 
 # Deployment sequence
 backup_live
-clone_database "$ACCEPTANCE_DB"
-migrate_database "$ACCEPTANCE_DB"
-reconcile_database "$ACCEPTANCE_DB"
-write_env "$ACCEPTANCE_DB" "$NEXT_ENV"
+# ponytail: a short maintenance window prevents writes while the shared production schema is migrated.
+MAINTENANCE_MARKER="$STATE_DIR/maintenance"
+OLD_SERVICE_WAS_ACTIVE=0
+if systemctl is-active --quiet adp-auth; then OLD_SERVICE_WAS_ACTIVE=1; fi
+systemctl stop adp-auth
+date --iso-8601=seconds > "$MAINTENANCE_MARKER"
+migrate_database "$MYSQL_DATABASE"
+reconcile_database "$MYSQL_DATABASE"
+write_env "$MYSQL_DATABASE" "$NEXT_ENV"
 ln -sfn "$RELEASE_DIR" "$SLOT_ROOT/green.next"
 mv -Tf "$SLOT_ROOT/green.next" "$SLOT_ROOT/green"
 install -o root -g root -m 0644 deploy/adp-next.service /etc/systemd/system/adp-next.service
@@ -199,16 +205,10 @@ systemctl restart adp-next
 for _ in $(seq 1 30); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null && break; sleep 1; done
 curl --fail --silent --show-error http://127.0.0.1:5002/api/v1/health >/dev/null
 for _ in $(seq 1 50); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null; done
-
-clone_database "$PRODUCTION_DB"
-migrate_database "$PRODUCTION_DB"
-reconcile_database "$PRODUCTION_DB"
-write_env "$PRODUCTION_DB" "$NEXT_ENV"
-systemctl restart adp-next
-for _ in $(seq 1 30); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null && break; sleep 1; done
-curl --fail --silent --show-error http://127.0.0.1:5002/api/v1/health >/dev/null
+if (( OLD_SERVICE_WAS_ACTIVE )); then systemctl start adp-auth; fi
+rm -f -- "$MAINTENANCE_MARKER"
 render_nginx
-printf 'release_id=%s\nrelease_sha256=%s\nrelease_dir=%s\nacceptance_database=%s\nproduction_database=%s\nbackup_dir=%s\n' \
-  "$RELEASE_ID" "$ACTUAL_SHA" "$RELEASE_DIR" "$ACCEPTANCE_DB" "$PRODUCTION_DB" "$BACKUP_DIR" > "$STATE_DIR/release.env"
+printf 'release_id=%s\nrelease_sha256=%s\nrelease_dir=%s\ndatabase=%s\nbackup_dir=%s\n' \
+  "$RELEASE_ID" "$ACTUAL_SHA" "$RELEASE_DIR" "$MYSQL_DATABASE" "$BACKUP_DIR" > "$STATE_DIR/release.env"
 activate_release "$RELEASE_ID"
 echo "blue-green deployment complete: $RELEASE_ID"

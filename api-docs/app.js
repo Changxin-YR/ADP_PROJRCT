@@ -49,7 +49,12 @@ fetch('./openapi.json')
   .then(response => { if (!response.ok) throw new Error('OpenAPI unavailable'); return response.json() })
   .then(spec => {
     state.operations = Object.entries(spec.paths).flatMap(([path, methods]) =>
-      Object.entries(methods).map(([method, operation]) => ({ path, method: method.toUpperCase(), summary: operation.summary, tag: operation.tags[0] })),
+      Object.entries(methods).map(([method, operation]) => ({
+        path,
+        method: method.toUpperCase(),
+        summary: operation.summary || operation.description || '',
+        tag: operation.tags?.[0] || path.split('/')[3] || 'other',
+      })),
     )
     document.querySelector('#operation-count').textContent = state.operations.length
     renderTags([...new Set(state.operations.map(item => item.tag))].sort())
