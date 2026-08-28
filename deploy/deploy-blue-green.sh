@@ -42,7 +42,9 @@ migrate_database() {
   for migration in database/migrations/[0-9][0-9][0-9]_*.sql; do
     [[ "$migration" == *000_schema_migrations.sql ]] && continue
     version="$(basename "$migration" .sql)"
-    checksum="$(sha256sum "$migration" | awk '{print $1}')"
+    # Treat line-ending changes as equivalent; old hosts may have registered LF checksums
+    # while the release archive preserves CRLF blobs from the repository.
+    checksum="$(sed 's/\r$//' "$migration" | sha256sum | awk '{print $1}')"
     legacy_crlf_checksum="$(sed 's/\r$//' "$migration" | sed 's/$/\r/' | sha256sum | awk '{print $1}')"
     recorded="$(mysql "$database" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version='${version}'")"
     if [[ -n "$recorded" ]]; then

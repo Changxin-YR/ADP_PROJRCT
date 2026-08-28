@@ -86,7 +86,7 @@ for migration in "${migrations[@]}"; do
     echo "非法迁移文件名：$migration" >&2
     exit 1
   fi
-  checksum="$(sha256sum "$migration" | awk '{print $1}')"
+  checksum="$(sed 's/\r$//' "$migration" | sha256sum | awk '{print $1}')"
   recorded_checksum="$(mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version = '$version' LIMIT 1")"
 
   if [[ -n "$recorded_checksum" ]]; then
