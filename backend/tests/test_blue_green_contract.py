@@ -50,6 +50,7 @@ def test_deploy_requires_backups_and_verifies_before_switching():
         "npm --prefix frontend audit --audit-level=low",
         "PIP_DISABLE_PIP_VERSION_CHECK=1",
         "legacy_crlf_checksum",
+        "MIGRATION_IN_PROGRESS",
         "--activate",
     ):
         assert marker in script
@@ -87,6 +88,7 @@ def test_public_gate_covers_frontend_and_api_documentation():
     script = _read("deploy/deploy-blue-green.sh")
     public_gate = script.split("verify_public() {", 1)[1].split("\n}", 1)[0]
 
+    assert '[[ "$base" == "https://$SERVER_NAME" ]]' in public_gate
     assert '"$base/workbench"' in public_gate
     assert '"$base/api-docs/"' in public_gate
 

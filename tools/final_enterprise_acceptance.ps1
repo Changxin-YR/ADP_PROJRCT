@@ -63,7 +63,9 @@ if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $serverHost) { throw "
 
 $report = Get-Content -Raw -LiteralPath "docs/audits/final-enterprise-acceptance.md"
 if ($report -notmatch '(Final result:\s*PASS|最终结果[：:]\s*PASS)') { throw "Acceptance report is not marked PASS" }
-$trackedDirty = git status --porcelain --untracked-files=no
+$trackedDirty = git status --porcelain --untracked-files=all | Where-Object {
+    $_ -notmatch '^\?\? (repair/|docs/audits/api-docs-desktop\.png$)'
+}
 if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Tracked implementation worktree must be clean before acceptance" }
 
 Invoke-MySqlTests
@@ -74,11 +76,25 @@ Remove-Item Env:NO_COLOR -ErrorAction SilentlyContinue
 Invoke-Step "Seven-role browser flows" { npm --prefix frontend run test:e2e }
 
 $reconciliation = Join-Path ([System.IO.Path]::GetTempPath()) "adp-final-reconciliation.json"
+$acceptanceDatabase = "adp_final_acceptance"
+$mysqlRehearsalArgs = @(
+    "--protocol=tcp", "--host=127.0.0.1", "--port=3308", "--user=root",
+    "--batch", "--skip-column-names"
+)
 $env:MYSQL_HOST = "127.0.0.1"; $env:MYSQL_PORT = "3308"; $env:MYSQL_USER = "root"; $env:MYSQL_PASSWORD = ""
 try {
-    Invoke-Step "Local production rehearsal reconciliation" { python backend/scripts/reconcile_enterprise_data.py --database adp_final_acceptance --output $reconciliation }
+    Invoke-Step "Create local reconciliation database" {
+        & $MySqlClient @mysqlRehearsalArgs --execute="CREATE DATABASE $acceptanceDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+    }
+    Invoke-Step "Load canonical schema for reconciliation" {
+        & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase --execute="SOURCE database/schema.sql"
+    }
+    Invoke-Step "Local production rehearsal reconciliation" {
+        python backend/scripts/reconcile_enterprise_data.py --database $acceptanceDatabase --output $reconciliation
+    }
 }
 finally {
+    & $MySqlClient @mysqlRehearsalArgs --execute="DROP DATABASE IF EXISTS $acceptanceDatabase" | Out-Null
     foreach ($name in @("MYSQL_HOST", "MYSQL_PORT", "MYSQL_USER", "MYSQL_PASSWORD")) { Remove-Item "Env:$name" -ErrorAction SilentlyContinue }
 }
 Invoke-Step "Strict source audit" { python tools/audit_source.py --root . --strict }
@@ -103,6 +119,8 @@ if ($LASTEXITCODE -ne 0) { throw "Cloud reconciliation evidence is unavailable o
 foreach ($path in @("/healthz", "/api/v1/health", "/api-docs/", "/workbench")) {
     Invoke-Step "Public $path" { curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "$PublicBaseUrl$path" }
 }
-$trackedDirty = git status --porcelain --untracked-files=no
+$trackedDirty = git status --porcelain --untracked-files=all | Where-Object {
+    $_ -notmatch '^\?\? (repair/|docs/audits/api-docs-desktop\.png$)'
+}
 if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Acceptance changed tracked implementation files" }
 Write-Host "FINAL_ENTERPRISE_ACCEPTANCE=PASS release=$Release"

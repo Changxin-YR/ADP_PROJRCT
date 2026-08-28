@@ -119,14 +119,16 @@ cleanup_on_error() {
         mv -Tf "$SLOT_ROOT/green.rollback" "$SLOT_ROOT/green"
       fi
     fi
-    if [[ "${NEXT_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
+    if [[ "${MIGRATION_IN_PROGRESS:-0}" != "1" && "${NEXT_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
       systemctl start adp-next || true
     fi
-    if [[ "${OLD_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
+    if [[ "${MIGRATION_IN_PROGRESS:-0}" != "1" && "${OLD_SERVICE_WAS_ACTIVE:-0}" == "1" ]]; then
       systemctl start adp-auth || true
     fi
-    if [[ -n "${MAINTENANCE_MARKER:-}" ]]; then
+    if [[ "${MIGRATION_IN_PROGRESS:-0}" != "1" && -n "${MAINTENANCE_MARKER:-}" ]]; then
       rm -f -- "$MAINTENANCE_MARKER"
+    elif [[ "${MIGRATION_IN_PROGRESS:-0}" == "1" ]]; then
+      echo "database migration failed; services remain stopped and maintenance marker is preserved" >&2
     fi
   fi
   exit "$status"
@@ -135,6 +137,10 @@ trap cleanup_on_error EXIT
 
 verify_public() {
   local base="${ADP_PUBLIC_BASE_URL:-https://$SERVER_NAME}"
+  [[ "$base" == "https://$SERVER_NAME" ]] || {
+    echo "ADP_PUBLIC_BASE_URL must match the configured production host" >&2
+    return 1
+  }
   curl --fail --silent --show-error "$base/healthz" >/dev/null
   curl --fail --silent --show-error "$base/api/v1/health" >/dev/null
   curl --fail --silent --show-error "$base/workbench" >/dev/null
@@ -202,13 +208,16 @@ PREVIOUS_RELEASE="$(readlink -f "$SLOT_ROOT/green" 2>/dev/null || true)"
 if [[ -n "$PREVIOUS_RELEASE" ]]; then printf '%s\n' "$PREVIOUS_RELEASE" > "$STATE_DIR/previous-release"; fi
 OLD_SERVICE_WAS_ACTIVE=0
 NEXT_SERVICE_WAS_ACTIVE=0
+MIGRATION_IN_PROGRESS=0
 if systemctl is-active --quiet adp-auth; then OLD_SERVICE_WAS_ACTIVE=1; fi
 if systemctl is-active --quiet adp-next; then NEXT_SERVICE_WAS_ACTIVE=1; fi
 systemctl stop adp-auth
 systemctl stop adp-next
 date --iso-8601=seconds > "$MAINTENANCE_MARKER"
+MIGRATION_IN_PROGRESS=1
 migrate_database "$MYSQL_DATABASE"
 reconcile_database "$MYSQL_DATABASE"
+MIGRATION_IN_PROGRESS=0
 write_env "$MYSQL_DATABASE" "$NEXT_ENV"
 ln -sfn "$RELEASE_DIR" "$SLOT_ROOT/green.next"
 mv -Tf "$SLOT_ROOT/green.next" "$SLOT_ROOT/green"

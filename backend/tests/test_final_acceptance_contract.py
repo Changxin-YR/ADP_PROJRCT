@@ -14,6 +14,7 @@ def test_final_acceptance_script_gates_every_required_layer():
         "reconcile_enterprise_data.py",
         "audit_source.py --root . --strict",
         "git status --porcelain",
+        "untracked-files=all",
         "nginx -t",
         "adp-auth.service",
         "adp-next.service",
