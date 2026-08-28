@@ -70,3 +70,13 @@ def test_strict_source_rules_only_scan_production_files(tmp_path: Path) -> None:
     assert [(item.path, item.category) for item in findings] == [
         ("frontend/src/Page.vue", "browser_business_storage")
     ]
+
+
+def test_approved_offline_draft_adapter_is_not_reported() -> None:
+    findings = scan_tree(Path(".")).findings
+
+    assert not any(
+        item.path == "frontend/src/layers/common/ui/offlineDraft.ts"
+        and item.category == "browser_business_storage"
+        for item in findings
+    )

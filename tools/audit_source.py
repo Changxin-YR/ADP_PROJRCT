@@ -30,6 +30,7 @@ STRICT_CATEGORIES = {
     "over_300_lines",
 }
 PRODUCTION_ONLY_RULES = {"static_business_source", "browser_business_storage"}
+APPROVED_BROWSER_STORAGE = {"frontend/src/layers/common/ui/offlineDraft.ts"}
 
 
 @dataclass(frozen=True, order=True)
@@ -115,6 +116,8 @@ def scan_tree(root: Path, paths: Iterable[str] | None = None) -> AuditReport:
             lowered = line.lower()
             for category, needles in RULES.items():
                 if category in PRODUCTION_ONLY_RULES and not production:
+                    continue
+                if category == "browser_business_storage" and relative in APPROVED_BROWSER_STORAGE:
                     continue
                 if any(needle.lower() in lowered for needle in needles):
                     findings.append(Finding(relative, line_no, category, line.strip()))
