@@ -78,7 +78,7 @@ Invoke-Step "Seven-role browser flows" { npm --prefix frontend run test:e2e }
 $reconciliation = Join-Path ([System.IO.Path]::GetTempPath()) "adp-final-reconciliation.json"
 $acceptanceDatabase = "adp_final_acceptance"
 $mysqlRehearsalArgs = @(
-    "--protocol=tcp", "--host=127.0.0.1", "--port=3308", "--user=root",
+    "--protocol=tcp", "--host=127.0.0.1", "--port=$MySqlPort", "--user=root",
     "--batch", "--skip-column-names"
 )
 $env:MYSQL_HOST = "127.0.0.1"; $env:MYSQL_PORT = "3308"; $env:MYSQL_USER = "root"; $env:MYSQL_PASSWORD = ""
