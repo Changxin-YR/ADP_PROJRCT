@@ -87,7 +87,7 @@ try {
         & $MySqlClient @mysqlRehearsalArgs --execute="CREATE DATABASE $acceptanceDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     }
     Invoke-Step "Load canonical schema for reconciliation" {
-        & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase --execute="SOURCE database/schema.sql"
+        Get-Content -Raw -LiteralPath "database/schema.sql" | & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase
     }
     Invoke-Step "Local production rehearsal reconciliation" {
         python backend/scripts/reconcile_enterprise_data.py --database $acceptanceDatabase --output $reconciliation
