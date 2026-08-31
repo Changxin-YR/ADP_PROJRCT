@@ -7,7 +7,7 @@ import type { MasterField, MasterRecord, MasterResource } from '../../common/api
 
 // 写操作防重复提交：busy + disabled + 防抖（BUG-M2-05/BUG-M4-09）
 const submitting = ref(false)
-import { archiveMasterRecord, createMasterRecord, deleteMasterDraft, listMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
+import { archiveMasterRecord, createMasterRecord, deleteMasterDraft, listAllMasterOptions, listMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
 
 const props = defineProps<{
   resource: MasterResource
@@ -27,6 +27,7 @@ const dialogError = ref('')
 const formOpen = ref(false)
 const editing = ref<MasterRecord | null>(null)
 const form = reactive<Record<string, string | number>>({})
+const areaOptions = ref<MasterRecord[]>([])
 const confirmAction = ref<'delete' | 'submit' | 'verify' | 'archive' | null>(null)
 const actionTarget = ref<MasterRecord | null>(null)
 const lifecycleNames: Record<string, string> = { draft: '草稿', submitted: '待核验', verified: '已核验', archived: '已归档' }
@@ -44,7 +45,11 @@ async function load() {
   loading.value = true
   pageError.value = ''
   try {
-    const first = await listMasterRecords(props.resource, { page: 1, page_size: 100 })
+    const [first, areas] = await Promise.all([
+      listMasterRecords(props.resource, { page: 1, page_size: 100 }),
+      props.fields.some((field) => field.key === 'area_id') ? listAllMasterOptions('areas') : Promise.resolve([]),
+    ])
+    areaOptions.value = areas
     const items = [...first.items]
     for (let page = 2; first.has_next && page <= Math.ceil(first.total / 100); page += 1) {
       items.push(...(await listMasterRecords(props.resource, { page, page_size: 100 })).items)
@@ -160,7 +165,7 @@ onMounted(load)
         <div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? `编辑 · ${title}` : `新增 · ${title}` }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div>
         <p class="section-subtitle">草稿可修改；提交后仍可修改并保留版本；核验后永久只读。</p>
         <div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-          <label v-for="field in fields" :key="field.key" class="modal-field" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`master-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" :placeholder="field.placeholder" /><input v-else :id="`master-${field.key}`" v-model="form[field.key]" :type="field.type === 'number' ? 'number' : 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%" :placeholder="field.placeholder"></label>
+          <label v-for="field in fields" :key="field.key" class="modal-field" :style="field.type === 'textarea' ? 'grid-column:1/-1' : ''"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><textarea v-if="field.type === 'textarea'" :id="`master-${field.key}`" v-model="form[field.key]" rows="3" class="filter-input" style="width:100%;resize:vertical" :placeholder="field.placeholder" /><select v-else-if="field.key === 'area_id'" :id="`master-${field.key}`" v-model="form[field.key]" class="filter-select" style="width:100%"><option value="" disabled>请选择已核验区域</option><option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}（{{ area.code }}）</option></select><input v-else :id="`master-${field.key}`" v-model="form[field.key]" :type="field.type === 'number' ? 'number' : 'text'" :min="field.type === 'number' ? 0 : undefined" class="filter-input" style="width:100%" :placeholder="field.placeholder"></label>
         </div>
         <p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p>
         <div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="master-save" :disabled="submitting" :aria-busy="submitting" @click="save">{{ submitting ? '保存中…' : '保存' }}</button></div>

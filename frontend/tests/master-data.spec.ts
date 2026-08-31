@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import MaterialPage from '../src/layers/product/warehouse/MaterialPage.vue'
+import PondGroupPage from '../src/layers/product/pond-groups/PondGroupPage.vue'
 
 
 const submitted = {
@@ -85,5 +86,34 @@ describe('enterprise master data pages', () => {
     expect(wrapper.find('[data-testid="master-action-verify"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="master-action-edit"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('查看')
+  })
+
+  it('requires an authorized area when creating a pond group', async () => {
+    const calls: Array<{ path: string; method: string; body?: Record<string, unknown> }> = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      const method = (init?.method ?? 'GET').toUpperCase()
+      const body = init?.body ? JSON.parse(String(init.body)) : undefined
+      calls.push({ path, method, body })
+      if (path.includes('/auth/csrf')) return response({ csrf_token: 'csrf' })
+      if (path.includes('/master-data/areas')) return response({ items: [{ id: 2, code: 'AREA-2', name: '南区基地', status: 'verified', row_version: 1 }], page: 1, page_size: 100, total: 1, has_next: false })
+      if (method === 'POST') return response({ record: { id: 9, ...body, status: 'draft', row_version: 1, version: 1, allowed_actions: ['view', 'edit', 'delete', 'submit'] } }, 201)
+      return response({ items: [], page: 1, page_size: 100, total: 0, has_next: false })
+    }))
+    const wrapper = mount(PondGroupPage, {
+      global: { stubs: { AppShell: { template: '<main><slot /></main>' }, Teleport: true } },
+    })
+    await flushPromises()
+
+    const create = wrapper.findAll('button').find((button) => button.text() === '新增分组')
+    expect(create).toBeTruthy()
+    await create!.trigger('click')
+    await wrapper.get('#master-area_id').setValue('2')
+    await wrapper.get('#master-code').setValue('ACCEPT-GROUP-01')
+    await wrapper.get('#master-name').setValue('验收_东区成鱼塘组')
+    await wrapper.get('[data-testid="master-save"]').trigger('click')
+    await flushPromises()
+
+    expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ area_id: 2, code: 'ACCEPT-GROUP-01' })
   })
 })

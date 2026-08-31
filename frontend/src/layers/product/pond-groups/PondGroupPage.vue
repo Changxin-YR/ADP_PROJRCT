@@ -7,6 +7,7 @@ import MasterDataPage from '../master-data/MasterDataPage.vue'
     description="按区域和生产用途组织塘口，正式分组保留历史关联。" create-label="新增分组" unit="组"
     :fields="[
       { key: 'code', label: '分组编码', required: true }, { key: 'name', label: '分组名称', required: true },
+      { key: 'area_id', label: '所属区域', type: 'number', required: true },
       { key: 'description', label: '分组说明', type: 'textarea' },
     ]"
     :columns="[
