@@ -119,3 +119,12 @@ def test_area_scope_includes_all_master_data_work_items() -> None:
     assert "FROM business_partners x" in predicate
     assert "FROM business_settings x" in predicate
     assert len(params) == 19 * 2
+
+
+def test_area_scope_sql_escapes_like_wildcards_for_db_parameterization() -> None:
+    predicate, params = GovernanceRepository._area_scope_sql([7])
+
+    rendered = predicate % tuple(params)
+
+    assert "LIKE 'production:%'" in rendered
+    assert "LIKE 'warehouse:%'" in rendered
