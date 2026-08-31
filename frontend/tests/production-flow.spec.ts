@@ -42,6 +42,41 @@ describe('enterprise production flow', () => {
     expect(wrapper.findAll('.status-badge').map((badge) => badge.text())).toContain('养殖中')
   })
 
+  it('reloads batch stock totals after verification', async () => {
+    let listCalls = 0
+    const submittedBatch = {
+      id: 31, code: 'B-031', name: '待核验批次', species: '草鱼', pond_id: 2,
+      initial_quantity: 20000, initial_weight_kg: 1600, current_quantity: 0, current_weight_kg: 0,
+      batch_status: 'stocked', status: 'submitted', row_version: 2, version: 2,
+      allowed_actions: ['view', 'edit', 'verify'],
+    }
+    const verifiedBatch = {
+      ...submittedBatch, current_quantity: 20000, current_weight_kg: 1600,
+      status: 'verified', row_version: 3, version: 3, allowed_actions: ['view', 'correct'],
+    }
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input)
+      if (path.includes('/auth/csrf')) return response({ csrf_token: 'csrf' })
+      if (path.endsWith('/verify')) return response({ record: { ...verifiedBatch, current_quantity: undefined, current_weight_kg: undefined } })
+      if ((init?.method ?? 'GET').toUpperCase() === 'GET' && path.startsWith('/api/v1/production/batches')) {
+        listCalls += 1
+        return response({ items: [listCalls === 1 ? submittedBatch : verifiedBatch], page: 1, page_size: 100, total: 1, has_next: false })
+      }
+      throw new Error(`Unexpected request: ${path}`)
+    }))
+
+    const wrapper = mount(BatchListPage, { global: { stubs: { AppShell: { template: '<main><slot /></main>' }, Teleport: true } } })
+    await flushPromises()
+    await wrapper.get('[data-testid="production-action-verify"]').trigger('click')
+    await wrapper.get('[data-testid="production-confirm"]').trigger('click')
+    await flushPromises()
+
+    const cells = wrapper.findAll('tbody tr td')
+    expect(listCalls).toBe(2)
+    expect(cells[4].text()).toBe('20000')
+    expect(cells[5].text()).toBe('1600')
+  })
+
   it('loads batch detail and reconciliation from production APIs', async () => {
     const paths: string[] = []
     vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {

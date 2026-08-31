@@ -134,7 +134,8 @@ async function confirm() {
       const result = action === 'submit'
         ? await submitProductionRecord(props.resource, row.id, row.version)
         : await verifyProductionRecord(props.resource, row.id, row.version, evidence)
-      replace(result.record)
+      if (action === 'verify' && props.resource === 'batches') await load()
+      else replace(result.record)
     }
     confirmAction.value = null; target.value = null
   } catch (error) { dialogError.value = error instanceof Error ? message(error, error.message) : '操作失败' }
