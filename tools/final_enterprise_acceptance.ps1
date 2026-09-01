@@ -97,7 +97,8 @@ try {
         Get-ChildItem -LiteralPath "database/migrations" -Filter "*.sql" |
             Sort-Object Name |
             ForEach-Object {
-                Get-Content -Raw -LiteralPath $_.FullName | & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase
+                $migrationCommand = '"{0}" --protocol=tcp --host=127.0.0.1 --port={1} --user=root --default-character-set=utf8mb4 --database={2} < "{3}"' -f $MySqlClient, $MySqlPort, $acceptanceDatabase, $_.FullName
+                & cmd.exe /d /s /c $migrationCommand
                 if ($LASTEXITCODE -ne 0) { throw "Migration load failed: $($_.Name)" }
             }
     }
