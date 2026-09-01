@@ -13,7 +13,7 @@ from backend.layers.common.governance.work_item_notifications import notify_work
 from backend.layers.features.master_data.master_data_service import MASTER_FIELDS
 from backend.layers.features.master_data.master_data_scope import validate_master_hierarchy
 from backend.layers.features.master_data.pond_status_store import MySqlPondStatusStore
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, scope_predicate, unrestricted
 
 
 SPECS = {
@@ -76,6 +76,8 @@ class MySqlMasterDataStore:
 
     @staticmethod
     def _scope_filter(user: dict[str, Any], resource: str) -> tuple[str, list[Any]]:
+        if resource not in {"farms", "areas"}:
+            return scope_predicate(user)
         scopes = require_active_scope(user)
         if unrestricted(user):
             return "", []

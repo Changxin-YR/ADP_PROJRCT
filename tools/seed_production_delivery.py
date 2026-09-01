@@ -114,7 +114,6 @@ def context(cursor: Any) -> dict[str, int]:
         ("warehouse", "warehouses", "code", f"{PREFIX}-WAREHOUSE"),
     ):
         ids[key] = one(cursor, f"SELECT id FROM {table} WHERE {column}=%s", (code,))
-    ids["lot"] = one(cursor, "SELECT id FROM inventory_lots WHERE lot_no=%s", (f"{PREFIX}-LOT-01",))
     return ids
 
 
@@ -204,6 +203,7 @@ def activity(cursor: Any, ids: dict[str, int]) -> None:
     pond_two = one(cursor, "SELECT id FROM ponds WHERE code=%s", (f"{PREFIX}-POND-02",))
     batch = one(cursor, "SELECT id FROM production_batches WHERE code=%s", (f"{PREFIX}-BATCH-01",))
     material = ids["material"]
+    lot = one(cursor, "SELECT id FROM inventory_lots WHERE lot_no=%s", (f"{PREFIX}-LOT-01",))
     cursor.execute("SELECT id FROM warehouse_documents WHERE code=%s", (f"{PREFIX}-WH-ISSUE-REQUEST",))
     issue_row = cursor.fetchone()
     if issue_row:
@@ -212,12 +212,12 @@ def activity(cursor: Any, ids: dict[str, int]) -> None:
         issue_request = new(cursor, "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,material_id,pond_id,batch_id,quantity,unit_cost,status,created_by,verified_by,verified_at) VALUES (%s,%s,%s,'issue_request',%s,'[交付演示]已核验领料申请',%s,%s,%s,%s,12,10,'verified',%s,%s,NOW())", (ids["org"], ids["farm"], ids["north"], f"{PREFIX}-WH-ISSUE-REQUEST", ids["warehouse"], material, ids["pond"], batch, ids["actor"], ids["reviewer"]))
     cursor.execute("SELECT id FROM warehouse_documents WHERE code=%s", (f"{PREFIX}-WH-ISSUE",))
     if not cursor.fetchone():
-        issue = new(cursor, "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,material_id,inventory_lot_id,source_document_id,pond_id,batch_id,quantity,unit_cost,status,created_by,verified_by,verified_at) VALUES (%s,%s,%s,'issue',%s,'[交付演示]已核验领料出库',%s,%s,%s,%s,%s,%s,12,10,'verified',%s,%s,NOW())", (ids["org"], ids["farm"], ids["north"], f"{PREFIX}-WH-ISSUE", ids["warehouse"], material, ids["lot"], issue_request, ids["pond"], batch, ids["actor"], ids["reviewer"]))
-        cursor.execute("INSERT INTO inventory_ledger (organization_id,warehouse_id,material_id,inventory_lot_id,source_type,source_id,line_no,quantity_delta,unit_cost,pond_id,batch_id,happened_at,posted_by) VALUES (%s,%s,%s,%s,'issue',%s,1,-12,10,%s,%s,'2026-08-19 09:00:00',%s)", (ids["org"], ids["warehouse"], material, ids["lot"], issue, ids["pond"], batch, ids["reviewer"]))
+        issue = new(cursor, "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,material_id,inventory_lot_id,source_document_id,pond_id,batch_id,quantity,unit_cost,status,created_by,verified_by,verified_at) VALUES (%s,%s,%s,'issue',%s,'[交付演示]已核验领料出库',%s,%s,%s,%s,%s,%s,12,10,'verified',%s,%s,NOW())", (ids["org"], ids["farm"], ids["north"], f"{PREFIX}-WH-ISSUE", ids["warehouse"], material, lot, issue_request, ids["pond"], batch, ids["actor"], ids["reviewer"]))
+        cursor.execute("INSERT INTO inventory_ledger (organization_id,warehouse_id,material_id,inventory_lot_id,source_type,source_id,line_no,quantity_delta,unit_cost,pond_id,batch_id,happened_at,posted_by) VALUES (%s,%s,%s,%s,'issue',%s,1,-12,10,%s,%s,'2026-08-19 09:00:00',%s)", (ids["org"], ids["warehouse"], material, lot, issue, ids["pond"], batch, ids["reviewer"]))
     for doc_type, code, name in (("stocktake", f"{PREFIX}-WH-STOCKTAKE", "[交付演示]库存盘点草稿"), ("scrap", f"{PREFIX}-WH-SCRAP", "[交付演示]报损报废草稿"), ("transfer", f"{PREFIX}-WH-TRANSFER", "[交付演示]仓间调拨草稿")):
         cursor.execute("SELECT id FROM warehouse_documents WHERE code=%s", (code,))
         if not cursor.fetchone():
-            new(cursor, "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,target_warehouse_id,material_id,inventory_lot_id,quantity,unit_cost,status,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1,10,'draft',%s)", (ids["org"], ids["farm"], ids["north"], doc_type, code, name, ids["warehouse"], ids["warehouse"], material, ids["lot"], ids["actor"]))
+            new(cursor, "INSERT INTO warehouse_documents (organization_id,farm_id,area_id,document_type,code,name,warehouse_id,target_warehouse_id,material_id,inventory_lot_id,quantity,unit_cost,status,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,1,10,'draft',%s)", (ids["org"], ids["farm"], ids["north"], doc_type, code, name, ids["warehouse"], ids["warehouse"], material, lot, ids["actor"]))
     records = [
         ("transfer", f"{PREFIX}-TRANSFER-DRAFT", "[交付演示]转塘草稿", ids["pond"], pond_two, 50, 50, None, None, None, "draft"),
         ("transfer", f"{PREFIX}-TRANSFER-SUBMITTED", "[交付演示]待核验转塘", ids["pond"], pond_two, 50, 50, None, None, None, "submitted"),

@@ -177,6 +177,11 @@ def test_non_super_admin_farm_scope_does_not_become_cross_tenant_global_access()
     assert MySqlProductionStore._scope(admin) == ("", [])
 
 
+def test_master_data_farm_scope_lists_farm_bound_records() -> None:
+    account = {"id": 7, "roles": [{"code": "finance"}], "data_scopes": [{"scope_type": "farm", "farm_id": 1, "organization_id": 1}]}
+    assert MySqlMasterDataStore._scope_filter(account, "ponds") == ("farm_id IN (%s)", [1])
+
+
 def test_personal_scope_cannot_write_a_record_outside_its_area() -> None:
     account = {"id": 7, "roles": [{"code": "breed_worker"}], "data_scopes": [{"scope_type": "personal"}]}
     with pytest.raises(DomainError, match="DATA_SCOPE_FORBIDDEN"):
