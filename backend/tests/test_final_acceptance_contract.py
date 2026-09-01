@@ -24,6 +24,8 @@ def test_final_acceptance_script_gates_every_required_layer():
         "/api-docs/",
         "/workbench",
         "Final result",
+        "-Encoding UTF8",
+        "\\uFF08",
         "33307",
         "SHOW DATABASES",
         "ADP_TEST_MYSQL_ALLOW_DISPOSABLE",

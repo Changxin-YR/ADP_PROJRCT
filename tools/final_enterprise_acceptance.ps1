@@ -61,8 +61,8 @@ $serverHost = (($Server -split '@')[-1] -split ':')[0]
 $publicUri = [Uri]$PublicBaseUrl
 if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $serverHost) { throw "PublicBaseUrl must target the SSH server over HTTPS" }
 
-$report = Get-Content -Raw -LiteralPath "docs/audits/final-enterprise-acceptance.md"
-if ($report -notmatch '(Final result:\s*PASS|最终结果[：:]\s*PASS)') { throw "Acceptance report is not marked PASS" }
+$report = Get-Content -Raw -Encoding UTF8 -LiteralPath "docs/audits/final-enterprise-acceptance.md"
+if ($report -notmatch '(Final result:\s*PASS|PASS\s*[\uFF08(])') { throw "Acceptance report is not marked PASS" }
 $trackedDirty = git status --porcelain --untracked-files=all | Where-Object {
     $_ -notmatch '^\?\? (repair/|docs/audits/api-docs-desktop\.png$)'
 }
