@@ -30,6 +30,7 @@ def test_final_acceptance_script_gates_every_required_layer():
         "33307",
         "SHOW DATABASES",
         "ADP_TEST_MYSQL_ALLOW_DISPOSABLE",
+        "previousErrorAction",
         "ConnectTimeout=10",
         "ServerAliveInterval=15",
         "--connect-timeout 10",

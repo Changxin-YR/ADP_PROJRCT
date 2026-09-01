@@ -38,8 +38,15 @@ function Invoke-MySqlTests {
         $env:ADP_TEST_MYSQL_PORT = "$MySqlPort"
         $env:ADP_TEST_MYSQL_USER = "root"
         $env:ADP_TEST_MYSQL_PASSWORD = ""
-        $output = python -m pytest -q backend/tests -rs 2>&1
-        $testExit = $LASTEXITCODE
+        $previousErrorAction = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $output = python -m pytest -q backend/tests -rs 2>&1
+            $testExit = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorAction
+        }
         $output | ForEach-Object { Write-Host $_ }
         if ($testExit -ne 0) { throw "Backend and MySQL tests failed" }
         if (($output -join "`n") -match "\bskipped\b") { throw "Backend tests contain skipped checks" }
