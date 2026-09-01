@@ -100,7 +100,16 @@ try {
                 $migrationCommand = '"{0}" --protocol=tcp --host=127.0.0.1 --port={1} --user=root --default-character-set=utf8mb4 --database={2} < "{3}"' -f $MySqlClient, $MySqlPort, $acceptanceDatabase, $_.FullName
                 & cmd.exe /d /s /c $migrationCommand
                 if ($LASTEXITCODE -ne 0) { throw "Migration load failed: $($_.Name)" }
+                if ($_.Name -ne "000_schema_migrations.sql") {
+                    $version = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
+                    $checksum = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant()
+                    & $MySqlClient @mysqlRehearsalArgs --database=$acceptanceDatabase --execute="INSERT INTO schema_migrations(version,checksum) VALUES ('$version','$checksum')"
+                    if ($LASTEXITCODE -ne 0) { throw "Migration registration failed: $($_.Name)" }
+                }
             }
+        $seedCommand = '"{0}" --protocol=tcp --host=127.0.0.1 --port={1} --user=root --default-character-set=utf8mb4 --database={2} < "{3}"' -f $MySqlClient, $MySqlPort, $acceptanceDatabase, (Resolve-Path "database/seed_reference.sql")
+        & cmd.exe /d /s /c $seedCommand
+        if ($LASTEXITCODE -ne 0) { throw "Reference seed load failed" }
     }
     Invoke-Step "Local production rehearsal reconciliation" {
         python backend/scripts/reconcile_enterprise_data.py --database $acceptanceDatabase --output $reconciliation
