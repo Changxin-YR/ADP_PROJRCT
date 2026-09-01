@@ -39,6 +39,7 @@ def test_final_acceptance_script_gates_every_required_layer():
         "Get-FileHash -Algorithm SHA256",
         "schema_migrations(version,checksum)",
         "database/seed_reference.sql",
+        "base64 -d | bash",
         "adp_final_acceptance",
         "Remove-Item Env:NO_COLOR",
         "skipped",

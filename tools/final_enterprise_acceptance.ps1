@@ -134,9 +134,19 @@ Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'releas
 Invoke-SshStep "Backup checksums" "cd $backup && sha256sum -c SHA256SUMS"
 Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/adp-auth.conf"
 
-$reconciliationCheck = 'set -e; found=0; for f in ' + $state + '/*-reconciliation.json; do test -f "$f" || exit 1; grep -q ''"ok": true'' "$f" || exit 1; grep -q ''"total_issues": 0'' "$f" || exit 1; found=1; done; test "$found" = 1'
-ssh -i $SshKey -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $Server $reconciliationCheck
-if ($LASTEXITCODE -ne 0) { throw "Cloud reconciliation evidence is unavailable or reports issues" }
+$reconciliationScript = @"
+set -e
+found=0
+for f in "$state"/*-reconciliation.json; do
+  test -f "$f" || continue
+  grep -q '"ok": true' "$f"
+  grep -q '"total_issues": 0' "$f"
+  found=1
+done
+test "$found" = 1
+"@
+$reconciliationEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($reconciliationScript))
+Invoke-SshStep "Cloud reconciliation evidence" "echo $reconciliationEncoded | base64 -d | bash"
 
 foreach ($path in @("/healthz", "/api/v1/health", "/api-docs/", "/workbench")) {
     Invoke-Step "Public $path" { curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "$PublicBaseUrl$path" }
