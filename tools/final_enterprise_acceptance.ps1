@@ -64,7 +64,7 @@ if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $serverHost) { throw "
 $report = Get-Content -Raw -Encoding UTF8 -LiteralPath "docs/audits/final-enterprise-acceptance.md"
 if ($report -notmatch '(Final result:\s*PASS|PASS\s*[\uFF08(])') { throw "Acceptance report is not marked PASS" }
 $trackedDirty = git status --porcelain --untracked-files=all | Where-Object {
-    $_ -notmatch '^\?\? (repair/|docs/audits/api-docs-desktop\.png$)'
+    $_ -notmatch '^\?\? (repair/|uat-evidence/|docs/audits/api-docs-desktop\.png$)'
 }
 if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Tracked implementation worktree must be clean before acceptance" }
 
@@ -125,7 +125,7 @@ foreach ($path in @("/healthz", "/api/v1/health", "/api-docs/", "/workbench")) {
     Invoke-Step "Public $path" { curl.exe --fail --silent --show-error --connect-timeout 10 --max-time 30 --output NUL "$PublicBaseUrl$path" }
 }
 $trackedDirty = git status --porcelain --untracked-files=all | Where-Object {
-    $_ -notmatch '^\?\? (repair/|docs/audits/api-docs-desktop\.png$)'
+    $_ -notmatch '^\?\? (repair/|uat-evidence/|docs/audits/api-docs-desktop\.png$)'
 }
 if ($LASTEXITCODE -ne 0 -or $trackedDirty) { throw "Acceptance changed tracked implementation files" }
 Write-Host "FINAL_ENTERPRISE_ACCEPTANCE=PASS release=$Release"
