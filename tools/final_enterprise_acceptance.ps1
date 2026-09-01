@@ -134,17 +134,17 @@ Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'releas
 Invoke-SshStep "Backup checksums" "cd $backup && sha256sum -c SHA256SUMS"
 Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/adp-auth.conf"
 
-$reconciliationScript = @"
+$reconciliationScript = @'
 set -e
 found=0
-for f in "$state"/*-reconciliation.json; do
+for f in "__ADP_STATE__"/*-reconciliation.json; do
   test -f "$f" || continue
   grep -q '"ok": true' "$f"
   grep -q '"total_issues": 0' "$f"
   found=1
 done
 test "$found" = 1
-"@
+'@.Replace("__ADP_STATE__", $state)
 $reconciliationEncoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($reconciliationScript))
 Invoke-SshStep "Cloud reconciliation evidence" "echo $reconciliationEncoded | base64 -d | bash"
 

@@ -40,6 +40,7 @@ def test_final_acceptance_script_gates_every_required_layer():
         "schema_migrations(version,checksum)",
         "database/seed_reference.sql",
         "base64 -d | bash",
+        "__ADP_STATE__",
         "adp_final_acceptance",
         "Remove-Item Env:NO_COLOR",
         "skipped",
