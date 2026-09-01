@@ -88,7 +88,7 @@ $mysqlRehearsalArgs = @(
     "--protocol=tcp", "--host=127.0.0.1", "--port=$MySqlPort", "--user=root",
     "--batch", "--skip-column-names"
 )
-$env:MYSQL_HOST = "127.0.0.1"; $env:MYSQL_PORT = "3308"; $env:MYSQL_USER = "root"; $env:MYSQL_PASSWORD = ""
+$env:MYSQL_HOST = "127.0.0.1"; $env:MYSQL_PORT = "$MySqlPort"; $env:MYSQL_USER = "root"; $env:MYSQL_PASSWORD = ""
 try {
     Invoke-Step "Create local reconciliation database" {
         & $MySqlClient @mysqlRehearsalArgs --execute="CREATE DATABASE $acceptanceDatabase CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"

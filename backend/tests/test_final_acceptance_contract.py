@@ -34,7 +34,7 @@ def test_final_acceptance_script_gates_every_required_layer():
         "ConnectTimeout=10",
         "ServerAliveInterval=15",
         "--connect-timeout 10",
-        "MYSQL_PORT = \"3308\"",
+        "MYSQL_PORT = \"$MySqlPort\"",
         "cmd.exe /d /s /c",
         "adp_final_acceptance",
         "Remove-Item Env:NO_COLOR",
