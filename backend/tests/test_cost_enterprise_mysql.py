@@ -36,7 +36,7 @@ def seed(settings: Any) -> dict[str, int]:
         cursor.execute("INSERT INTO areas (organization_id,farm_id,code,name,status,created_by) VALUES (%s,%s,'CA','成本区','verified',1)", (ids["organization_id"], ids["farm_id"]))
         ids["area_id"] = int(cursor.lastrowid)
         for index in range(1, 4):
-            cursor.execute("INSERT INTO ponds (organization_id,farm_id,area_id,code,name,capacity_mu,status,created_by) VALUES (%s,%s,%s,%s,%s,0,'verified',1)", (ids["organization_id"], ids["farm_id"], ids["area_id"], f"CP{index}", f"成本塘{index}"))
+            cursor.execute("INSERT INTO ponds (organization_id,farm_id,area_id,code,name,capacity_mu,status,created_by,created_at) VALUES (%s,%s,%s,%s,%s,0,'verified',1,'2026-08-01')", (ids["organization_id"], ids["farm_id"], ids["area_id"], f"CP{index}", f"成本塘{index}"))
             ids[f"pond_{index}"] = int(cursor.lastrowid)
         cursor.execute("INSERT INTO business_partners (organization_id,farm_id,area_id,partner_type,code,name,status,created_by) VALUES (%s,%s,%s,'customer','CC1','成本测试客户','verified',1)", (ids["organization_id"], ids["farm_id"], ids["area_id"])); ids["customer_id"] = int(cursor.lastrowid)
         cursor.execute("INSERT INTO production_batches (organization_id,farm_id,area_id,pond_id,code,name,species,status,created_by,verified_by,verified_at) VALUES (%s,%s,%s,%s,'CB1','成本批次','鲈鱼','verified',1,2,NOW())", (ids["organization_id"], ids["farm_id"], ids["area_id"], ids["pond_1"])); ids["batch_id"] = int(cursor.lastrowid)

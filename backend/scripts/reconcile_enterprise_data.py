@@ -105,18 +105,19 @@ STATIC_CHECKS = {
           (status IN ('pending','claimed','in_progress','escalated') AND (completed_at IS NOT NULL OR cancelled_at IS NOT NULL))
     """,
     "self_approval": """
+        -- Verification transitions set updated_by to the reviewer, so created_by is the durable maker field.
         SELECT COUNT(*) issue_count FROM (
-          SELECT id FROM production_batches WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM production_documents WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM warehouse_documents WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM purchase_orders WHERE approved_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM purchase_payments WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM sales_orders WHERE approved_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM sales_deliveries WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM sales_receipts WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM cost_entries WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM cost_assets WHERE verified_by IN (created_by,COALESCE(updated_by,0))
-          UNION ALL SELECT id FROM cost_settlements WHERE verified_by IN (created_by,COALESCE(updated_by,0))
+          SELECT id FROM production_batches WHERE verified_by=created_by
+          UNION ALL SELECT id FROM production_documents WHERE verified_by=created_by
+          UNION ALL SELECT id FROM warehouse_documents WHERE verified_by=created_by
+          UNION ALL SELECT id FROM purchase_orders WHERE approved_by=created_by
+          UNION ALL SELECT id FROM purchase_payments WHERE verified_by=created_by
+          UNION ALL SELECT id FROM sales_orders WHERE approved_by=created_by
+          UNION ALL SELECT id FROM sales_deliveries WHERE verified_by=created_by
+          UNION ALL SELECT id FROM sales_receipts WHERE verified_by=created_by
+          UNION ALL SELECT id FROM cost_entries WHERE verified_by=created_by
+          UNION ALL SELECT id FROM cost_assets WHERE verified_by=created_by
+          UNION ALL SELECT id FROM cost_settlements WHERE verified_by=created_by
           UNION ALL SELECT id FROM pond_status_change_requests WHERE verified_by=requested_by
         ) self_approved
     """,

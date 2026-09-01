@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pymysql
 
+from backend.layers.common.db.connection import get_connection
 from backend.tests.mysql_test_database import disposable_database, run_mysql, settings_for
 
 
@@ -78,6 +79,40 @@ def test_reconciliation_runs_against_disposable_mysql():
     assert result["checks"] == {name: 0 for name in REQUIRED_CHECKS}
     assert result["ok"] is True
     assert result["total_issues"] == 0
+
+
+def test_self_approval_ignores_the_verifier_as_last_editor():
+    with disposable_database("adp_reconcile_self_approval", through=30) as database:
+        settings = settings_for(database)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.executemany(
+                "INSERT INTO users (phone,name,password_hash,status) VALUES (%s,%s,'hash','active')",
+                [("13910000001", "批次经办",), ("13910000002", "批次核验",)],
+            )
+            cursor.execute("SELECT id FROM users ORDER BY id")
+            creator_id, reviewer_id = [int(row["id"]) for row in cursor.fetchall()]
+            cursor.execute("SELECT id,organization_id FROM farms WHERE code='default-farm'")
+            farm = cursor.fetchone()
+            cursor.execute(
+                "INSERT INTO areas (organization_id,farm_id,code,name,status) VALUES (%s,%s,'reconcile-area','对账基地','verified')",
+                (farm["organization_id"], farm["id"]),
+            )
+            area_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,status,created_by) VALUES (%s,%s,%s,'RECON-POND','对账塘','verified',%s)",
+                (farm["organization_id"], farm["id"], area_id, creator_id),
+            )
+            pond_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO production_batches (organization_id,farm_id,area_id,pond_id,code,name,species,status,created_by,updated_by,verified_by,verified_at) VALUES (%s,%s,%s,%s,'RECON-BATCH','对账批次','草鱼','verified',%s,%s,%s,NOW())",
+                (farm["organization_id"], farm["id"], area_id, pond_id, creator_id, reviewer_id, reviewer_id),
+            )
+            assert _module()._count(cursor, _module().STATIC_CHECKS["self_approval"]) == 0
+            cursor.execute(
+                "INSERT INTO production_batches (organization_id,farm_id,area_id,pond_id,code,name,species,status,created_by,updated_by,verified_by,verified_at) VALUES (%s,%s,%s,%s,'RECON-SELF','自审批次','草鱼','verified',%s,%s,%s,NOW())",
+                (farm["organization_id"], farm["id"], area_id, pond_id, reviewer_id, reviewer_id, reviewer_id),
+            )
+            assert _module()._count(cursor, _module().STATIC_CHECKS["self_approval"]) == 1
 
 
 def test_reference_seed_supports_the_current_schema_and_area_lookup():
