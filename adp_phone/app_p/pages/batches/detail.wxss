@@ -1,0 +1,7 @@
+.detail-page { min-height: 100vh; background: var(--color-bg-secondary); }
+.section { margin: 24rpx 32rpx; background: var(--color-bg-elevated); border-radius: var(--radius-lg); padding: 32rpx; box-shadow: var(--shadow-sm); }
+.section-title { font-size: var(--font-xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 24rpx; }
+.info-rows { display: flex; flex-direction: column; gap: 20rpx; }
+.info-row { display: flex; align-items: center; justify-content: space-between; }
+.info-label { font-size: var(--font-sm); color: var(--color-text-tertiary); }
+.info-value { font-size: var(--font-sm); color: var(--color-text-primary); font-weight: 500; }

@@ -1,0 +1,54 @@
+<!--pages/ponds/ponds.wxml-->
+<view class="ponds-page">
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>当前离线 · 数据将在联网后同步</text>
+  </view>
+
+  <!-- Search Bar -->
+  <view class="search-bar">
+    <view class="search-input-wrap">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索塘口名称" value="{{keyword}}" bindinput="onSearch" />
+    </view>
+  </view>
+
+  <!-- Status Filter -->
+  <scroll-view class="status-filter" scroll-x>
+    <view class="filter-chip {{activeStatus === '' ? 'chip-active' : ''}}" bindtap="filterByStatus" data-status="">全部</view>
+    <view class="filter-chip {{activeStatus === item.value ? 'chip-active' : ''}}" wx:for="{{statusOptions}}" wx:key="value" bindtap="filterByStatus" data-status="{{item.value}}">{{item.label}}</view>
+  </scroll-view>
+
+  <!-- Pond List -->
+  <view class="pond-list" wx:if="{{filteredPonds.length > 0}}">
+    <view class="pond-card" wx:for="{{filteredPonds}}" wx:key="id" bindtap="goPondDetail" data-id="{{item.id}}">
+      <view class="pond-card-main">
+        <view class="pond-card-left">
+          <text class="pond-name">{{item.name}}</text>
+          <text class="pond-area">{{item.areaName}}</text>
+        </view>
+        <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+      </view>
+      <view class="pond-card-info">
+        <view class="pond-info-item">
+          <text class="info-label">品种</text>
+          <text class="info-value">{{item.species || '--'}}</text>
+        </view>
+        <view class="pond-info-item">
+          <text class="info-label">面积</text>
+          <text class="info-value">{{item.area}}亩</text>
+        </view>
+        <view class="pond-info-item">
+          <text class="info-label">批次</text>
+          <text class="info-value">{{item.currentBatch || '--'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{filteredPonds.length === 0 && !loading}}">
+    <text class="empty-state-icon">🏊</text>
+    <text class="empty-state-text">暂无匹配塘口</text>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

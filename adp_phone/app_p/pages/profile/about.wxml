@@ -1,0 +1,26 @@
+<view class="about-page">
+  <view class="about-logo">
+    <text class="logo-icon">🐟</text>
+    <text class="logo-name">鱼塘管理系统</text>
+    <text class="logo-version">v1.0.0</text>
+  </view>
+
+  <view class="menu-section">
+    <view class="menu-item">
+      <text class="menu-text">系统版本</text>
+      <text class="menu-detail">1.0.0</text>
+    </view>
+    <view class="menu-item">
+      <text class="menu-text">微信基础库</text>
+      <text class="menu-detail">{{sdkVersion}}</text>
+    </view>
+    <view class="menu-item">
+      <text class="menu-text">后端版本</text>
+      <text class="menu-detail">{{serverVersion}}</text>
+    </view>
+  </view>
+
+  <view class="about-footer">
+    <text class="about-copyright">ADP Aquaculture Management System</text>
+  </view>
+</view>

@@ -1,0 +1,12 @@
+.about-page { min-height: 100vh; background: var(--color-bg-secondary); }
+.about-logo { display: flex; flex-direction: column; align-items: center; padding: 80rpx 0 48rpx; }
+.logo-icon { font-size: 120rpx; }
+.logo-name { font-size: var(--font-xl); font-weight: 700; color: var(--color-text-primary); margin-top: 16rpx; }
+.logo-version { font-size: var(--font-sm); color: var(--color-text-tertiary); margin-top: 8rpx; }
+.menu-section { margin: 0 32rpx 24rpx; background: var(--color-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 24rpx; border-bottom: 1rpx solid var(--color-border); }
+.menu-item:last-child { border-bottom: none; }
+.menu-text { font-size: var(--font-base); color: var(--color-text-primary); }
+.menu-detail { font-size: var(--font-sm); color: var(--color-text-tertiary); }
+.about-footer { text-align: center; padding: 48rpx; }
+.about-copyright { font-size: var(--font-xs); color: var(--color-text-tertiary); }

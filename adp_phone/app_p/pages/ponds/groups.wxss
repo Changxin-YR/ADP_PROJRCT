@@ -1,0 +1,7 @@
+.groups-page { min-height: 100vh; background: var(--color-bg-secondary); padding: 24rpx 32rpx; }
+.section-header { margin-bottom: 20rpx; }
+.section-title { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.group-list { display: flex; flex-direction: column; gap: 12rpx; }
+.group-card { display: flex; align-items: center; justify-content: space-between; padding: 24rpx; background: var(--color-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.group-name { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.group-count { font-size: var(--font-sm); color: var(--color-text-tertiary); }

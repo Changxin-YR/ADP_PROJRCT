@@ -1,0 +1,13 @@
+<view class="picker-page">
+  <view class="search-bar"><view class="search-input-wrap"><text class="search-icon">🔍</text><input class="search-input" placeholder="搜索饲料名称" value="{{keyword}}" bindinput="onSearch" focus /></view></view>
+  <view class="feed-picker-list">
+    <view class="feed-picker-item" wx:for="{{filteredFeeds}}" wx:key="id" bindtap="selectFeed" data-feed="{{item}}">
+      <view class="feed-picker-info">
+        <text class="feed-picker-name">{{item.name}}</text>
+        <text class="feed-picker-spec">{{item.spec || ''}} · {{item.unit}}</text>
+      </view>
+      <text class="feed-picker-stock">库存: {{item.stock}}{{item.unit}}</text>
+    </view>
+  </view>
+  <view class="empty-state" wx:if="{{filteredFeeds.length === 0}}"><text class="empty-state-icon">🌾</text><text class="empty-state-text">无匹配饲料</text></view>
+</view>

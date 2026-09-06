@@ -1,0 +1,31 @@
+<!--pages/profile/history.wxml-->
+<view class="history-page">
+  <view class="filter-bar">
+    <view class="filter-item" bindtap="showTypePicker">
+      <text>{{filterTypeText || '全部类型'}}</text>
+      <text class="filter-arrow">▾</text>
+    </view>
+    <view class="filter-item" bindtap="showDateRange">
+      <text>{{dateRange || '最近7天'}}</text>
+      <text class="filter-arrow">▾</text>
+    </view>
+  </view>
+
+  <view class="history-list" wx:if="{{records.length > 0}}">
+    <view class="history-item" wx:for="{{records}}" wx:key="id">
+      <view class="history-dot history-dot-{{item.type}}"></view>
+      <view class="history-body">
+        <text class="history-title">{{item.summary}}</text>
+        <view class="history-meta">
+          <text>{{item.pondName}}</text>
+          <text>{{item.timeStr}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
+    <text class="empty-state-icon">📋</text>
+    <text class="empty-state-text">暂无操作记录</text>
+  </view>
+</view>

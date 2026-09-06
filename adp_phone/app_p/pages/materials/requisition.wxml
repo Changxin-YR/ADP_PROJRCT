@@ -1,0 +1,63 @@
+<!--pages/materials/requisition.wxml-->
+<view class="requisition-page">
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>离线模式 · 提交后将自动同步</text>
+  </view>
+
+  <view class="form-section">
+    <view class="form-title">物料领用</view>
+
+    <!-- Material Items -->
+    <view class="form-group">
+      <text class="form-label">领用物料 *</text>
+      <view class="material-list">
+        <view class="material-item" wx:for="{{items}}" wx:key="index">
+          <view class="material-info">
+            <text class="material-name">{{item.name || '点击选择物料'}}</text>
+            <text class="material-stock" wx:if="{{item.stock}}">库存: {{item.stock}}{{item.unit}}</text>
+          </view>
+          <view class="material-qty">
+            <view class="qty-btn" catchtap="decreaseQty" data-index="{{index}}">-</view>
+            <input class="qty-input" type="digit" value="{{item.quantity}}" bindinput="onQtyChange" data-index="{{index}}" />
+            <view class="qty-btn" catchtap="increaseQty" data-index="{{index}}">+</view>
+            <text class="qty-unit">{{item.unit || 'kg'}}</text>
+          </view>
+          <view class="material-delete" catchtap="removeItem" data-index="{{index}}" wx:if="{{items.length > 1}}">×</view>
+        </view>
+      </view>
+      <view class="add-material-btn" bindtap="addMaterial">
+        <text>+ 添加物料</text>
+      </view>
+    </view>
+
+    <!-- Usage Pond -->
+    <view class="form-group">
+      <text class="form-label">使用塘口 *</text>
+      <view class="form-picker" bindtap="selectPond">
+        <text class="{{form.pondName ? 'picker-value' : 'picker-placeholder'}}">{{form.pondName || '请选择使用塘口'}}</text>
+        <text class="picker-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- Purpose -->
+    <view class="form-group">
+      <text class="form-label">用途说明</text>
+      <view class="weather-tags">
+        <view class="tag {{form.purpose === item ? 'tag-active' : ''}}" wx:for="{{purposeOptions}}" wx:key="*this" bindtap="selectPurpose" data-value="{{item}}">
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <!-- Remark -->
+    <view class="form-group">
+      <text class="form-label">备注</text>
+      <textarea class="form-textarea" placeholder="选填" value="{{form.remark}}" bindinput="onRemarkChange" maxlength="200" />
+    </view>
+  </view>
+
+  <!-- Submit -->
+  <view class="form-footer">
+    <view class="btn-block btn-primary" bindtap="submitRequisition">提交领用</view>
+  </view>
+</view>

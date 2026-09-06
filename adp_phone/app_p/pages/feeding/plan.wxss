@@ -1,0 +1,11 @@
+.plan-page { min-height: 100vh; background: var(--color-bg-secondary); padding: 24rpx 32rpx; }
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20rpx; }
+.section-title { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.feed-list { display: flex; flex-direction: column; gap: 16rpx; }
+.feed-card { background: var(--color-bg-elevated); border-radius: var(--radius-lg); padding: 24rpx; box-shadow: var(--shadow-sm); }
+.feed-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16rpx; }
+.feed-pond { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.feed-card-body { display: flex; flex-direction: column; gap: 12rpx; }
+.feed-info-row { display: flex; align-items: center; }
+.feed-label { font-size: var(--font-sm); color: var(--color-text-tertiary); width: 100rpx; flex-shrink: 0; }
+.feed-value { font-size: var(--font-sm); color: var(--color-text-primary); }

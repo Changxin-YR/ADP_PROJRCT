@@ -1,0 +1,7 @@
+<view class="materials-page">
+  <view class="section-header"><text class="section-title">物料管理</text></view>
+  <view class="ops-grid">
+    <view class="ops-card" bindtap="goRequisition"><text class="ops-icon">📦</text><text class="ops-name">物料领用</text><text class="ops-desc">饲料/药品/耗材领取</text></view>
+    <view class="ops-card" bindtap="goReturn"><text class="ops-icon">↩️</text><text class="ops-name">物料退还</text><text class="ops-desc">剩余物料退回仓库</text></view>
+  </view>
+</view>

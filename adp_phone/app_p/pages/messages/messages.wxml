@@ -1,0 +1,43 @@
+<!--pages/messages/messages.wxml-->
+<view class="messages-page">
+  <!-- Tab Bar -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'all' ? 'active' : ''}}" bindtap="switchTab" data-tab="all">
+      <text>全部</text>
+      <view class="tab-badge" wx:if="{{unreadCount > 0}}">{{unreadCount}}</view>
+    </view>
+    <view class="tab-item {{activeTab === 'alerts' ? 'active' : ''}}" bindtap="switchTab" data-tab="alerts">
+      <text>预警</text>
+    </view>
+    <view class="tab-item {{activeTab === 'tasks' ? 'active' : ''}}" bindtap="switchTab" data-tab="tasks">
+      <text>任务</text>
+    </view>
+    <view class="tab-item {{activeTab === 'system' ? 'active' : ''}}" bindtap="switchTab" data-tab="system">
+      <text>系统</text>
+    </view>
+  </view>
+
+  <!-- Message List -->
+  <view class="msg-list" wx:if="{{messages.length > 0}}">
+    <view class="msg-card {{item.read ? '' : 'msg-unread'}}" wx:for="{{messages}}" wx:key="id" bindtap="openMessage" data-id="{{item.id}}">
+      <view class="msg-icon msg-icon-{{item.type}}">{{item.icon}}</view>
+      <view class="msg-body">
+        <view class="msg-header">
+          <text class="msg-title">{{item.title}}</text>
+          <text class="msg-time">{{item.timeStr}}</text>
+        </view>
+        <text class="msg-content">{{item.content}}</text>
+        <view class="msg-tags" wx:if="{{item.pondName}}">
+          <text class="msg-tag">{{item.pondName}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{messages.length === 0 && !loading}}">
+    <text class="empty-state-icon">📭</text>
+    <text class="empty-state-text">暂无消息</text>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

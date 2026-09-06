@@ -1,0 +1,127 @@
+<!--pages/workbench/workbench.wxml-->
+<view class="workbench-page">
+  <!-- Offline Banner -->
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>当前离线 · 数据将在联网后同步</text>
+  </view>
+
+  <!-- Header -->
+  <view class="wb-header">
+    <view class="wb-greeting">
+      <text class="wb-hello">{{greeting}}，{{userName}}</text>
+      <text class="wb-role">{{roleName}}</text>
+    </view>
+    <view class="wb-avatar" bindtap="goProfile">
+      <text>{{avatarText}}</text>
+    </view>
+  </view>
+
+  <!-- Today's Summary -->
+  <view class="section-header">
+    <text class="section-title">今日概览</text>
+    <text class="section-action" bindtap="refreshData">刷新</text>
+  </view>
+
+  <view class="kpi-grid">
+    <view class="kpi-card" bindtap="goTodos">
+      <text class="kpi-value">{{summary.pendingTasks}}</text>
+      <text class="kpi-label">待办任务</text>
+    </view>
+    <view class="kpi-card" bindtap="goFeeding">
+      <text class="kpi-value">{{summary.feedingCompletion}}%</text>
+      <text class="kpi-label">投喂完成率</text>
+    </view>
+    <view class="kpi-card" bindtap="goAlerts">
+      <text class="kpi-value">{{summary.alerts}}</text>
+      <text class="kpi-label">预警数量</text>
+    </view>
+    <view class="kpi-card" bindtap="goPonds">
+      <text class="kpi-value">{{summary.activePonds}}</text>
+      <text class="kpi-label">养殖塘口</text>
+    </view>
+  </view>
+
+  <!-- Quick Actions -->
+  <view class="section-header">
+    <text class="section-title">快捷操作</text>
+  </view>
+
+  <view class="quick-actions">
+    <view class="quick-action-item" bindtap="quickFeed">
+      <view class="quick-icon quick-icon-feed">🐟</view>
+      <text class="quick-label">快速投喂</text>
+    </view>
+    <view class="quick-action-item" bindtap="quickPatrol">
+      <view class="quick-icon quick-icon-patrol">🔍</view>
+      <text class="quick-label">巡塘记录</text>
+    </view>
+    <view class="quick-action-item" bindtap="quickMaterial">
+      <view class="quick-icon quick-icon-material">📦</view>
+      <text class="quick-label">物料领用</text>
+    </view>
+    <view class="quick-action-item" bindtap="quickPhoto">
+      <view class="quick-icon quick-icon-photo">📷</view>
+      <text class="quick-label">拍照记录</text>
+    </view>
+  </view>
+
+  <!-- Today's Tasks -->
+  <view class="section-header">
+    <text class="section-title">今日任务</text>
+    <text class="section-action" bindtap="goAllTasks">查看全部</text>
+  </view>
+
+  <view class="task-list" wx:if="{{tasks.length > 0}}">
+    <view class="task-card" wx:for="{{tasks}}" wx:key="id" bindtap="goTaskDetail" data-id="{{item.id}}">
+      <view class="task-status-dot task-status-{{item.status}}"></view>
+      <view class="task-content">
+        <text class="task-title">{{item.title}}</text>
+        <view class="task-meta">
+          <text class="task-pond">{{item.pondName}}</text>
+          <text class="task-time">{{item.timeRange}}</text>
+        </view>
+      </view>
+      <view class="task-action">
+        <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{tasks.length === 0 && !loading}}">
+    <text class="empty-state-icon">✅</text>
+    <text class="empty-state-text">今日任务已完成</text>
+  </view>
+
+  <!-- Recent Alerts -->
+  <view class="section-header" wx:if="{{alerts.length > 0}}">
+    <text class="section-title">预警提醒</text>
+    <text class="section-action" bindtap="goMessages">全部消息</text>
+  </view>
+
+  <view class="alert-list" wx:if="{{alerts.length > 0}}">
+    <view class="alert-card alert-{{item.level}}" wx:for="{{alerts}}" wx:key="id" bindtap="handleAlert" data-id="{{item.id}}">
+      <view class="alert-icon">{{item.icon}}</view>
+      <view class="alert-body">
+        <text class="alert-text">{{item.message}}</text>
+        <text class="alert-time">{{item.time}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Favorite Ponds -->
+  <view class="section-header" wx:if="{{favoritePonds.length > 0}}">
+    <text class="section-title">常用塘口</text>
+    <text class="section-action" bindtap="goPonds">全部塘口</text>
+  </view>
+
+  <scroll-view class="pond-scroll" scroll-x wx:if="{{favoritePonds.length > 0}}">
+    <view class="pond-card" wx:for="{{favoritePonds}}" wx:key="id" bindtap="goPondDetail" data-id="{{item.id}}">
+      <text class="pond-name">{{item.name}}</text>
+      <text class="pond-species">{{item.species}}</text>
+      <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+    </view>
+  </scroll-view>
+
+  <!-- Bottom Safe Area -->
+  <view class="safe-bottom"></view>
+</view>

@@ -1,0 +1,11 @@
+<view class="form-page">
+  <view class="form-section">
+    <view class="form-title">用药记录</view>
+    <view class="form-group"><text class="form-label">塘口 *</text><view class="form-picker" bindtap="selectPond"><text class="{{form.pondName ? 'picker-value' : 'picker-placeholder'}}">{{form.pondName || '请选择塘口'}}</text><text class="picker-arrow">›</text></view></view>
+    <view class="form-group"><text class="form-label">药品名称 *</text><input class="form-input" placeholder="请输入药品名称" value="{{form.medicineName}}" bindinput="onInput" data-field="medicineName" /></view>
+    <view class="form-group"><text class="form-label">用药目的</text><view class="weather-tags"><view class="tag {{form.purpose === item ? 'tag-active' : ''}}" wx:for="{{purposeOptions}}" wx:key="*this" bindtap="selectPurpose" data-value="{{item}}">{{item}}</view></view></view>
+    <view class="form-group"><text class="form-label">用量</text><view class="form-input-row"><input class="form-input" type="digit" placeholder="数量" value="{{form.dosage}}" bindinput="onInput" data-field="dosage" /><text class="form-unit">{{form.unit || 'ml'}}</text></view></view>
+    <view class="form-group"><text class="form-label">备注</text><textarea class="form-textarea" placeholder="选填" value="{{form.remark}}" bindinput="onInput" data-field="remark" maxlength="200" /></view>
+  </view>
+  <view class="form-footer"><view class="btn-block btn-primary" bindtap="submit">提交记录</view></view>
+</view>

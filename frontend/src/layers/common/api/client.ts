@@ -1,6 +1,7 @@
 import { ApiError } from './errors'
 import type { ApiResponse } from './models'
 import { clearCsrfToken, getCsrfToken } from '../security/csrf'
+import { apiUrl } from './base'
 
 type RequestOptions = Omit<RequestInit, 'body'> & { body?: unknown }
 const stateChangingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
@@ -44,7 +45,7 @@ export function createApiClient() {
   async function doRequest<T>(path: string, options: RequestOptions, method: string, headers: Headers): Promise<T> {
     let response: Response
     try {
-      response = await fetch(path, {
+      response = await fetch(apiUrl(path), {
         ...options,
         method,
         headers,

@@ -1,0 +1,24 @@
+<!--pages/ponds/picker.wxml-->
+<view class="picker-page">
+  <view class="search-bar">
+    <view class="search-input-wrap">
+      <text class="search-icon">🔍</text>
+      <input class="search-input" placeholder="搜索塘口" value="{{keyword}}" bindinput="onSearch" focus />
+    </view>
+  </view>
+
+  <view class="pond-picker-list">
+    <view class="pond-picker-item" wx:for="{{filteredPonds}}" wx:key="id" bindtap="selectPond" data-pond="{{item}}">
+      <view class="pond-picker-info">
+        <text class="pond-picker-name">{{item.name}}</text>
+        <text class="pond-picker-area">{{item.areaName}}</text>
+      </view>
+      <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{filteredPonds.length === 0}}">
+    <text class="empty-state-icon">🏊</text>
+    <text class="empty-state-text">无匹配塘口</text>
+  </view>
+</view>

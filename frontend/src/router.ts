@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { createApiClient } from './layers/common/api/client'
 import { createSessionStore } from './layers/common/session/session.store'
 import { hasPermission } from './layers/common/security/access-control'
@@ -6,7 +6,7 @@ import { hasPermission } from './layers/common/security/access-control'
 const auth = { authOnly: true, activeOnly: true, requiredStatus: 'active' }
 
 export const router = createRouter({
-  history: createWebHistory(),
+  history: window.location.protocol === 'file:' ? createWebHashHistory() : createWebHistory(),
   routes: [
     { path: '/', redirect: '/auth/login' },
     { path: '/auth/login', component: () => import('./layers/product/auth/LoginPage.vue'), meta: { guestOnly: true } },

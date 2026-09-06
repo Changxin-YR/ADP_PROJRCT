@@ -1,0 +1,29 @@
+<!--pages/profile/offline.wxml-->
+<view class="offline-page">
+  <view class="form-section">
+    <view class="form-title">离线数据队列</view>
+    <view class="offline-summary">
+      <text class="offline-count">{{queue.length}}</text>
+      <text class="offline-desc">条待同步数据</text>
+    </view>
+
+    <view class="offline-list" wx:if="{{queue.length > 0}}">
+      <view class="offline-item" wx:for="{{queue}}" wx:key="index">
+        <view class="offline-item-info">
+          <text class="offline-type">{{item.typeText}}</text>
+          <text class="offline-time">{{item.timeStr}}</text>
+        </view>
+        <view class="badge badge-warning">待同步</view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{queue.length === 0}}">
+      <text class="empty-state-icon">✅</text>
+      <text class="empty-state-text">无待同步数据</text>
+    </view>
+  </view>
+
+  <view class="form-footer" wx:if="{{queue.length > 0}}">
+    <view class="btn-block btn-primary" bindtap="syncNow">立即同步</view>
+  </view>
+</view>

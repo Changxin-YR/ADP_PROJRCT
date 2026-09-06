@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "ADP Aquaculture",
+    "slug": "adp-mobile",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.adp.aquaculture",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to capture photos of fish and pond conditions.",
+        "NSPhotoLibraryUsageDescription": "This app accesses photos to upload images for records."
+      }
+    },
+    "android": {
+      "package": "com.adp.aquaculture",
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-image-picker",
+      "expo-secure-store",
+      "expo-sharing"
+    ]
+  }
+}

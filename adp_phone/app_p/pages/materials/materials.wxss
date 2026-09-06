@@ -1,0 +1,8 @@
+.materials-page { min-height: 100vh; background: var(--color-bg-secondary); padding: 24rpx 32rpx; }
+.section-header { margin-bottom: 20rpx; }
+.section-title { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.ops-grid { display: flex; flex-direction: column; gap: 16rpx; }
+.ops-card { background: var(--color-bg-elevated); border-radius: var(--radius-lg); padding: 28rpx 24rpx; box-shadow: var(--shadow-sm); display: flex; align-items: center; gap: 20rpx; }
+.ops-icon { font-size: 48rpx; }
+.ops-name { font-size: var(--font-md); font-weight: 600; color: var(--color-text-primary); }
+.ops-desc { font-size: var(--font-xs); color: var(--color-text-tertiary); margin-left: auto; }

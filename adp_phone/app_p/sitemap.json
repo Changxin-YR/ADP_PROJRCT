@@ -1,0 +1,12 @@
+{
+  "rules": [
+    {
+      "action": "allow",
+      "page": "pages/login/login"
+    },
+    {
+      "action": "disallow",
+      "page": "*"
+    }
+  ]
+}

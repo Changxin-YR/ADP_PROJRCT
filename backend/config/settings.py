@@ -66,6 +66,10 @@ def _as_exit_codes(value: str | None) -> tuple[int, ...]:
     return codes
 
 
+def _as_origins(value: str | None) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(item.strip() for item in (value or '').split(',') if item.strip()))
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
@@ -77,6 +81,7 @@ class Settings:
     mysql_user: str
     mysql_password: str
     session_cookie_secure: bool
+    cors_origins: tuple[str, ...] = ()
     attachment_root: str = "backend/private/attachments"
     trusted_proxy_hops: int = 0
     session_idle_timeout_minutes: int = 30
@@ -150,6 +155,7 @@ class Settings:
             mysql_user=required["MYSQL_USER"].strip(),
             mysql_password=required["MYSQL_PASSWORD"],
             session_cookie_secure=session_cookie_secure,
+            cors_origins=_as_origins(values.get("ADP_CORS_ORIGINS")),
             attachment_root=values.get("ATTACHMENT_ROOT", "backend/private/attachments").strip() or "backend/private/attachments",
             trusted_proxy_hops=_as_non_negative_int(
                 "TRUSTED_PROXY_HOPS",

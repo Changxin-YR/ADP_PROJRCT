@@ -1,0 +1,13 @@
+<view class="groups-page">
+  <view class="section-header"><text class="section-title">塘口分组</text></view>
+  <view class="group-list" wx:if="{{groups.length > 0}}">
+    <view class="group-card" wx:for="{{groups}}" wx:key="id" bindtap="goGroup" data-id="{{item.id}}">
+      <text class="group-name">{{item.name}}</text>
+      <text class="group-count">{{item.pondCount}}个塘口</text>
+    </view>
+  </view>
+  <view class="empty-state" wx:if="{{groups.length === 0 && !loading}}">
+    <text class="empty-state-icon">📂</text>
+    <text class="empty-state-text">暂无分组</text>
+  </view>
+</view>

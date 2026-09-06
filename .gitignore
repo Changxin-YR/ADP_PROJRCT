@@ -12,6 +12,7 @@ venv/
 # Frontend
 node_modules/
 dist/
+release/
 playwright-report/
 test-results/
 coverage/

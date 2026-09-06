@@ -1,0 +1,49 @@
+{
+  "name": "adp-mobile",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@expo/vector-icons": "^15.1.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "^12.0.1",
+    "@react-navigation/bottom-tabs": "^7.18.16",
+    "@react-navigation/native": "^7.3.16",
+    "@react-navigation/native-stack": "^7.18.8",
+    "axios": "^1.19.0",
+    "expo": "~57.0.16",
+    "expo-camera": "~57.0.4",
+    "expo-document-picker": "~57.0.1",
+    "expo-file-system": "~57.0.5",
+    "expo-image-picker": "~57.0.13",
+    "expo-secure-store": "^57.0.1",
+    "expo-sharing": "~57.0.15",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "metro": "0.84.5",
+    "metro-config": "0.84.5",
+    "metro-transform-worker": "0.84.5"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "check:contracts": "node scripts/check-api-contracts.mjs",
+    "check": "npm run typecheck && npm run check:contracts",
+    "test:android": "expo start --android --port 8081",
+    "export:android": "expo export --platform android --output-dir dist/android"
+  },
+  "private": true
+}

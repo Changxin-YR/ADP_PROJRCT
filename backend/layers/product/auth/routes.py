@@ -46,7 +46,7 @@ def create_auth_blueprint(settings: Settings, store: Any) -> Blueprint:
             token,
             httponly=True,
             secure=settings.session_cookie_secure,
-            samesite="Lax",
+            samesite="None" if settings.cors_origins and settings.session_cookie_secure else "Lax",
             max_age=12 * 60 * 60,
             path="/",
         )

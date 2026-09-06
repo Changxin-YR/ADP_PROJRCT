@@ -1,0 +1,119 @@
+<!--pages/operations/patrol.wxml-->
+<view class="patrol-page">
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>离线模式 · 提交后将自动同步</text>
+  </view>
+
+  <view class="form-section">
+    <view class="form-title">巡塘记录</view>
+
+    <!-- Pond Selection -->
+    <view class="form-group">
+      <text class="form-label">塘口 *</text>
+      <view class="form-picker" bindtap="selectPond">
+        <text class="{{form.pondName ? 'picker-value' : 'picker-placeholder'}}">{{form.pondName || '请选择塘口'}}</text>
+        <text class="picker-arrow">›</text>
+      </view>
+    </view>
+
+    <!-- Patrol Time -->
+    <view class="form-group">
+      <text class="form-label">巡塘时间</text>
+      <picker mode="time" value="{{form.time}}" bindchange="onTimeChange">
+        <view class="form-picker">
+          <text class="picker-value">{{form.time}}</text>
+          <text class="picker-arrow">›</text>
+        </view>
+      </picker>
+    </view>
+
+    <!-- Water Quality -->
+    <view class="form-group">
+      <text class="form-label">水质观察</text>
+      <view class="observation-grid">
+        <view class="obs-item">
+          <text class="obs-label">水色</text>
+          <input class="obs-input" placeholder="如：黄绿色" value="{{form.waterColor}}" bindinput="onInput" data-field="waterColor" />
+        </view>
+        <view class="obs-item">
+          <text class="obs-label">透明度(cm)</text>
+          <input class="obs-input" type="digit" placeholder="" value="{{form.transparency}}" bindinput="onInput" data-field="transparency" />
+        </view>
+        <view class="obs-item">
+          <text class="obs-label">水温(℃)</text>
+          <input class="obs-input" type="digit" placeholder="" value="{{form.waterTemp}}" bindinput="onInput" data-field="waterTemp" />
+        </view>
+        <view class="obs-item">
+          <text class="obs-label">pH值</text>
+          <input class="obs-input" type="digit" placeholder="" value="{{form.ph}}" bindinput="onInput" data-field="ph" />
+        </view>
+      </view>
+    </view>
+
+    <!-- Fish Behavior -->
+    <view class="form-group">
+      <text class="form-label">鱼类行为</text>
+      <view class="weather-tags">
+        <view class="tag {{form.fishBehavior === item.value ? 'tag-active' : ''}}" wx:for="{{behaviorOptions}}" wx:key="value" bindtap="selectBehavior" data-value="{{item.value}}">
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <!-- Abnormalities -->
+    <view class="form-group">
+      <text class="form-label">异常情况</text>
+      <view class="weather-tags">
+        <view class="tag {{item.selected ? 'tag-active' : ''}}" wx:for="{{abnormalOptions}}" wx:key="value" bindtap="toggleAbnormal" data-index="{{index}}">
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <!-- Severity (if abnormal) -->
+    <view class="form-group" wx:if="{{hasAbnormal}}">
+      <text class="form-label">严重程度</text>
+      <view class="weather-tags">
+        <view class="tag {{form.severity === item.value ? 'tag-active' : ''}}" wx:for="{{severityOptions}}" wx:key="value" bindtap="selectSeverity" data-value="{{item.value}}">
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <!-- Equipment Check -->
+    <view class="form-group">
+      <text class="form-label">设备检查</text>
+      <view class="weather-tags">
+        <view class="tag {{form.equipmentStatus === item.value ? 'tag-active' : ''}}" wx:for="{{equipmentOptions}}" wx:key="value" bindtap="selectEquipment" data-value="{{item.value}}">
+          {{item.label}}
+        </view>
+      </view>
+    </view>
+
+    <!-- Photos -->
+    <view class="form-group">
+      <text class="form-label">现场照片</text>
+      <view class="photo-grid">
+        <view class="photo-item" wx:for="{{photos}}" wx:key="*this">
+          <image src="{{item}}" mode="aspectFill" class="photo-img" bindtap="previewPhoto" data-url="{{item}}" />
+          <view class="photo-delete" catchtap="deletePhoto" data-index="{{index}}">×</view>
+        </view>
+        <view class="photo-add" bindtap="addPhoto" wx:if="{{photos.length < 9}}">
+          <text class="photo-add-icon">+</text>
+          <text class="photo-add-text">拍照/相册</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- Remark -->
+    <view class="form-group">
+      <text class="form-label">备注说明</text>
+      <textarea class="form-textarea" placeholder="记录其他观察信息（选填）" value="{{form.remark}}" bindinput="onInput" data-field="remark" maxlength="500" />
+    </view>
+  </view>
+
+  <!-- Submit -->
+  <view class="form-footer">
+    <view class="btn-block btn-primary" bindtap="submitPatrol">提交巡塘记录</view>
+  </view>
+</view>

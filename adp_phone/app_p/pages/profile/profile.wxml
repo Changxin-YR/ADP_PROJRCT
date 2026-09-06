@@ -1,0 +1,67 @@
+<!--pages/profile/profile.wxml-->
+<view class="profile-page">
+  <!-- User Card -->
+  <view class="user-card">
+    <view class="user-avatar">
+      <text>{{avatarText}}</text>
+    </view>
+    <view class="user-info">
+      <text class="user-name">{{userName}}</text>
+      <text class="user-role">{{roleName}}</text>
+      <text class="user-area" wx:if="{{areaName}}">{{areaName}}</text>
+    </view>
+  </view>
+
+  <!-- Stats -->
+  <view class="stats-row">
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalFeedings}}</text>
+      <text class="stat-label">投喂次数</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalPatrols}}</text>
+      <text class="stat-label">巡塘次数</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.workDays}}</text>
+      <text class="stat-label">工作天数</text>
+    </view>
+  </view>
+
+  <!-- Menu List -->
+  <view class="menu-section">
+    <view class="menu-item" bindtap="goHistory">
+      <text class="menu-icon">📊</text>
+      <text class="menu-text">操作记录</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goChangePassword">
+      <text class="menu-icon">🔒</text>
+      <text class="menu-text">修改密码</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goOfflineData">
+      <text class="menu-icon">📡</text>
+      <text class="menu-text">离线数据</text>
+      <view class="menu-badge" wx:if="{{offlineCount > 0}}">{{offlineCount}}</view>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goSettings">
+      <text class="menu-icon">⚙️</text>
+      <text class="menu-text">设置</text>
+      <text class="menu-arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goAbout">
+      <text class="menu-icon">ℹ️</text>
+      <text class="menu-text">关于系统</text>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
+
+  <!-- Logout -->
+  <view class="logout-section">
+    <view class="btn-block btn-danger-outline" bindtap="handleLogout">退出登录</view>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

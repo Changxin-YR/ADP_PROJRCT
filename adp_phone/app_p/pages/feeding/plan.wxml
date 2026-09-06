@@ -1,0 +1,28 @@
+<!--pages/feeding/plan.wxml-->
+<view class="plan-page">
+  <view class="section-header">
+    <text class="section-title">投喂计划列表</text>
+  </view>
+  <view class="feed-list" wx:if="{{plans.length > 0}}">
+    <view class="feed-card" wx:for="{{plans}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="feed-card-header">
+        <text class="feed-pond">{{item.pondName}}</text>
+        <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+      </view>
+      <view class="feed-card-body">
+        <view class="feed-info-row">
+          <text class="feed-label">饲料</text>
+          <text class="feed-value">{{item.feedName}} · {{item.amount}}{{item.unit}}</text>
+        </view>
+        <view class="feed-info-row">
+          <text class="feed-label">时间</text>
+          <text class="feed-value">{{item.timeRange}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view class="empty-state" wx:if="{{plans.length === 0 && !loading}}">
+    <text class="empty-state-icon">📋</text>
+    <text class="empty-state-text">暂无投喂计划</text>
+  </view>
+</view>

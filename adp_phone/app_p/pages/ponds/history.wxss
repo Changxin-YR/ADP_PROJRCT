@@ -1,0 +1,11 @@
+.history-page { min-height: 100vh; background: var(--color-bg-secondary); padding: 24rpx 32rpx; }
+.history-list { display: flex; flex-direction: column; }
+.history-item { display: flex; align-items: flex-start; gap: 16rpx; padding: 20rpx 0; border-bottom: 1rpx solid var(--color-border); }
+.history-item:last-child { border-bottom: none; }
+.history-dot { width: 16rpx; height: 16rpx; border-radius: 50%; margin-top: 8rpx; flex-shrink: 0; background: var(--color-primary); }
+.history-dot-feeding { background: #2196F3; }
+.history-dot-patrol { background: #4CAF50; }
+.history-dot-material { background: #FF9800; }
+.history-body { flex: 1; }
+.history-title { font-size: var(--font-base); color: var(--color-text-primary); display: block; }
+.history-time { font-size: var(--font-xs); color: var(--color-text-tertiary); margin-top: 4rpx; display: block; }

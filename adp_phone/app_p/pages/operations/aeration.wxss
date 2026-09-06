@@ -1,0 +1,17 @@
+.form-page { min-height: 100vh; background: var(--color-bg-secondary); }
+.form-section { margin: 24rpx 32rpx; background: var(--color-bg-elevated); border-radius: var(--radius-lg); padding: 32rpx; box-shadow: var(--shadow-sm); }
+.form-title { font-size: var(--font-xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 32rpx; }
+.form-group { margin-bottom: 28rpx; }
+.form-label { font-size: var(--font-sm); color: var(--color-text-secondary); margin-bottom: 12rpx; display: block; }
+.form-picker { display: flex; align-items: center; justify-content: space-between; padding: 20rpx 24rpx; background: var(--color-bg-secondary); border-radius: var(--radius-md); border: 1rpx solid var(--color-border); }
+.picker-value { font-size: var(--font-base); color: var(--color-text-primary); }
+.picker-placeholder { font-size: var(--font-base); color: var(--color-text-tertiary); }
+.picker-arrow { font-size: var(--font-lg); color: var(--color-text-tertiary); }
+.form-input { width: 100%; padding: 20rpx 24rpx; background: var(--color-bg-secondary); border-radius: var(--radius-md); border: 1rpx solid var(--color-border); font-size: var(--font-base); box-sizing: border-box; }
+.form-textarea { width: 100%; min-height: 120rpx; padding: 20rpx 24rpx; background: var(--color-bg-secondary); border-radius: var(--radius-md); border: 1rpx solid var(--color-border); font-size: var(--font-base); box-sizing: border-box; }
+.weather-tags { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.tag { padding: 12rpx 24rpx; border-radius: var(--radius-full); font-size: var(--font-sm); color: var(--color-text-secondary); background: var(--color-bg-secondary); border: 1rpx solid var(--color-border); }
+.tag-active { background: rgba(0,122,255,0.08); border-color: var(--color-primary); color: var(--color-primary); }
+.form-footer { padding: 32rpx; padding-bottom: calc(32rpx + env(safe-area-inset-bottom)); }
+.btn-block { display: block; width: 100%; padding: 28rpx; text-align: center; border-radius: var(--radius-lg); font-size: var(--font-md); font-weight: 600; }
+.btn-primary { background: var(--color-primary); color: #FFFFFF; }

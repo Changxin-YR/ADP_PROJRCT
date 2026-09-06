@@ -1,0 +1,10 @@
+<view class="form-page">
+  <view class="form-section">
+    <view class="form-title">物料退还</view>
+    <view class="form-group"><text class="form-label">物料名称 *</text><input class="form-input" placeholder="请输入退还物料名称" value="{{form.materialName}}" bindinput="onInput" data-field="materialName" /></view>
+    <view class="form-group"><text class="form-label">退还数量 *</text><view class="form-input-row"><input class="form-input" type="digit" placeholder="数量" value="{{form.quantity}}" bindinput="onInput" data-field="quantity" /><text class="form-unit">kg</text></view></view>
+    <view class="form-group"><text class="form-label">退还原因</text><view class="weather-tags"><view class="tag {{form.reason === item ? 'tag-active' : ''}}" wx:for="{{reasonOptions}}" wx:key="*this" bindtap="selectReason" data-value="{{item}}">{{item}}</view></view></view>
+    <view class="form-group"><text class="form-label">备注</text><textarea class="form-textarea" placeholder="选填" value="{{form.remark}}" bindinput="onInput" data-field="remark" maxlength="200" /></view>
+  </view>
+  <view class="form-footer"><view class="btn-block btn-primary" bindtap="submit">提交退还</view></view>
+</view>

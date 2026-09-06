@@ -77,16 +77,18 @@ def create_app(
         JSON_SORT_KEYS=False,
         SESSION_COOKIE_SECURE=resolved.session_cookie_secure,
         SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SAMESITE="None" if resolved.cors_origins and resolved.session_cookie_secure else "Lax",
         MAX_CONTENT_LENGTH=21 * 1024 * 1024,
     )
     register_security_headers(app)
 
     @app.before_request
-    def bind_request_id() -> None:
+    def bind_request_id() -> Any:
         begin_request_connection_scope()
         candidate = request.headers.get("X-Request-ID", "").strip()
         g.request_id = candidate if re.fullmatch(r"[A-Za-z0-9._-]{1,32}", candidate) else uuid4().hex
+        if request.method == "OPTIONS" and request.path.startswith("/api/"):
+            return "", 204
 
     @app.teardown_request
     def close_request_connection(error: BaseException | None) -> None:
@@ -95,6 +97,14 @@ def create_app(
     @app.after_request
     def expose_request_id(response: Any) -> Any:
         response.headers["X-Request-ID"] = str(getattr(g, "request_id", uuid4().hex))
+        origin = request.headers.get("Origin")
+        if origin and origin in resolved.cors_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Content-Type, Idempotency-Key, X-CSRF-Token, X-Request-ID"
+            response.headers["Access-Control-Allow-Methods"] = "DELETE, GET, OPTIONS, PATCH, POST, PUT"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Disposition, X-Request-ID"
+            response.headers["Vary"] = "Origin"
         return response
 
     app.register_blueprint(create_auth_blueprint(resolved, auth_store))

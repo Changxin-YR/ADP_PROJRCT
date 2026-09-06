@@ -1,0 +1,33 @@
+{
+  "description": "ADP 鱼塘养殖微信小程序",
+  "appid": "touristappid",
+  "projectname": "ADP-Aquaculture",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "./",
+  "libVersion": "trial",
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "file",
+        "value": "package.json"
+      },
+      {
+        "type": "file",
+        "value": "README.md"
+      }
+    ]
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "compileHotReLoad": true,
+    "minifyWXML": true
+  }
+}

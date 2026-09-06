@@ -1,0 +1,6 @@
+.settings-page { min-height: 100vh; background: var(--color-bg-secondary); padding-top: 24rpx; }
+.menu-section { margin: 0 32rpx 24rpx; background: var(--color-bg-elevated); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.menu-item { display: flex; align-items: center; justify-content: space-between; padding: 28rpx 24rpx; border-bottom: 1rpx solid var(--color-border); }
+.menu-item:last-child { border-bottom: none; }
+.menu-text { font-size: var(--font-base); color: var(--color-text-primary); }
+.menu-detail { font-size: var(--font-sm); color: var(--color-text-tertiary); }

@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.cjs",
   "engines": {
     "node": ">=20.19.0"
   },
@@ -12,7 +13,9 @@
     "test": "vitest",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "desktop": "electron .",
+    "build:win": "npm run build && electron-builder --win nsis"
   },
   "dependencies": {
     "vue": "3.5.13",
@@ -23,6 +26,8 @@
     "@types/node": "22.13.4",
     "@vitejs/plugin-vue": "5.2.1",
     "@vue/test-utils": "2.4.11",
+    "electron": "^37.10.3",
+    "electron-builder": "^26.15.3",
     "jsdom": "27.4.0",
     "typescript": "5.7.3",
     "vite": "6.4.3",
@@ -31,5 +36,24 @@
   },
   "overrides": {
     "js-beautify": "2.0.3"
+  },
+  "build": {
+    "appId": "com.adp.farm-management",
+    "productName": "ADP养殖管理系统",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "ADP-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

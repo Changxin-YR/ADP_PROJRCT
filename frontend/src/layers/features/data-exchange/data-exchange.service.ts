@@ -1,4 +1,5 @@
 import { createApiClient } from '../../common/api/client'
+import { apiUrl } from '../../common/api/base'
 import { ApiError } from '../../common/api/errors'
 import type { ApiResponse } from '../../common/api/models'
 import { getCsrfToken } from '../../common/security/csrf'
@@ -39,7 +40,7 @@ export function resolveOrganizationId(): number {
 }
 
 export async function exportData(payload: ExportPayload) {
-  const response = await fetch('/api/v1/data-exchange/exports', {
+  const response = await fetch(apiUrl('/api/v1/data-exchange/exports'), {
     method: 'POST', credentials: 'include',
     headers: { 'X-CSRF-Token': await getCsrfToken(), 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
@@ -56,7 +57,7 @@ export async function exportData(payload: ExportPayload) {
 }
 
 async function multipart<T>(path: string, body: FormData): Promise<T> {
-  const response = await fetch(path, { method: 'POST', body, credentials: 'include', headers: { 'X-CSRF-Token': await getCsrfToken(), Accept: 'application/json' } })
+  const response = await fetch(apiUrl(path), { method: 'POST', body, credentials: 'include', headers: { 'X-CSRF-Token': await getCsrfToken(), Accept: 'application/json' } })
   const payload = await response.json().catch(() => null) as ApiResponse<T> | null
   if (response.status === 413) throw new ApiError('UPLOAD_TOO_LARGE', '上传文件超过服务器允许的大小', response.status)
   if (!payload) throw new ApiError('UPLOAD_RESPONSE_INVALID', '上传服务返回了无法识别的响应', response.status)
@@ -77,7 +78,7 @@ export function uploadAttachment(organizationId: number, entityType: string, ent
 }
 
 export async function downloadFile(path: string, fallbackName: string) {
-  const response = await fetch(path, { credentials: 'include' })
+  const response = await fetch(apiUrl(path), { credentials: 'include' })
   if (!response.ok) throw new ApiError('DOWNLOAD_FAILED', '文件下载失败', response.status)
   if (typeof URL.createObjectURL !== 'function') return
   const url = URL.createObjectURL(await response.blob())

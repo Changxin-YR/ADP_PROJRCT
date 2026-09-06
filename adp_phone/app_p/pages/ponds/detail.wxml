@@ -1,0 +1,103 @@
+<!--pages/ponds/detail.wxml-->
+<view class="detail-page">
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>当前离线</text>
+  </view>
+
+  <!-- Pond Header -->
+  <view class="detail-header">
+    <view class="detail-header-main">
+      <text class="detail-name">{{pond.name}}</text>
+      <view class="badge badge-{{pond.statusColor}}">{{pond.statusText}}</view>
+    </view>
+    <text class="detail-area">{{pond.areaName}}</text>
+  </view>
+
+  <!-- Pond Info Cards -->
+  <view class="info-cards">
+    <view class="info-card">
+      <text class="info-card-label">面积</text>
+      <text class="info-card-value">{{pond.area}}亩</text>
+    </view>
+    <view class="info-card">
+      <text class="info-card-label">深度</text>
+      <text class="info-card-value">{{pond.depth || '--'}}m</text>
+    </view>
+    <view class="info-card">
+      <text class="info-card-label">养殖品种</text>
+      <text class="info-card-value">{{pond.species || '--'}}</text>
+    </view>
+    <view class="info-card">
+      <text class="info-card-label">当前批次</text>
+      <text class="info-card-value">{{pond.currentBatch || '--'}}</text>
+    </view>
+  </view>
+
+  <!-- Current Batch Info -->
+  <view class="section" wx:if="{{batch}}">
+    <view class="section-header">
+      <text class="section-title">当前批次</text>
+    </view>
+    <view class="batch-info">
+      <view class="batch-row">
+        <text class="batch-label">批次编号</text>
+        <text class="batch-value">{{batch.code}}</text>
+      </view>
+      <view class="batch-row">
+        <text class="batch-label">放养日期</text>
+        <text class="batch-value">{{batch.stockingDate}}</text>
+      </view>
+      <view class="batch-row">
+        <text class="batch-label">放养数量</text>
+        <text class="batch-value">{{batch.stockingCount}}尾</text>
+      </view>
+      <view class="batch-row">
+        <text class="batch-label">养殖天数</text>
+        <text class="batch-value">{{batch.days}}天</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Recent Activities -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">近期记录</text>
+      <text class="section-action" bindtap="goFullHistory">查看全部</text>
+    </view>
+    <view class="activity-list" wx:if="{{activities.length > 0}}">
+      <view class="activity-item" wx:for="{{activities}}" wx:key="id">
+        <view class="activity-dot activity-dot-{{item.type}}"></view>
+        <view class="activity-body">
+          <text class="activity-text">{{item.summary}}</text>
+          <text class="activity-time">{{item.timeStr}}</text>
+        </view>
+      </view>
+    </view>
+    <view class="empty-hint" wx:if="{{activities.length === 0}}">
+      <text>暂无记录</text>
+    </view>
+  </view>
+
+  <!-- Quick Actions -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">快捷操作</text>
+    </view>
+    <view class="action-grid">
+      <view class="action-btn" bindtap="goFeed">
+        <text class="action-icon">🐟</text>
+        <text class="action-label">投喂</text>
+      </view>
+      <view class="action-btn" bindtap="goPatrol">
+        <text class="action-icon">🔍</text>
+        <text class="action-label">巡塘</text>
+      </view>
+      <view class="action-btn" bindtap="goMaterial">
+        <text class="action-icon">📦</text>
+        <text class="action-label">领料</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="safe-bottom"></view>
+</view>

@@ -1,0 +1,22 @@
+<view class="batches-page">
+  <view class="search-bar"><view class="search-input-wrap"><text class="search-icon">🔍</text><input class="search-input" placeholder="搜索批次编号" value="{{keyword}}" bindinput="onSearch" /></view></view>
+
+  <view class="batch-list" wx:if="{{batches.length > 0}}">
+    <view class="batch-card" wx:for="{{batches}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="batch-card-header">
+        <text class="batch-code">{{item.code}}</text>
+        <view class="badge badge-{{item.active ? 'success' : 'gray'}}">{{item.active ? '进行中' : '已结束'}}</view>
+      </view>
+      <view class="batch-card-info">
+        <view class="batch-info-item"><text class="info-label">塘口</text><text class="info-value">{{item.pondName}}</text></view>
+        <view class="batch-info-item"><text class="info-label">品种</text><text class="info-value">{{item.species}}</text></view>
+        <view class="batch-info-item"><text class="info-label">放养日期</text><text class="info-value">{{item.stockingDate}}</text></view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{batches.length === 0 && !loading}}">
+    <text class="empty-state-icon">🐠</text>
+    <text class="empty-state-text">暂无养殖批次</text>
+  </view>
+</view>

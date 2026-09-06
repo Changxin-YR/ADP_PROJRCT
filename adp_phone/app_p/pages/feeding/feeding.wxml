@@ -1,0 +1,109 @@
+<!--pages/feeding/feeding.wxml-->
+<view class="feeding-page">
+  <!-- Offline Banner -->
+  <view class="offline-banner" wx:if="{{!isOnline}}">
+    <text>当前离线 · 数据将在联网后同步</text>
+  </view>
+
+  <!-- Tab Bar -->
+  <view class="tab-bar">
+    <view class="tab-item {{activeTab === 'plan' ? 'active' : ''}}" bindtap="switchTab" data-tab="plan">
+      <text>投喂计划</text>
+    </view>
+    <view class="tab-item {{activeTab === 'record' ? 'active' : ''}}" bindtap="switchTab" data-tab="record">
+      <text>投喂记录</text>
+    </view>
+  </view>
+
+  <!-- Filter Bar -->
+  <view class="filter-bar">
+    <view class="filter-item" bindtap="showDatePicker">
+      <text>{{filterDate}}</text>
+      <text class="filter-arrow">▾</text>
+    </view>
+    <view class="filter-item" bindtap="showPondPicker">
+      <text>{{filterPond || '全部塘口'}}</text>
+      <text class="filter-arrow">▾</text>
+    </view>
+    <view class="filter-item" bindtap="showStatusPicker" wx:if="{{activeTab === 'plan'}}">
+      <text>{{filterStatusText || '全部状态'}}</text>
+      <text class="filter-arrow">▾</text>
+    </view>
+  </view>
+
+  <!-- Plan List -->
+  <view wx:if="{{activeTab === 'plan'}}">
+    <view class="feed-list" wx:if="{{plans.length > 0}}">
+      <view class="feed-card" wx:for="{{plans}}" wx:key="id" bindtap="goPlanDetail" data-id="{{item.id}}">
+        <view class="feed-card-header">
+          <text class="feed-pond">{{item.pondName}}</text>
+          <view class="badge badge-{{item.statusColor}}">{{item.statusText}}</view>
+        </view>
+        <view class="feed-card-body">
+          <view class="feed-info-row">
+            <text class="feed-label">饲料</text>
+            <text class="feed-value">{{item.feedName}} · {{item.amount}}{{item.unit}}</text>
+          </view>
+          <view class="feed-info-row">
+            <text class="feed-label">时间</text>
+            <text class="feed-value">{{item.timeRange}}</text>
+          </view>
+          <view class="feed-info-row" wx:if="{{item.assignee}}">
+            <text class="feed-label">执行人</text>
+            <text class="feed-value">{{item.assignee}}</text>
+          </view>
+        </view>
+        <view class="feed-card-actions" wx:if="{{item.canExecute}}">
+          <view class="btn-sm btn-primary" catchtap="startExecution" data-id="{{item.id}}">开始执行</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{plans.length === 0 && !loading}}">
+      <text class="empty-state-icon">📋</text>
+      <text class="empty-state-text">暂无投喂计划</text>
+    </view>
+  </view>
+
+  <!-- Record List -->
+  <view wx:if="{{activeTab === 'record'}}">
+    <view class="feed-list" wx:if="{{records.length > 0}}">
+      <view class="feed-card" wx:for="{{records}}" wx:key="id" bindtap="goRecordDetail" data-id="{{item.id}}">
+        <view class="feed-card-header">
+          <text class="feed-pond">{{item.pondName}}</text>
+          <text class="feed-time">{{item.recordTime}}</text>
+        </view>
+        <view class="feed-card-body">
+          <view class="feed-info-row">
+            <text class="feed-label">饲料</text>
+            <text class="feed-value">{{item.feedName}} · {{item.actualAmount}}{{item.unit}}</text>
+          </view>
+          <view class="feed-info-row" wx:if="{{item.deviation}}">
+            <text class="feed-label">偏差</text>
+            <text class="feed-value feed-deviation-{{item.deviationType}}">{{item.deviation}}</text>
+          </view>
+          <view class="feed-info-row">
+            <text class="feed-label">操作人</text>
+            <text class="feed-value">{{item.operator}}</text>
+          </view>
+        </view>
+        <view class="feed-card-footer" wx:if="{{item.photos.length > 0}}">
+          <image wx:for="{{item.photos}}" wx:for-item="photo" wx:key="*this" src="{{photo}}" mode="aspectFill" class="feed-photo-thumb"/>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:if="{{records.length === 0 && !loading}}">
+      <text class="empty-state-icon">📝</text>
+      <text class="empty-state-text">暂无投喂记录</text>
+    </view>
+  </view>
+
+  <!-- FAB Button -->
+  <view class="fab" bindtap="createRecord">
+    <text class="fab-icon">+</text>
+  </view>
+
+  <!-- Bottom Safe Area -->
+  <view class="safe-bottom"></view>
+</view>

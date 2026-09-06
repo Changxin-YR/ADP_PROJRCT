@@ -1,0 +1,24 @@
+<!--pages/profile/settings.wxml-->
+<view class="settings-page">
+  <view class="menu-section">
+    <view class="menu-item">
+      <text class="menu-text">自动同步</text>
+      <switch checked="{{autoSync}}" bindchange="toggleAutoSync" color="#007AFF" />
+    </view>
+    <view class="menu-item">
+      <text class="menu-text">拍照自动压缩</text>
+      <switch checked="{{compressPhoto}}" bindchange="toggleCompress" color="#007AFF" />
+    </view>
+    <view class="menu-item">
+      <text class="menu-text">消息通知</text>
+      <switch checked="{{notifications}}" bindchange="toggleNotifications" color="#007AFF" />
+    </view>
+  </view>
+
+  <view class="menu-section">
+    <view class="menu-item" bindtap="clearCache">
+      <text class="menu-text">清除缓存</text>
+      <text class="menu-detail">{{cacheSize}}</text>
+    </view>
+  </view>
+</view>

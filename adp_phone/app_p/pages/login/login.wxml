@@ -1,0 +1,59 @@
+<!--pages/login/login.wxml-->
+<view class="login-page">
+  <!-- Logo Area -->
+  <view class="login-header">
+    <view class="login-logo">🐟</view>
+    <text class="login-title">鱼塘管理系统</text>
+    <text class="login-subtitle">智慧养殖 · 精细管理</text>
+  </view>
+
+  <!-- Login Form -->
+  <view class="login-form">
+    <view class="form-group">
+      <view class="form-label">手机号 / 账号</view>
+      <input
+        class="form-input"
+        placeholder="请输入手机号或登录账号"
+        value="{{identifier}}"
+        bindinput="onIdentifierInput"
+        type="text"
+        maxlength="20"
+      />
+    </view>
+
+    <view class="form-group">
+      <view class="form-label">密码</view>
+      <view class="password-wrapper">
+        <input
+          class="form-input"
+          placeholder="请输入密码"
+          value="{{password}}"
+          bindinput="onPasswordInput"
+          password="{{!showPassword}}"
+          maxlength="32"
+        />
+        <view class="password-toggle" bindtap="togglePassword">
+          <text>{{showPassword ? '隐藏' : '显示'}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="login-error" wx:if="{{errorMsg}}">
+      <text>{{errorMsg}}</text>
+    </view>
+
+    <button
+      class="btn btn-primary btn-block login-btn"
+      bindtap="handleLogin"
+      disabled="{{loading || !identifier || !password}}"
+    >
+      <text wx:if="{{!loading}}">登录</text>
+      <text wx:else>登录中...</text>
+    </button>
+  </view>
+
+  <!-- Footer -->
+  <view class="login-footer">
+    <text class="login-footer-text">首次使用请联系管理员创建账号</text>
+  </view>
+</view>

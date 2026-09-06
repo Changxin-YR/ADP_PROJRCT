@@ -1,0 +1,8 @@
+<view class="ops-page">
+  <view class="section-header"><text class="section-title">日常操作</text></view>
+  <view class="ops-grid">
+    <view class="ops-card" bindtap="goPatrol"><text class="ops-icon">🔍</text><text class="ops-name">巡塘记录</text><text class="ops-desc">水质、鱼类行为观察</text></view>
+    <view class="ops-card" bindtap="goMedication"><text class="ops-icon">💊</text><text class="ops-name">用药记录</text><text class="ops-desc">动保用药登记</text></view>
+    <view class="ops-card" bindtap="goAeration"><text class="ops-icon">💨</text><text class="ops-name">增氧记录</text><text class="ops-desc">增氧设备运行登记</text></view>
+  </view>
+</view>
