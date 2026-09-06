@@ -1,0 +1,1629 @@
+[
+  {
+    "route": "/admin/applications",
+    "url": "https://1.14.148.15/admin/applications",
+    "title": "ADP 登录注册",
+    "text": "ADP\n养殖运营平台\n系统在线\nADP / AQUACULTURE\n服务在线\n\n系统管理 / 账号准入\n\n申请审核\n\n确认岗位与数据范围后，申请人才能进入正式工作区。\n\n←\n返回上一步\n刷新列表\n0\n待审核申请\n0\n本页显示\n—\n当前申请数据范围\n\n待审核申请\n按提交时间排序\n\n暂无待审核申请\n\n请在左侧选择一条申请开始审核\n\n© 2026 鱼塘养殖喂养日常管理系统　保留所有权利",
+    "buttons": [
+      {
+        "text": "←\n返回上一步",
+        "disabled": false,
+        "aria": "返回上一步"
+      },
+      {
+        "text": "刷新列表",
+        "disabled": false,
+        "aria": "刷新申请列表"
+      }
+    ],
+    "links": [],
+    "inputs": [],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/admin/options",
+      "https://1.14.148.15/api/v1/admin/applications?status=pending&page=1&page_size=20"
+    ]
+  },
+  {
+    "route": "/admin/roles",
+    "url": "https://1.14.148.15/admin/roles",
+    "title": "角色权限 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n用户管理\n注册审核\n角色权限\n操作日志\n业务参数\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n角色权限\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSYSTEM / ROLES\n\n角色权限\n\n角色决定功能权限；数据范围按成员授权，所有接口仍会再次校验。\n\n角色总数\n7\n个\n3 名成员在岗\n数据范围层级\n3\n级\n全场 / 区域 / 个人\n权限来源\n数据库\n角色与权限关系实时读取\n全部状态\n启用\n停用\n角色名称\t成员数\t功能权限\t数据范围\t状态\t操作\n\n超级管理员\nsuper_admin\n\t3\t查看操作日志 audit.view / 管理角色权限 auth.role.manage / 审核注册申请 auth.review / 查看会话概览 auth.session.view / 管理认证账号 auth.user.manage / 管理成本分摊规则 cost.allocation.manage / 确认成本资产 cost.asset.confirm / 确认成本台账 cost.entry.confirm / 录入与提交成本 cost.entry.manage / 冲销成本台账 cost.entry.reverse / 核验成本台账 cost.entry.verify / 确认期间结算 cost.settlement.confirm / 执行反结算 cost.settlement.reverse / 查看成本核算 cost.view / 管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 执行批量导入 data_exchange.import / 查看数据交换 data_exchange.view / 查看应付账款 finance.payable.view / 登记付款 finance.payment.manage / 核验付款 finance.payment.verify / 登记收款 finance.receipt.manage / 核验收款 finance.receipt.verify / 查看应收账款 finance.receivable.view / 维护主数据 master_data.manage / 核验主数据 master_data.verify / 查看主数据 master_data.view / 维护生产业务 production.manage / 核验生产业务 production.verify / 查看生产业务 production.view / 办理采购业务 purchase.manage / 办理采购退货 purchase.return.manage / 核验采购退货 purchase.return.verify / 审批采购业务 purchase.verify / 查看采购业务 purchase.view / 办理销售业务 sales.manage / 办理销售退货 sales.return.manage / 核验销售退货 sales.return.verify / 审批销售业务 sales.verify / 查看销售业务 sales.view / 办理仓储业务 warehouse.manage / 核验仓储业务 warehouse.verify / 查看仓储业务 warehouse.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n养殖管理员\nbreed_manager\n\t0\t确认成本资产 cost.asset.confirm / 确认成本台账 cost.entry.confirm / 录入与提交成本 cost.entry.manage / 核验成本台账 cost.entry.verify / 确认期间结算 cost.settlement.confirm / 执行反结算 cost.settlement.reverse / 查看成本核算 cost.view / 管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 查看数据交换 data_exchange.view / 维护区域 master_data.areas.manage / 维护基地 master_data.farms.manage / 维护塘口分组 master_data.pond_groups.manage / 维护塘口 master_data.ponds.manage / 核验主数据 master_data.verify / 查看主数据 master_data.view / 维护生产业务 production.manage / 核验生产业务 production.verify / 查看生产业务 production.view / 查看仓储业务 warehouse.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n养殖作业员\nbreed_worker\n\t0\t管理业务附件 attachment.manage / 查看主数据 master_data.view / 维护生产业务 production.manage / 查看生产业务 production.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n仓储管理员\nwarehouse_manager\n\t0\t管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 查看数据交换 data_exchange.view / 维护物料 master_data.materials.manage / 查看主数据 master_data.view / 查看采购业务 purchase.view / 办理仓储业务 warehouse.manage / 核验仓储业务 warehouse.verify / 查看仓储业务 warehouse.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n采购人员\npurchaser\n\t0\t管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 查看数据交换 data_exchange.view / 查看应付账款 finance.payable.view / 维护供应商 master_data.suppliers.manage / 查看主数据 master_data.view / 办理采购业务 purchase.manage / 办理采购退货 purchase.return.manage / 查看采购业务 purchase.view / 查看仓储业务 warehouse.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n财务人员\nfinance_staff\n\t0\t管理成本分摊规则 cost.allocation.manage / 管理成本资产 cost.asset.manage / 核验成本资产 cost.asset.verify / 录入与提交成本 cost.entry.manage / 冲销成本台账 cost.entry.reverse / 核验成本台账 cost.entry.verify / 管理期间结算 cost.settlement.manage / 核验期间结算 cost.settlement.verify / 查看成本核算 cost.view / 管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 查看数据交换 data_exchange.view / 查看应付账款 finance.payable.view / 登记付款 finance.payment.manage / 核验付款 finance.payment.verify / 登记收款 finance.receipt.manage / 核验收款 finance.receipt.verify / 查看应收账款 finance.receivable.view / 查看主数据 master_data.view / 查看生产业务 production.view / 核验采购退货 purchase.return.verify / 审批采购业务 purchase.verify / 查看采购业务 purchase.view / 核验销售退货 sales.return.verify / 审批销售业务 sales.verify / 查看销售业务 sales.view / 查看仓储业务 warehouse.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n\n\n销售人员\nsales_staff\n\t0\t管理业务附件 attachment.manage / 导出业务数据 data_exchange.export / 查看数据交换 data_exchange.view / 查看应收账款 finance.receivable.view / 维护客户 master_data.customers.manage / 查看主数据 master_data.view / 查看生产业务 production.view / 办理销售业务 sales.manage / 办理销售退货 sales.return.manage / 查看销售业务 sales.view / 处理待办与消息 work_item.manage / 查看待办与消息 work_item.view / 进入工作台 workbench.enter\t按成员数据范围授权\t\n启用\t\n编辑权限\n复制角色\n共 7 条记录 · 每页 10 条\n‹\n1\n›",
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "复制角色",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "links": [
+      {
+        "text": "ADP\n养殖运营平台",
+        "href": "/workbench"
+      },
+      {
+        "text": "工作台",
+        "href": "/workbench"
+      },
+      {
+        "text": "消息与预警",
+        "href": "/messages"
+      },
+      {
+        "text": "我的待办",
+        "href": "/todos"
+      },
+      {
+        "text": "塘口档案",
+        "href": "/ponds"
+      },
+      {
+        "text": "塘口分组",
+        "href": "/pond-groups"
+      },
+      {
+        "text": "养殖批次",
+        "href": "/batches"
+      },
+      {
+        "text": "规格抽样",
+        "href": "/sampling"
+      },
+      {
+        "text": "转塘记录",
+        "href": "/transfers"
+      },
+      {
+        "text": "损耗记录",
+        "href": "/losses"
+      },
+      {
+        "text": "出塘捕捞",
+        "href": "/harvests"
+      },
+      {
+        "text": "喂养计划",
+        "href": "/feeding/plans"
+      },
+      {
+        "text": "投喂任务",
+        "href": "/feeding/tasks"
+      },
+      {
+        "text": "投喂记录",
+        "href": "/feeding/logs"
+      },
+      {
+        "text": "日常作业",
+        "href": "/daily-ops"
+      },
+      {
+        "text": "物料档案",
+        "href": "/warehouse/materials"
+      },
+      {
+        "text": "仓库档案",
+        "href": "/warehouse/warehouses"
+      },
+      {
+        "text": "入库管理",
+        "href": "/warehouse/in"
+      },
+      {
+        "text": "出库领用",
+        "href": "/warehouse/out"
+      },
+      {
+        "text": "退库管理",
+        "href": "/warehouse/returns"
+      },
+      {
+        "text": "仓间调拨",
+        "href": "/warehouse/transfers"
+      },
+      {
+        "text": "库存盘点",
+        "href": "/warehouse/stocktakes"
+      },
+      {
+        "text": "报损报废",
+        "href": "/warehouse/scraps"
+      },
+      {
+        "text": "库存预警",
+        "href": "/warehouse/alerts"
+      },
+      {
+        "text": "仓储台账",
+        "href": "/warehouse/ledger"
+      },
+      {
+        "text": "供应商档案",
+        "href": "/purchase/suppliers"
+      },
+      {
+        "text": "采购明细",
+        "href": "/purchase/orders"
+      },
+      {
+        "text": "应付账款",
+        "href": "/purchase/payables"
+      },
+      {
+        "text": "客户档案",
+        "href": "/sales/customers"
+      },
+      {
+        "text": "销售明细",
+        "href": "/sales/orders"
+      },
+      {
+        "text": "应收账款",
+        "href": "/sales/receivables"
+      },
+      {
+        "text": "成本构成",
+        "href": "/cost/structure"
+      },
+      {
+        "text": "费用登记",
+        "href": "/cost/expenses"
+      },
+      {
+        "text": "资产台账",
+        "href": "/cost/assets"
+      },
+      {
+        "text": "期间结算",
+        "href": "/cost/settlements"
+      },
+      {
+        "text": "导入模板",
+        "href": "/data/templates"
+      },
+      {
+        "text": "批量导入",
+        "href": "/data/imports"
+      },
+      {
+        "text": "用户管理",
+        "href": "/admin/users"
+      },
+      {
+        "text": "注册审核",
+        "href": "/admin/applications"
+      },
+      {
+        "text": "角色权限",
+        "href": "/admin/roles"
+      },
+      {
+        "text": "操作日志",
+        "href": "/admin/logs"
+      },
+      {
+        "text": "业务参数",
+        "href": "/admin/settings"
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索角色名称、编码或权限"
+      }
+    ],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/admin/roles",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100"
+    ]
+  },
+  {
+    "route": "/admin/logs",
+    "url": "https://1.14.148.15/admin/logs",
+    "title": "操作日志 · ADP 养殖运营平台",
+    "text": "开始日期\n结束日期\nADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n用户管理\n注册审核\n角色权限\n操作日志\n业务参数\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n操作日志\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSYSTEM / AUDIT LOGS\n\n操作日志\n\n谁在什么时间对什么数据做了什么：服务端追加式日志，按请求号、动作、对象和结果追溯；日志本身不可编辑或删除。\n\n导出当前范围\n今日操作\n0\n条\n服务端实时查询\n活跃用户\n8\n人\n当前查询范围\n权限类变更\n6\n条\n角色 / 数据范围 / 权限\n全部结果\n成功\n失败\n操作时间\t动作\t对象\t详情\t结果\n\nMon, 31 Aug 2026 21:44:17 GMT\n系统管理员\n\tlogin\tsession:77\t—\t\n成功\n\nMon, 31 Aug 2026 21:40:52 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 21:40:39 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 21:40:31 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 21:40:30 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 21:40:27 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 21:09:44 GMT\n系统管理员\n\tlogin\tsession:76\t—\t\n成功\n\nMon, 31 Aug 2026 21:09:18 GMT\n系统管理员\n\tlogin\tuser:1\tinvalid_credentials\t\n失败\n\nMon, 31 Aug 2026 20:35:08 GMT\n系统\n\tlogin\tlogin\tinvalid_credentials\t\n失败\n\nSun, 30 Aug 2026 16:36:39 GMT\n系统管理员\n\tlogin\tsession:75\t—\t\n成功\n\nSun, 30 Aug 2026 16:36:37 GMT\n系统管理员\n\tsession_revoke\tsession:74\tidle_timeout\t\n成功\n\nSun, 30 Aug 2026 08:49:04 GMT\n系统管理员\n\tlogin\tsession:74\t—\t\n成功\n\nSat, 15 Aug 2026 17:28:07 GMT\n系统管理员\n\tapprove_registration\tregistration_application #9\t{\"role_ids\": [2], \"scope_ids\": [2]}\t\n成功\n\nSat, 15 Aug 2026 17:27:29 GMT\n易荛\n\tregister\tregistration_application #9\t—\t\n成功\n\nSat, 15 Aug 2026 13:10:53 GMT\n系统管理员\n\tapprove_registration\tregistration_application #8\t{\"role_ids\": [2], \"scope_ids\": [2]}\t\n成功\n\nSat, 15 Aug 2026 13:08:49 GMT\n系统\n\tset_user_status\tuser #2\t{\"status\": \"disabled\"}\t\n成功\n\nSat, 15 Aug 2026 13:08:15 GMT\n系统管理员\n\treject_registration\tregistration_application #7\t—\t\n成功\n\nSat, 15 Aug 2026 13:07:15 GMT\nYR\n\tregister\tregistration_application #7\t—\t\n成功\n\nSat, 15 Aug 2026 13:00:18 GMT\n系统管理员\n\tapprove_registration\tregistration_application #6\t{\"role_ids\": [3], \"scope_ids\": [1]}\t\n成功\n\nSat, 15 Aug 2026 12:58:58 GMT\n自检申请\n\tregister\tregistration_application #6\t—\t\n成功\n\nSat, 15 Aug 2026 11:04:11 GMT\n系统管理员\n\treject_registration\tregistration_application #5\t—\t\n成功\n\nSat, 15 Aug 2026 10:19:00 GMT\n系统管理员\n\tapprove_registration\tregistration_application #3\t{\"role_id\": 2, \"scope_id\": 1}\t\n成功\n\nSat, 15 Aug 2026 10:18:57 GMT\n系统管理员\n\tapprove_registration\tregistration_application #4\t{\"role_id\": 2, \"scope_id\": 1}\t\n成功\n\nSat, 15 Aug 2026 10:16:39 GMT\n系统管理员\n\treject_registration\tregistration_application #2\t—\t\n成功\n\nSat, 15 Aug 2026 10:16:34 GMT\n系统管理员\n\tapprove_registration\tregistration_application #1\t{\"role_id\": 3, \"scope_id\": 1}\t\n成功\n\nSat, 15 Aug 2026 10:15:18 GMT\n审核测试\n\tregister\tregistration_application #4\t—\t\n成功\n\nSat, 15 Aug 2026 10:13:29 GMT\n测试用户\n\tregister\tregistration_application #3\t—\t\n成功\n\nSat, 15 Aug 2026 10:08:06 GMT\nA\n\tregister\tregistration_application #2\t—\t\n成功\n\nSat, 15 Aug 2026 08:41:12 GMT\n易荛\n\tregister\tregistration_application #1\t—\t\n成功\n共 29 条记录 · 每页 50 条\n‹\n1\n›",
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "links": [
+      {
+        "text": "ADP\n养殖运营平台",
+        "href": "/workbench"
+      },
+      {
+        "text": "工作台",
+        "href": "/workbench"
+      },
+      {
+        "text": "消息与预警",
+        "href": "/messages"
+      },
+      {
+        "text": "我的待办",
+        "href": "/todos"
+      },
+      {
+        "text": "塘口档案",
+        "href": "/ponds"
+      },
+      {
+        "text": "塘口分组",
+        "href": "/pond-groups"
+      },
+      {
+        "text": "养殖批次",
+        "href": "/batches"
+      },
+      {
+        "text": "规格抽样",
+        "href": "/sampling"
+      },
+      {
+        "text": "转塘记录",
+        "href": "/transfers"
+      },
+      {
+        "text": "损耗记录",
+        "href": "/losses"
+      },
+      {
+        "text": "出塘捕捞",
+        "href": "/harvests"
+      },
+      {
+        "text": "喂养计划",
+        "href": "/feeding/plans"
+      },
+      {
+        "text": "投喂任务",
+        "href": "/feeding/tasks"
+      },
+      {
+        "text": "投喂记录",
+        "href": "/feeding/logs"
+      },
+      {
+        "text": "日常作业",
+        "href": "/daily-ops"
+      },
+      {
+        "text": "物料档案",
+        "href": "/warehouse/materials"
+      },
+      {
+        "text": "仓库档案",
+        "href": "/warehouse/warehouses"
+      },
+      {
+        "text": "入库管理",
+        "href": "/warehouse/in"
+      },
+      {
+        "text": "出库领用",
+        "href": "/warehouse/out"
+      },
+      {
+        "text": "退库管理",
+        "href": "/warehouse/returns"
+      },
+      {
+        "text": "仓间调拨",
+        "href": "/warehouse/transfers"
+      },
+      {
+        "text": "库存盘点",
+        "href": "/warehouse/stocktakes"
+      },
+      {
+        "text": "报损报废",
+        "href": "/warehouse/scraps"
+      },
+      {
+        "text": "库存预警",
+        "href": "/warehouse/alerts"
+      },
+      {
+        "text": "仓储台账",
+        "href": "/warehouse/ledger"
+      },
+      {
+        "text": "供应商档案",
+        "href": "/purchase/suppliers"
+      },
+      {
+        "text": "采购明细",
+        "href": "/purchase/orders"
+      },
+      {
+        "text": "应付账款",
+        "href": "/purchase/payables"
+      },
+      {
+        "text": "客户档案",
+        "href": "/sales/customers"
+      },
+      {
+        "text": "销售明细",
+        "href": "/sales/orders"
+      },
+      {
+        "text": "应收账款",
+        "href": "/sales/receivables"
+      },
+      {
+        "text": "成本构成",
+        "href": "/cost/structure"
+      },
+      {
+        "text": "费用登记",
+        "href": "/cost/expenses"
+      },
+      {
+        "text": "资产台账",
+        "href": "/cost/assets"
+      },
+      {
+        "text": "期间结算",
+        "href": "/cost/settlements"
+      },
+      {
+        "text": "导入模板",
+        "href": "/data/templates"
+      },
+      {
+        "text": "批量导入",
+        "href": "/data/imports"
+      },
+      {
+        "text": "用户管理",
+        "href": "/admin/users"
+      },
+      {
+        "text": "注册审核",
+        "href": "/admin/applications"
+      },
+      {
+        "text": "角色权限",
+        "href": "/admin/roles"
+      },
+      {
+        "text": "操作日志",
+        "href": "/admin/logs"
+      },
+      {
+        "text": "业务参数",
+        "href": "/admin/settings"
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "动作代码"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "模块代码"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "对象类型"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "操作人 ID"
+      }
+    ],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/admin/audit-logs?page=1&page_size=50"
+    ]
+  },
+  {
+    "route": "/admin/settings",
+    "url": "https://1.14.148.15/admin/settings",
+    "title": "业务参数 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n用户管理\n注册审核\n角色权限\n操作日志\n业务参数\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n业务参数\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSYSTEM / SETTINGS\n\n业务参数\n\n品种、计量单位、预警阈值等全局参数的受控版本。\n\n导出当前范围\n新增参数\n业务参数总数\n0\n项\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n参数编码\t参数名称\t参数值\t用途与影响\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新增参数",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "links": [
+      {
+        "text": "ADP\n养殖运营平台",
+        "href": "/workbench"
+      },
+      {
+        "text": "工作台",
+        "href": "/workbench"
+      },
+      {
+        "text": "消息与预警",
+        "href": "/messages"
+      },
+      {
+        "text": "我的待办",
+        "href": "/todos"
+      },
+      {
+        "text": "塘口档案",
+        "href": "/ponds"
+      },
+      {
+        "text": "塘口分组",
+        "href": "/pond-groups"
+      },
+      {
+        "text": "养殖批次",
+        "href": "/batches"
+      },
+      {
+        "text": "规格抽样",
+        "href": "/sampling"
+      },
+      {
+        "text": "转塘记录",
+        "href": "/transfers"
+      },
+      {
+        "text": "损耗记录",
+        "href": "/losses"
+      },
+      {
+        "text": "出塘捕捞",
+        "href": "/harvests"
+      },
+      {
+        "text": "喂养计划",
+        "href": "/feeding/plans"
+      },
+      {
+        "text": "投喂任务",
+        "href": "/feeding/tasks"
+      },
+      {
+        "text": "投喂记录",
+        "href": "/feeding/logs"
+      },
+      {
+        "text": "日常作业",
+        "href": "/daily-ops"
+      },
+      {
+        "text": "物料档案",
+        "href": "/warehouse/materials"
+      },
+      {
+        "text": "仓库档案",
+        "href": "/warehouse/warehouses"
+      },
+      {
+        "text": "入库管理",
+        "href": "/warehouse/in"
+      },
+      {
+        "text": "出库领用",
+        "href": "/warehouse/out"
+      },
+      {
+        "text": "退库管理",
+        "href": "/warehouse/returns"
+      },
+      {
+        "text": "仓间调拨",
+        "href": "/warehouse/transfers"
+      },
+      {
+        "text": "库存盘点",
+        "href": "/warehouse/stocktakes"
+      },
+      {
+        "text": "报损报废",
+        "href": "/warehouse/scraps"
+      },
+      {
+        "text": "库存预警",
+        "href": "/warehouse/alerts"
+      },
+      {
+        "text": "仓储台账",
+        "href": "/warehouse/ledger"
+      },
+      {
+        "text": "供应商档案",
+        "href": "/purchase/suppliers"
+      },
+      {
+        "text": "采购明细",
+        "href": "/purchase/orders"
+      },
+      {
+        "text": "应付账款",
+        "href": "/purchase/payables"
+      },
+      {
+        "text": "客户档案",
+        "href": "/sales/customers"
+      },
+      {
+        "text": "销售明细",
+        "href": "/sales/orders"
+      },
+      {
+        "text": "应收账款",
+        "href": "/sales/receivables"
+      },
+      {
+        "text": "成本构成",
+        "href": "/cost/structure"
+      },
+      {
+        "text": "费用登记",
+        "href": "/cost/expenses"
+      },
+      {
+        "text": "资产台账",
+        "href": "/cost/assets"
+      },
+      {
+        "text": "期间结算",
+        "href": "/cost/settlements"
+      },
+      {
+        "text": "导入模板",
+        "href": "/data/templates"
+      },
+      {
+        "text": "批量导入",
+        "href": "/data/imports"
+      },
+      {
+        "text": "用户管理",
+        "href": "/admin/users"
+      },
+      {
+        "text": "注册审核",
+        "href": "/admin/applications"
+      },
+      {
+        "text": "角色权限",
+        "href": "/admin/roles"
+      },
+      {
+        "text": "操作日志",
+        "href": "/admin/logs"
+      },
+      {
+        "text": "业务参数",
+        "href": "/admin/settings"
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索业务参数名称 / 编码"
+      }
+    ],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/master-data/settings?page=1&page_size=100"
+    ]
+  },
+  {
+    "route": "/warehouse/alerts",
+    "url": "https://1.14.148.15/warehouse/alerts",
+    "title": "库存预警 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n库存预警\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / ALERTS\n\n库存预警\n\n由真实库存余额、安全库存线和物料批次到期日实时计算，不保存演示预警。\n\n导出当前范围\n待处理预警\n0\n条\n当前授权范围\n高严重度\n0\n条\n建议当日处理\n临期与过期\n0\n条\n按批次到期日\n物料\t仓库\t预警类型\t严重度\t当前数量\t安全库存\t到期日\t状态\n当前没有库存预警\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "links": [
+      {
+        "text": "ADP\n养殖运营平台",
+        "href": "/workbench"
+      },
+      {
+        "text": "工作台",
+        "href": "/workbench"
+      },
+      {
+        "text": "消息与预警",
+        "href": "/messages"
+      },
+      {
+        "text": "我的待办",
+        "href": "/todos"
+      },
+      {
+        "text": "塘口档案",
+        "href": "/ponds"
+      },
+      {
+        "text": "塘口分组",
+        "href": "/pond-groups"
+      },
+      {
+        "text": "养殖批次",
+        "href": "/batches"
+      },
+      {
+        "text": "规格抽样",
+        "href": "/sampling"
+      },
+      {
+        "text": "转塘记录",
+        "href": "/transfers"
+      },
+      {
+        "text": "损耗记录",
+        "href": "/losses"
+      },
+      {
+        "text": "出塘捕捞",
+        "href": "/harvests"
+      },
+      {
+        "text": "喂养计划",
+        "href": "/feeding/plans"
+      },
+      {
+        "text": "投喂任务",
+        "href": "/feeding/tasks"
+      },
+      {
+        "text": "投喂记录",
+        "href": "/feeding/logs"
+      },
+      {
+        "text": "日常作业",
+        "href": "/daily-ops"
+      },
+      {
+        "text": "物料档案",
+        "href": "/warehouse/materials"
+      },
+      {
+        "text": "仓库档案",
+        "href": "/warehouse/warehouses"
+      },
+      {
+        "text": "入库管理",
+        "href": "/warehouse/in"
+      },
+      {
+        "text": "出库领用",
+        "href": "/warehouse/out"
+      },
+      {
+        "text": "退库管理",
+        "href": "/warehouse/returns"
+      },
+      {
+        "text": "仓间调拨",
+        "href": "/warehouse/transfers"
+      },
+      {
+        "text": "库存盘点",
+        "href": "/warehouse/stocktakes"
+      },
+      {
+        "text": "报损报废",
+        "href": "/warehouse/scraps"
+      },
+      {
+        "text": "库存预警",
+        "href": "/warehouse/alerts"
+      },
+      {
+        "text": "仓储台账",
+        "href": "/warehouse/ledger"
+      },
+      {
+        "text": "供应商档案",
+        "href": "/purchase/suppliers"
+      },
+      {
+        "text": "采购明细",
+        "href": "/purchase/orders"
+      },
+      {
+        "text": "应付账款",
+        "href": "/purchase/payables"
+      },
+      {
+        "text": "客户档案",
+        "href": "/sales/customers"
+      },
+      {
+        "text": "销售明细",
+        "href": "/sales/orders"
+      },
+      {
+        "text": "应收账款",
+        "href": "/sales/receivables"
+      },
+      {
+        "text": "成本构成",
+        "href": "/cost/structure"
+      },
+      {
+        "text": "费用登记",
+        "href": "/cost/expenses"
+      },
+      {
+        "text": "资产台账",
+        "href": "/cost/assets"
+      },
+      {
+        "text": "期间结算",
+        "href": "/cost/settlements"
+      },
+      {
+        "text": "导入模板",
+        "href": "/data/templates"
+      },
+      {
+        "text": "批量导入",
+        "href": "/data/imports"
+      },
+      {
+        "text": "用户管理",
+        "href": "/admin/users"
+      },
+      {
+        "text": "注册审核",
+        "href": "/admin/applications"
+      },
+      {
+        "text": "角色权限",
+        "href": "/admin/roles"
+      },
+      {
+        "text": "操作日志",
+        "href": "/admin/logs"
+      },
+      {
+        "text": "业务参数",
+        "href": "/admin/settings"
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索物料 / 批次 / 仓库"
+      }
+    ],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/warehouse/alerts"
+    ]
+  },
+  {
+    "route": "/warehouse/ledger",
+    "url": "https://1.14.148.15/warehouse/ledger",
+    "title": "仓储台账 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n仓储台账\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / LEDGER\n\n仓储台账\n\n不可修改的库存事实流水；每笔变化均可追溯到原仓储单据、物料批次和经办人。\n\n导出当前范围\n流水笔数\n0\n笔\n当前授权范围\n可追溯率\n—\n单据 / 批次 / 时间齐备\n入库流水\n0\n笔\n正向变化\n出库流水\n0\n笔\n负向变化\n发生时间\t物料\t仓库\t业务类型\t数量变化\t来源单据 ID\n当前授权范围内暂无库存流水\n共 0 条记录 · 每页 50 条\n‹\n1\n›",
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "links": [
+      {
+        "text": "ADP\n养殖运营平台",
+        "href": "/workbench"
+      },
+      {
+        "text": "工作台",
+        "href": "/workbench"
+      },
+      {
+        "text": "消息与预警",
+        "href": "/messages"
+      },
+      {
+        "text": "我的待办",
+        "href": "/todos"
+      },
+      {
+        "text": "塘口档案",
+        "href": "/ponds"
+      },
+      {
+        "text": "塘口分组",
+        "href": "/pond-groups"
+      },
+      {
+        "text": "养殖批次",
+        "href": "/batches"
+      },
+      {
+        "text": "规格抽样",
+        "href": "/sampling"
+      },
+      {
+        "text": "转塘记录",
+        "href": "/transfers"
+      },
+      {
+        "text": "损耗记录",
+        "href": "/losses"
+      },
+      {
+        "text": "出塘捕捞",
+        "href": "/harvests"
+      },
+      {
+        "text": "喂养计划",
+        "href": "/feeding/plans"
+      },
+      {
+        "text": "投喂任务",
+        "href": "/feeding/tasks"
+      },
+      {
+        "text": "投喂记录",
+        "href": "/feeding/logs"
+      },
+      {
+        "text": "日常作业",
+        "href": "/daily-ops"
+      },
+      {
+        "text": "物料档案",
+        "href": "/warehouse/materials"
+      },
+      {
+        "text": "仓库档案",
+        "href": "/warehouse/warehouses"
+      },
+      {
+        "text": "入库管理",
+        "href": "/warehouse/in"
+      },
+      {
+        "text": "出库领用",
+        "href": "/warehouse/out"
+      },
+      {
+        "text": "退库管理",
+        "href": "/warehouse/returns"
+      },
+      {
+        "text": "仓间调拨",
+        "href": "/warehouse/transfers"
+      },
+      {
+        "text": "库存盘点",
+        "href": "/warehouse/stocktakes"
+      },
+      {
+        "text": "报损报废",
+        "href": "/warehouse/scraps"
+      },
+      {
+        "text": "库存预警",
+        "href": "/warehouse/alerts"
+      },
+      {
+        "text": "仓储台账",
+        "href": "/warehouse/ledger"
+      },
+      {
+        "text": "供应商档案",
+        "href": "/purchase/suppliers"
+      },
+      {
+        "text": "采购明细",
+        "href": "/purchase/orders"
+      },
+      {
+        "text": "应付账款",
+        "href": "/purchase/payables"
+      },
+      {
+        "text": "客户档案",
+        "href": "/sales/customers"
+      },
+      {
+        "text": "销售明细",
+        "href": "/sales/orders"
+      },
+      {
+        "text": "应收账款",
+        "href": "/sales/receivables"
+      },
+      {
+        "text": "成本构成",
+        "href": "/cost/structure"
+      },
+      {
+        "text": "费用登记",
+        "href": "/cost/expenses"
+      },
+      {
+        "text": "资产台账",
+        "href": "/cost/assets"
+      },
+      {
+        "text": "期间结算",
+        "href": "/cost/settlements"
+      },
+      {
+        "text": "导入模板",
+        "href": "/data/templates"
+      },
+      {
+        "text": "批量导入",
+        "href": "/data/imports"
+      },
+      {
+        "text": "用户管理",
+        "href": "/admin/users"
+      },
+      {
+        "text": "注册审核",
+        "href": "/admin/applications"
+      },
+      {
+        "text": "角色权限",
+        "href": "/admin/roles"
+      },
+      {
+        "text": "操作日志",
+        "href": "/admin/logs"
+      },
+      {
+        "text": "业务参数",
+        "href": "/admin/settings"
+      }
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索物料 / 批次 / 仓库"
+      }
+    ],
+    "entries": [
+      "https://1.14.148.15/api/v1/auth/me",
+      "https://1.14.148.15/api/v1/notifications?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/work-items?include_history=false&page=1&page_size=100",
+      "https://1.14.148.15/api/v1/warehouse/ledger?page=1&page_size=50"
+    ]
+  }
+]

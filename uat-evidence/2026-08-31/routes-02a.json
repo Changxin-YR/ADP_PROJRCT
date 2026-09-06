@@ -1,0 +1,728 @@
+[
+  {
+    "route": "/feeding/plans",
+    "url": "https://1.14.148.15/feeding/plans",
+    "title": "投喂计划 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n喂养计划\n投喂任务\n投喂记录\n日常作业\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n投喂计划\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDAILY FARMING / FEED PLANS\n\n投喂计划\n\n按塘口和批次建立可核验、可追溯的投喂标准。\n\n导出当前范围\n新建投喂计划\n记录总数\n0\n条\n当前授权范围\n待核验\n0\n条\n提交后仍可编辑\n正式记录\n0\n条\n核验后只读\n全部业务状态\n草稿\n待核验\n已核验\n已更正\n已归档\n计划单号\t计划名称\t塘口 ID\t批次 ID\t物料 ID\t计划量\t版本\t业务状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 74
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 74
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/production/feed-plans?page=1&page_size=100",
+        "status": 200,
+        "ms": 74
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新建投喂计划",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/feeding/tasks",
+    "url": "https://1.14.148.15/feeding/tasks",
+    "title": "投喂任务 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n喂养计划\n投喂任务\n投喂记录\n日常作业\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n投喂任务\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDAILY FARMING / FEED TASKS\n\n投喂任务\n\n把投喂计划转为指定塘口、时间和作业人员的执行任务。\n\n导出当前范围\n新建投喂任务\n记录总数\n0\n条\n当前授权范围\n待核验\n0\n条\n提交后仍可编辑\n正式记录\n0\n条\n核验后只读\n全部业务状态\n草稿\n待核验\n已核验\n已更正\n已归档\n任务单号\t任务名称\t计划 ID\t塘口 ID\t作业员 ID\t要求量\t版本\t业务状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 51
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/production/feed-tasks?page=1&page_size=100",
+        "status": 200,
+        "ms": 74
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 74
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新建投喂任务",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/feeding/logs",
+    "url": "https://1.14.148.15/feeding/logs",
+    "title": "投喂记录 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n喂养计划\n投喂任务\n投喂记录\n日常作业\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n投喂记录\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDAILY FARMING / FEED LOGS\n\n投喂记录\n\n登记实际投喂事实，核验后关联物料领用和成本，原始记录不可覆盖。\n\n导出当前范围\n录入投喂记录\n记录总数\n0\n条\n当前授权范围\n待核验\n0\n条\n提交后仍可编辑\n正式记录\n0\n条\n核验后只读\n全部业务状态\n草稿\n待核验\n已核验\n已更正\n已归档\n记录单号\t投喂事项\t任务 ID\t领料申请 ID\t塘口 ID\t批次 ID\t物料 ID\t实际量\t版本\t业务状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/production/feed-logs?page=1&page_size=100",
+        "status": 200,
+        "ms": 61
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 63
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 64
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "录入投喂记录",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/daily-ops",
+    "url": "https://1.14.148.15/daily-ops",
+    "title": "日常作业 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n喂养计划\n投喂任务\n投喂记录\n日常作业\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n日常作业\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDAILY FARMING / OPERATIONS\n\n日常作业\n\n统一记录巡塘、水质、消毒、换水、维修和异常处理事实。\n\n导出当前范围\n登记日常作业\n记录总数\n0\n条\n当前授权范围\n待核验\n0\n条\n提交后仍可编辑\n正式记录\n0\n条\n核验后只读\n全部业务状态\n草稿\n待核验\n已核验\n已更正\n已归档\n作业单号\t作业类型\t塘口 ID\t批次 ID\t物料 ID\t结果与异常\t版本\t业务状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 58
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 59
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/production/daily-operations?page=1&page_size=100",
+        "status": 200,
+        "ms": 66
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "登记日常作业",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/warehouse/materials",
+    "url": "https://1.14.148.15/warehouse/materials",
+    "title": "物料档案 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n物料档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / MATERIALS\n\n物料档案\n\n鱼料、渔药、消毒用品、设备配件与养殖工具的统一受控档案。\n\n导出当前范围\n新增物料\n物料档案总数\n0\n种\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n物料编号\t物料名称\t规格\t单位\t安全库存\t保质期（天）\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 50
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 51
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/materials?page=1&page_size=100",
+        "status": 200,
+        "ms": 58
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新增物料",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/warehouse/warehouses",
+    "url": "https://1.14.148.15/warehouse/warehouses",
+    "title": "仓库档案 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n仓库档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / MASTER DATA\n\n仓库档案\n\n维护采购、入库、领用与调拨使用的企业仓库。\n\n导出当前范围\n新增仓库\n仓库总数\n0\n个\n当前企业仓库（含停用）\n仓库编码\t基地\t区域\t位置\t状态\n当前筛选条件下没有结果\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/farms?page_size=100&status=verified",
+        "status": 200,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/warehouse/warehouses?include_disabled=1",
+        "status": 200,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/areas?page_size=100&status=verified",
+        "status": 200,
+        "ms": 67
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新增仓库",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  }
+]

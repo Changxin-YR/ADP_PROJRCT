@@ -1,0 +1,2 @@
+npm warn rebuild 1 package has install scripts not yet covered by allowScripts. Run `npm approve-scripts --allow-scripts-pending` to review.
+rebuilt dependencies successfully

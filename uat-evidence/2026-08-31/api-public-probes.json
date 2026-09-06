@@ -1,0 +1,12 @@
+[
+  {
+    "url": "https://1.14.148.15/api/v1/health",
+    "status": 200,
+    "body": "{\"code\":\"OK\",\"data\":{\"environment\":\"production\",\"status\":\"ok\"},\"message\":\"\\u670d\\u52a1\\u6b63\\u5e38\",\"request_id\":\"7f0f2746e1234d90811ce21bb5cfec3d\"}\n"
+  },
+  {
+    "url": "https://1.14.148.15/api/v1/auth/csrf",
+    "status": 200,
+    "body": "{\"code\":\"OK\",\"data\":{\"csrf_token\":\"INIMi2QM7flvzo81exYB7yMPvILEdgI5_vF3GwTGf4o.bf24378379e623498cec33a00a8cbcde944c5120a00bbf04fd59a4e21342a45f\"},\"message\":\"\\u64cd\\u4f5c\\u6210\\u529f\",\"request_id\":\"95e209f9cc614ed199664e8aad9851a1\"}\n"
+  }
+]

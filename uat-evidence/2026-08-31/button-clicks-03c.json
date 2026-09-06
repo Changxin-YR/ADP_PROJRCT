@@ -1,0 +1,326 @@
+[
+  {
+    "route": "/warehouse/transfers",
+    "label": "新建调拨",
+    "url": "https://1.14.148.15/warehouse/transfers",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新建调拨",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索仓间调拨 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-warehouse_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-target_warehouse_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-material_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-inventory_lot_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "warehouse-override_reason",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "warehouse-reason",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/warehouse/transfers",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/warehouse/stocktakes",
+    "label": "发起盘点",
+    "url": "https://1.14.148.15/warehouse/stocktakes",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "发起盘点",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索库存盘点 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-warehouse_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-material_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-inventory_lot_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "warehouse-reason",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/warehouse/stocktakes",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/warehouse/scraps",
+    "label": "登记报损",
+    "url": "https://1.14.148.15/warehouse/scraps",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "登记报损",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索报损报废 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "warehouse-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-warehouse_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-material_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-inventory_lot_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "warehouse-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "warehouse-reason",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/warehouse/scraps",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]

@@ -1,0 +1,240 @@
+[
+  {
+    "route": "/feeding/tasks",
+    "label": "新建投喂任务",
+    "url": "https://1.14.148.15/feeding/tasks",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新建投喂任务",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索投喂任务 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-feed_plan_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-batch_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-pond_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-assigned_user_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "datetime-local",
+        "id": "production-planned_at",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "production-note",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/production/feed-tasks?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      }
+    ]
+  },
+  {
+    "route": "/feeding/logs",
+    "label": "录入投喂记录",
+    "url": "https://1.14.148.15/feeding/logs",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "录入投喂记录",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索投喂记录 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-feed_task_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-material_issue_request_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-batch_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-pond_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-material_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "datetime-local",
+        "id": "production-happened_at",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "production-note",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/production/feed-logs?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]

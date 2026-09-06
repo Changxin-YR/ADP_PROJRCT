@@ -1,0 +1,740 @@
+[
+  {
+    "route": "/warehouse/alerts",
+    "url": "https://1.14.148.15/warehouse/alerts",
+    "title": "库存预警 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n库存预警\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / ALERTS\n\n库存预警\n\n由真实库存余额、安全库存线和物料批次到期日实时计算，不保存演示预警。\n\n导出当前范围\n待处理预警\n0\n条\n当前授权范围\n高严重度\n0\n条\n建议当日处理\n临期与过期\n0\n条\n按批次到期日\n物料\t仓库\t预警类型\t严重度\t当前数量\t安全库存\t到期日\t状态\n当前没有库存预警\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 64
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 64
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/warehouse/alerts",
+        "status": 200,
+        "ms": 64
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/warehouse/ledger",
+    "url": "https://1.14.148.15/warehouse/ledger",
+    "title": "仓储台账 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n物料档案\n仓库档案\n入库管理\n出库领用\n退库管理\n仓间调拨\n库存盘点\n报损报废\n库存预警\n仓储台账\n采购与付款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n仓储台账\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nWAREHOUSE / LEDGER\n\n仓储台账\n\n不可修改的库存事实流水；每笔变化均可追溯到原仓储单据、物料批次和经办人。\n\n导出当前范围\n流水笔数\n0\n笔\n当前授权范围\n可追溯率\n—\n单据 / 批次 / 时间齐备\n入库流水\n0\n笔\n正向变化\n出库流水\n0\n笔\n负向变化\n发生时间\t物料\t仓库\t业务类型\t数量变化\t来源单据 ID\n当前授权范围内暂无库存流水\n共 0 条记录 · 每页 50 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 65
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/warehouse/ledger?page=1&page_size=50",
+        "status": 200,
+        "ms": 65
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/purchase/suppliers",
+    "url": "https://1.14.148.15/purchase/suppliers",
+    "title": "供应商档案 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n供应商档案\n采购明细\n应付账款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n供应商档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nPURCHASE / SUPPLIERS\n\n供应商档案\n\n供应商、账期和联系方式的统一受控档案。\n\n导出当前范围\n新增供应商\n供应商档案总数\n0\n家\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n编号\t供应商名称\t联系人\t账期（天）\t地址\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 66
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 72
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/suppliers?page=1&page_size=100",
+        "status": 200,
+        "ms": 72
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新增供应商",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/purchase/orders",
+    "url": "https://1.14.148.15/purchase/orders",
+    "title": "采购明细 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n供应商档案\n采购明细\n应付账款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n采购明细\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nPURCHASE / ORDERS\n\n采购明细\n\n采购审批不改变库存；到货核验后在同一事务生成库存事实与应付。\n\n导出当前范围\n＋ 新建采购单\n采购单\n0\n张\n当前授权范围\n待审批\n0\n张\n提交后仍可编辑\n在途采购\n0\n张\n审批不入库，到货核验后入账\n全部业务状态\n草稿\n待审批\n已审批\n部分到货\n全部到货\n已关闭\n已取消\n有争议\n采购单号\t供应商\t采购物料\t收货仓\t数量\t已到货\t金额\t待付\t状态\n当前授权范围内暂无采购单\n共 0 条记录 · 每页 20 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 56
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/materials?page_size=100&status=verified",
+        "status": 200,
+        "ms": 55
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 58
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/purchase/orders",
+        "status": 200,
+        "ms": 59
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/suppliers?page_size=100&status=verified",
+        "status": 200,
+        "ms": 61
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/warehouse/warehouses",
+        "status": 200,
+        "ms": 64
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "＋ 新建采购单",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/purchase/payables",
+    "url": "https://1.14.148.15/purchase/payables",
+    "title": "应付账款 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n供应商档案\n采购明细\n应付账款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n应付账款\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nPURCHASE / PAYABLES\n\n应付账款\n\n应付按核验到货唯一生成；付款支持部分核销与结清。\n\n导出当前范围\n＋ 登记付款\n应付账款\n付款记录\n应付总额\n0\n0 笔到货应付\n未付余额\n0\n付款核验后实时核销\n已结清\n0\n笔\n保留完整付款历史\n全部应付状态\n未付款\n部分付款\n已结清\n多付待处理\n有争议\n已取消\n供应商\t应付金额\t已付金额\t未付余额\t到期日\t账期\t状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 20 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 55
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 55
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/purchase/payables",
+        "status": 200,
+        "ms": 58
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/purchase/payments",
+        "status": 200,
+        "ms": 58
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "＋ 登记付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "应付账款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "付款记录",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/sales/customers",
+    "url": "https://1.14.148.15/sales/customers",
+    "title": "客户档案 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n客户档案\n销售明细\n应收账款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n客户档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSALES / CUSTOMERS\n\n客户档案\n\n客户、账期与信用额度的统一受控档案。\n\n导出当前范围\n新增客户\n客户档案总数\n0\n家\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n编号\t客户名称\t联系人\t账期（天）\t信用额度\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 59
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/master-data/customers?page=1&page_size=100",
+        "status": 200,
+        "ms": 59
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 60
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "导出当前范围",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "新增客户",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "‹",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "1",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "›",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  }
+]

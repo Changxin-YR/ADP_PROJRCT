@@ -1,0 +1,10 @@
+[
+  {
+    "route": "/admin/settings",
+    "missing": true
+  },
+  {
+    "route": "/auth/password-change",
+    "missing": true
+  }
+]

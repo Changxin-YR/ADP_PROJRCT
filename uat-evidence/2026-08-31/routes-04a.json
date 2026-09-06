@@ -1,0 +1,681 @@
+[
+  {
+    "route": "/data/templates",
+    "url": "https://1.14.148.15/data/templates",
+    "title": "导入模板 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n导入模板\n批量导入\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n导入模板\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDATA EXCHANGE / TEMPLATES\n\n导入模板\n\n标准模板按版本生成，列定义、格式、必填项与示例均由服务端统一维护。\n\n模板总数\n30\n个\n覆盖 9 个业务域\n可直接导入\n29\n个\n其余模板用于标准化采集\n字段总数\n177\n个\n含格式与示例说明\n全部业务域\n基础档案\n塘口与批次\n日常养殖\n主数据\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n系统管理\n模板名称\t版本\t字段数\t导入状态\t最近更新\t操作\n\n塘口档案\n基础档案 · ponds\n\t1.0\t6\t\n可导入\t2026-08-31\t下载\n\n养殖批次\n塘口与批次 · batches\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n投苗记录\n塘口与批次 · stocking\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n规格抽样\n塘口与批次 · samplings\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n损耗记录\n塘口与批次 · losses\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n转塘记录\n塘口与批次 · transfers\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n喂养计划\n日常养殖 · feed-plans\n\t1.0\t7\t\n可导入\t2026-08-31\t下载\n\n喂养记录\n日常养殖 · feed-logs\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n派工任务\n日常养殖 · feed-tasks\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n日常作业\n日常养殖 · daily-operations\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n物料档案\n主数据 · materials\n\t1.0\t6\t\n可导入\t2026-08-31\t下载\n\n入库记录\n物料与仓储 · receipts\n\t1.0\t7\t\n可导入\t2026-08-31\t下载\n\n出库记录\n物料与仓储 · issues\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n调拨记录\n物料与仓储 · warehouse-transfers\n\t1.0\t7\t\n可导入\t2026-08-31\t下载\n\n退库记录\n物料与仓储 · returns\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n盘点记录\n物料与仓储 · stocktakes\n\t1.0\t7\t\n可导入\t2026-08-31\t下载\n\n报损报废记录\n物料与仓储 · scraps\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n供应商\n采购与付款 · suppliers\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n采购明细\n采购与付款 · purchase-orders\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n付款记录\n采购与付款 · payments\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n客户\n销售与收款 · customers\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n销售明细\n销售与收款 · sales-orders\n\t1.0\t8\t\n可导入\t2026-08-31\t下载\n\n出塘记录\n销售与收款 · harvests\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n收款记录\n销售与收款 · customer-receipts\n\t1.0\t5\t\n可导入\t2026-08-31\t下载\n\n费用登记\n成本与经营 · expenses\n\t1.0\t6\t\n可导入\t2026-08-31\t下载\n\n设备资产\n成本与经营 · assets\n\t1.0\t10\t\n可导入\t2026-08-31\t下载\n\n租赁合同\n成本与经营 · leases\n\t1.0\t6\t\n可导入\t2026-08-31\t下载\n\n成本调整\n成本与经营 · cost-adjustments\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n基础参数\n系统管理 · business-settings\n\t1.0\t4\t\n可导入\t2026-08-31\t下载\n\n库存流水\n物料与仓储 · inventory-ledger\n\t1.0\t5\t\n仅下载\n库存流水为系统只追加账本\n\t2026-08-31\t下载",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 54
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 94
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/data-exchange/templates",
+        "status": 200,
+        "ms": 94
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "下载",
+        "disabled": false,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/data/imports",
+    "url": "https://1.14.148.15/data/imports",
+    "title": "批量导入 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n数据交换\n导入模板\n批量导入\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n批量导入\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nDATA EXCHANGE / IMPORTS\n\n批量导入\n\n上传 Excel 后先逐行校验；任一行失败时整批不写入，确认后仅形成可继续核验的草稿记录。\n\n＋ 上传文件导入\n导入批次\n0\n个\n全部保留处理历史\n已写入草稿\n0\n行\n核验前可继续编辑\n已校验数据\n0\n行\n失败批次未写入\n批次 / 文件\t模板\t总行数\t通过\t错误\t结果\t操作\n暂无导入记录\n\n上一页\n第 1 页\n下一页",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "status": 400,
+        "ms": 52
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/data-exchange/templates",
+        "status": 200,
+        "ms": 84
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "status": 200,
+        "ms": 113
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/data-exchange/imports?page=1&page_size=50",
+        "status": 200,
+        "ms": 113
+      }
+    ],
+    "buttons": [
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "关闭导航"
+      },
+      {
+        "text": "塘口与批次",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "日常养殖",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "物料与仓储",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购与付款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售与收款",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "成本与经营",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "数据交换",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "系统管理",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "使用帮助",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "打开导航"
+      },
+      {
+        "text": "",
+        "disabled": false,
+        "aria": "消息与预警"
+      },
+      {
+        "text": "退出",
+        "disabled": false,
+        "aria": "退出登录"
+      },
+      {
+        "text": "＋ 上传文件导入",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "上一页",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "下一页",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/admin/users",
+    "url": "https://1.14.148.15/admin/users",
+    "title": "批量导入 · ADP 养殖运营平台",
+    "text": "ADP\n养殖运营平台\n系统在线\nADP / AQUACULTURE\n服务在线\n\n系统管理\n\n账号管理\n\n创建后的账号进入首次改密状态；注销只改变生命周期状态，申请、授权和业务台账始终保留。\n\n←\n返回上一步\n姓名\n手机号\n系统账号\n\n选填，内部账号可用手机号或系统账号登录\n\n初始密码\n\n只在创建表单中暂存，提交后立即清空\n\n角色（可多选，7 类岗位，选中项高亮）\n养殖管理员\n养殖作业员\n仓储管理员\n采购人员\n财务人员\n销售人员\n数据范围（可多选，全场/区域/个人）\n全场数据（所有基地）\n全场数据\n默认企业全企业数据\n全场数据\n默认基地全场数据\n全场数据\n北区基地全部数据\n区域数据\n南区基地全部数据\n区域数据\n仅本人数据\n个人数据\n创建账号\n现有账号\n全部状态\n正常\n已停用\n待首次改密\n已注销\n查询\n易荛\n13345678900\n正常\n角色：未分配 · 范围：南区基地全部数据\n编辑权限\n停用\n重置密码\n注销\nQA测试账号\n13900007777 · qa_tester\n正常\n角色：超级管理员 · 范围：未分配\n编辑权限\n停用\n重置密码\n注销\nYR\n13330823801\n正常\n角色：未分配 · 范围：南区基地全部数据\n编辑权限\n停用\n重置密码\n注销\n自检申请\n13908151258\n正常\n角色：未分配 · 范围：北区基地全部数据\n编辑权限\n停用\n重置密码\n注销\n创建测试员\n13700003333\n正常\n角色：超级管理员 · 范围：北区基地全部数据\n编辑权限\n停用\n重置密码\n注销\n审核测试\n13900008888\n正常\n角色：未分配 · 范围：北区基地全部数据\n编辑权限\n停用\n重置密码\n注销\n测试用户\n13900009999\n正常\n角色：未分配 · 范围：北区基地全部数据\n编辑权限\n停用\n重置密码\n注销\nA\n13900001111\n已驳回\n角色：未分配 · 范围：未分配\n编辑权限\n停用\n重置密码\n注销\n易荛\n13367425801\n已停用\n角色：未分配 · 范围：北区基地全部数据\n编辑权限\n启用\n重置密码\n注销\n系统管理员\n13800000000 · adpadmin\n正常\n角色：超级管理员 · 范围：北区基地全部数据\n编辑权限\n停用\n重置密码\n注销\n第 1 页 · 共 10 个账号\n上一页下一页\n© 2026 鱼塘养殖喂养日常管理系统　保留所有权利",
+    "net": [
+      {
+        "method": "GET",
+        "url": "/api/v1/admin/options",
+        "status": 200,
+        "ms": 59
+      },
+      {
+        "method": "GET",
+        "url": "/api/v1/admin/users?page=1&page_size=20",
+        "status": 200,
+        "ms": 62
+      }
+    ],
+    "buttons": [
+      {
+        "text": "←\n返回上一步",
+        "disabled": false,
+        "aria": "返回上一步"
+      },
+      {
+        "text": "养殖管理员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "养殖作业员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "仓储管理员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "采购人员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "财务人员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "销售人员",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "全场数据（所有基地）\n全场数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "默认企业全企业数据\n全场数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "默认基地全场数据\n全场数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "北区基地全部数据\n区域数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "南区基地全部数据\n区域数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "仅本人数据\n个人数据",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "创建账号",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "查询",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "启用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "编辑权限",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "停用",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "重置密码",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "注销",
+        "disabled": false,
+        "aria": null
+      },
+      {
+        "text": "上一页",
+        "disabled": true,
+        "aria": null
+      },
+      {
+        "text": "下一页",
+        "disabled": true,
+        "aria": null
+      }
+    ],
+    "alerts": []
+  },
+  {
+    "route": "/admin/applications",
+    "missing": true
+  },
+  {
+    "route": "/admin/roles",
+    "missing": true
+  },
+  {
+    "route": "/admin/logs",
+    "missing": true
+  }
+]

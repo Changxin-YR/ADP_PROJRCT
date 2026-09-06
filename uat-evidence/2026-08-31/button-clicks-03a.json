@@ -1,0 +1,315 @@
+[
+  {
+    "route": "/daily-ops",
+    "label": "登记日常作业",
+    "url": "https://1.14.148.15/daily-ops",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "登记日常作业",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索日常作业 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "production-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "production-operation_type"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-batch_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-pond_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "production-material_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "datetime-local",
+        "id": "production-happened_at",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "production-payload",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "production-note",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/production/daily-operations?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/warehouse/materials",
+    "label": "新增物料",
+    "url": "https://1.14.148.15/warehouse/materials",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新增物料",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索物料档案名称 / 编码"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-code",
+        "placeholder": "例如：MAT-001"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-category",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-specification",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-unit",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "master-safety_stock",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "master-shelf_life_days",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/materials?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/warehouse/warehouses",
+    "label": "新增仓库",
+    "url": "https://1.14.148.15/warehouse/warehouses",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新增仓库",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "warehouse-status"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": ""
+      }
+    ],
+    "net": [
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/warehouse/warehouses?include_disabled=1",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/farms?page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/areas?page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]

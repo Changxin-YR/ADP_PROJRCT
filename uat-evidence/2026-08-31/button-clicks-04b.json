@@ -1,0 +1,395 @@
+[
+  {
+    "route": "/cost/expenses",
+    "label": "新增费用",
+    "url": "https://1.14.148.15/cost/expenses",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "＋ 新增费用",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索费用单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-expense-organization_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-expense-farm_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-expense-area_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-expense-category_code"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-expense-amount",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-expense-occurred_on",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-expense-period_start",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-expense-period_end",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-expense-cost_nature"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-expense-source_type",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-expense-source_ref",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-expense-target_type"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-expense-target_id",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n成本构成\n费用登记\n资产台账\n期间结算\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n费用登记\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nCOST & OPERATIONS / EXPENSES\n\n费用登记\n\n塘租、电费、人工等日常费用逐笔登记，已确认记录进入正式成本。\n\n导出当前范围\n＋ 新增费用\n本页费用\n¥0.00\n全量 0 笔\n本页待核验\n0\n笔\n本页已确认\n0\n笔\n全部状态\n草稿\n待核验\n待确认\n已确认\n已冲销\n已作废\n费用单号\t费用类别\t金额\t归属范围\t成本口径\t状态\n当前范围没有费用记录\n共 0 条记录 · 每页 20 条\n‹\n1\n›\n\nEXPENSE\n\n新增费用\n×\n\n提交后仍可编辑并递增版本；核验后只读，历史更正使用冲销记录。\n\n企业 ID *\n基地 ID *\n区域 ID\n费用类别 *\n请选择费用类别\n塘租\n设备\n基础建设\n人工\n电费\n苗种\n饲料\n动保\n其他费用\n金额 *\n发生日期 *\n期间开始 *\n期间结束 *\n成本性质\n公共成本\n直接成本\n来源类型 *\n费用单号 *\n归属类型\n公共范围\nfarm\narea\ngroup\npond\nbatch\n归属对象 ID\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/cost/expenses?page=1&page_size=20",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/cost/assets",
+    "label": "新增资产",
+    "url": "https://1.14.148.15/cost/assets",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "＋ 新增资产",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索资产名称 / 编号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-organization_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-farm_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-area_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-asset-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-asset-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-asset-asset_type"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-asset-category_code"
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-asset-purchase_date",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-original_value",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-salvage_value",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-useful_life_months",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-asset-depreciation_start_date",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-asset-allocation_driver"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "cost-asset-target_type"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-asset-target_id",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-asset-note",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n成本构成\n费用登记\n资产台账\n期间结算\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n资产台账\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nCOST & OPERATIONS / ASSETS\n\n资产台账\n\n设备、基础设施与租赁资产按确认状态和折旧期间留痕管理。\n\n导出当前范围\n＋ 新增资产\n资产总数\n0\n项\n当前授权范围\n本页资产原值\n¥0.00\n本页累计折旧\n¥0.00\n全部状态\n草稿\n待核验\n待确认\n在用\n停用\n报废\n已作废\n资产编号\t资产名称\t原值\t使用期限\t累计折旧\t归属\t状态\n当前范围没有资产记录\n共 0 条记录 · 每页 20 条\n‹\n1\n›\n\nASSET\n\n新增资产\n×\n\n提交后仍可编辑；核验后业务字段只读，折旧按期间追加记录。\n\n企业 ID *\n基地 ID *\n区域 ID\n资产编号 *\n资产名称 *\n资产类型 *\n设备\n基础设施\n租赁\n成本类别 *\n设备\n基础建设\n租赁\n其他\n购置日期 *\n资产原值 *\n预计残值\n使用期限（月） *\n折旧开始日 *\n分摊依据\narea\nequipment_count\nruntime_hours\nequal\n归属类型\n公共范围\nfarm\narea\ngroup\npond\nbatch\n归属对象 ID\n备注\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/cost/assets?page=1&page_size=20",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/cost/settlements",
+    "label": "新建结算",
+    "url": "https://1.14.148.15/cost/settlements",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "＋ 新建结算",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "关闭",
+      "运行分摊",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索结算期间 / 单号"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "cost-settlement-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-settlement-farm",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-settlement-area",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "cost-settlement-allocation",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-settlement-start",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "cost-settlement-end",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n成本与经营\n成本构成\n费用登记\n资产台账\n期间结算\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n期间结算\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nCOST & OPERATIONS / SETTLEMENTS\n\n期间结算\n\n按确认的收入、成本和分摊快照生成期间结果；反结算保留原始来源。\n\n导出当前范围\n＋ 新建结算\n本页已结算\n0\n期\n全量 0 期\n本页已确认净利润\n¥0.00\n本页待处理\n0\n期\n全部状态\n草稿\n待核验\n待确认\n已结算\n已反结算\n已作废\n结算单号\t确认收入\t归集成本\t净利润\t利润率\t经办人\t状态\n当前范围没有结算记录\n共 0 条记录 · 每页 20 条\n‹\n1\n›\n\nSETTLEMENT\n\n新建期间结算\n×\n\n结算来源快照不可改；草稿和待核验记录可修改名称，核验后全部只读。\n\n结算名称 *\n基地 ID *\n区域 ID\n分摊结果 ID *\n期间开始 *\n期间结束 *\n关闭\n运行分摊\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/cost/settlements?page=1&page_size=20",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]

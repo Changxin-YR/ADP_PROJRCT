@@ -1,0 +1,40 @@
+
+> adp-login-registration-frontend@0.1.0 test:e2e
+> playwright test --list
+
+Listing tests:
+  auth-flow.spec.ts:14:3 › 登录注册浏览器验收 › 桌面端显示登录表单并可进入注册页
+  auth-flow.spec.ts:32:3 › 登录注册浏览器验收 › 窄屏端仍保留注册申请的关键字段
+  cost-flow.spec.ts:7:1 › 成本构成支持来源追溯并保存新分摊版本
+  enterprise-flows.spec.ts:39:3 › 系统管理员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 养殖管理员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 养殖作业员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 仓储管理员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 采购人员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 财务人员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:39:3 › 销售人员只进入授权业务并由后端拒绝越权
+  enterprise-flows.spec.ts:56:1 › 已提交记录可修订，核验后只读且旧版本冲突
+  enterprise-flows.spec.ts:105:1 › 失败导入不出现确认入口且待办完成后保留历史
+  responsive-layout.spec.ts:17:3 › 窄屏布局回归 › 业务页面不应产生视口横向溢出
+  responsive-layout.spec.ts:32:3 › 窄屏布局回归 › 移动导航支持焦点、Escape 和路由关闭
+  user-management-layout.spec.ts:17:3 › 账号管理列表布局 › 账号行使用稳定的三列布局，第二列起点一致
+  user-management-layout.spec.ts:32:3 › 账号管理列表布局 › 中等屏幕操作区换行，手机端单列且无横向溢出
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 320：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 360：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 375：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 390：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 414：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 768：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 1024：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:39:5 › W4 响应式矩阵（截图证据 → repair/w4_*） › 宽度 1920：无横向溢出、无白屏、截图
+  w4-responsive.spec.ts:62:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 移动端（≤768px）：侧边栏默认隐藏、汉堡抽屉可开关
+  w4-responsive.spec.ts:87:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 移动端卡片模式：表格隐藏、卡片列表关键字段前置
+  w4-responsive.spec.ts:104:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 触控目标 ≥44px：表头/分页/关闭/登录tab/汉堡
+  w4-responsive.spec.ts:135:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 弹窗宽度 ≤ min(92vw, 500px)
+  w4-responsive.spec.ts:146:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 弱网：提交失败保留输入并提示可重试，恢复后重提成功且不重复
+  w4-responsive.spec.ts:177:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 防重复提交：连点保存仅发出一次 POST
+  w4-responsive.spec.ts:196:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 库存预警"处理"按钮：无 warehouse.manage 权限时隐藏
+  w4-responsive.spec.ts:206:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 塘口扩展字段：表单字段、来源下拉、提交载荷与详情来源标识
+  w4-responsive.spec.ts:241:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 工作台：待办超时为真实计算；预警标注口径
+  w4-responsive.spec.ts:253:3 › W4 响应式矩阵（截图证据 → repair/w4_*） › 桌面 1920 基线对比截图（after）
+Total: 34 tests in 6 files

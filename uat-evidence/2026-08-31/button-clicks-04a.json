@@ -1,0 +1,516 @@
+[
+  {
+    "route": "/purchase/suppliers",
+    "label": "新增供应商",
+    "url": "https://1.14.148.15/purchase/suppliers",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新增供应商",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索供应商档案名称 / 编码"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-contact_name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-phone",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "master-settlement_days",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-address",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "master-note",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n供应商档案\n采购明细\n应付账款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n供应商档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nPURCHASE / SUPPLIERS\n\n供应商档案\n\n供应商、账期和联系方式的统一受控档案。\n\n导出当前范围\n新增供应商\n供应商档案总数\n0\n家\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n编号\t供应商名称\t联系人\t账期（天）\t地址\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›\n\nCREATE\n\n新增 · 供应商档案\n×\n\n草稿可修改；提交后仍可修改并保留版本；核验后永久只读。\n\n供应商编号 *\n供应商名称 *\n联系人\n联系电话\n账期（天）\n地址\n备注\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/suppliers?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/purchase/orders",
+    "label": "新建采购单",
+    "url": "https://1.14.148.15/purchase/orders",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "＋ 新建采购单",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索采购单 / 供应商 / 物料"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "purchase-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "purchase-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "purchase-supplier_id"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "purchase-material_id"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "purchase-warehouse_id"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "purchase-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "purchase-unit_price",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "purchase-expected_delivery_date",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "purchase-due_date",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "purchase-note",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n供应商档案\n采购明细\n应付账款\n销售与收款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n采购明细\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nPURCHASE / ORDERS\n\n采购明细\n\n采购审批不改变库存；到货核验后在同一事务生成库存事实与应付。\n\n导出当前范围\n＋ 新建采购单\n采购单\n0\n张\n当前授权范围\n待审批\n0\n张\n提交后仍可编辑\n在途采购\n0\n张\n审批不入库，到货核验后入账\n全部业务状态\n草稿\n待审批\n已审批\n部分到货\n全部到货\n已关闭\n已取消\n有争议\n采购单号\t供应商\t采购物料\t收货仓\t数量\t已到货\t金额\t待付\t状态\n当前授权范围内暂无采购单\n共 0 条记录 · 每页 20 条\n‹\n1\n›\n\nCREATE\n\n新增采购单\n×\n\n提交后仍可编辑并递增版本；审批后业务字段只读。\n\n采购单号 *\n采购名称 *\n供应商 *\n请选择供应商\n物料 *\n请选择物料\n收货仓 *\n请选择收货仓\n数量 *\n采购单价 *\n预计到货日\n付款到期日 *\n备注\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/purchase/orders",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/materials?page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/suppliers?page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/warehouse/warehouses",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/sales/customers",
+    "label": "新增客户",
+    "url": "https://1.14.148.15/sales/customers",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "新增客户",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索客户档案名称 / 编码"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-contact_name",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-phone",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "master-settlement_days",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "master-credit_limit",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "master-address",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "master-note",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n客户档案\n销售明细\n应收账款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n客户档案\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSALES / CUSTOMERS\n\n客户档案\n\n客户、账期与信用额度的统一受控档案。\n\n导出当前范围\n新增客户\n客户档案总数\n0\n家\n来自当前授权数据范围\n待核验\n0\n条\n提交后仍可编辑，核验使用最新版本\n正式档案\n0\n条\n核验后永久只读\n全部录入状态\n草稿\n待核验\n已核验\n已归档\n编号\t客户名称\t联系人\t账期（天）\t信用额度\t版本\t录入状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 10 条\n‹\n1\n›\n\nCREATE\n\n新增 · 客户档案\n×\n\n草稿可修改；提交后仍可修改并保留版本；核验后永久只读。\n\n客户编号 *\n客户名称 *\n联系人\n联系电话\n账期（天）\n信用额度\n地址\n备注\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/master-data/customers?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  },
+  {
+    "route": "/sales/orders",
+    "label": "新建销售单",
+    "url": "https://1.14.148.15/sales/orders",
+    "formOpen": true,
+    "buttons": [
+      "塘口与批次",
+      "日常养殖",
+      "物料与仓储",
+      "采购与付款",
+      "销售与收款",
+      "成本与经营",
+      "数据交换",
+      "系统管理",
+      "使用帮助",
+      "退出",
+      "导出当前范围",
+      "＋ 新建销售单",
+      "销售单",
+      "交付记录",
+      "‹",
+      "1",
+      "›",
+      "×",
+      "取消",
+      "保存"
+    ],
+    "inputs": [
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索塘口、批次或编号"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "",
+        "placeholder": "搜索单号 / 客户 / 塘口"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "sales-code",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "sales-name",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "sales-customer_id"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "sales-pond_id"
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "sales-batch_id"
+      },
+      {
+        "tag": "INPUT",
+        "type": "text",
+        "id": "sales-species",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "sales-quantity",
+        "placeholder": ""
+      },
+      {
+        "tag": "SELECT",
+        "type": "select-one",
+        "id": "sales-unit"
+      },
+      {
+        "tag": "INPUT",
+        "type": "number",
+        "id": "sales-unit_price",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "sales-sold_at",
+        "placeholder": ""
+      },
+      {
+        "tag": "INPUT",
+        "type": "date",
+        "id": "sales-due_date",
+        "placeholder": ""
+      },
+      {
+        "tag": "TEXTAREA",
+        "type": "textarea",
+        "id": "sales-note",
+        "placeholder": ""
+      }
+    ],
+    "text": "ADP\n养殖运营平台\n运营总览\n工作台\n协作中心\n消息与预警\n我的待办\n业务模块\n塘口与批次\n日常养殖\n物料与仓储\n采购与付款\n销售与收款\n客户档案\n销售明细\n应收账款\n成本与经营\n数据交换\n系统管理\n生产工作区\nWEB\n使用帮助\nADP / OPERATIONS\n/\n销售明细\nCtrl K\n系\n系统管理员\n超级管理员\n退出\n\nSALES / ORDERS\n\n销售明细\n\n销售交易与出塘事实分别留痕；交付核验后按有效数量形成应收，不重复扣减批次存量。\n\n导出当前范围\n＋ 新建销售单\n销售单\n交付记录\n销售单\n0\n张\n当前授权范围\n待审批\n0\n张\n提交后仍可编辑\n待交付\n0\n张\n必须关联已核验出塘\n全部业务状态\n草稿\n待审批\n待交付\n部分交付\n已交付\n已关闭\n已取消\n有争议\n销售单号\t客户\t塘口\t品种\t销售数量\t已交付\t金额\t待收\t状态\n当前授权范围内暂无记录\n共 0 条记录 · 每页 20 条\n‹\n1\n›\n\nCREATE\n\n新增销售单\n×\n\n提交后仍可编辑并递增版本；审批或核验后业务字段只读，只能查看或有痕更正。\n\n销售单号 *\n销售名称 *\n客户 *\n请选择客户\n塘口 *\n请选择塘口\n养殖批次 *\n请选择养殖批次\n品种 *\n销售数量 *\n单位 *\n千克\n斤\n尾\n销售单价 *\n销售日期 *\n收款到期日 *\n备注\n取消\n保存",
+    "net": [
+      {
+        "url": "/api/v1/notifications?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/work-items?include_history=false&page=1&page_size=100",
+        "method": "GET",
+        "status": 400
+      },
+      {
+        "url": "/api/v1/production/harvests?page=1&page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/sales/orders",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/sales/deliveries",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/sales/orders?page=1&page_size=100",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/customers?page_size=100&status=verified&page=1",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/master-data/ponds?page_size=100&status=verified&page=1",
+        "method": "GET",
+        "status": 200
+      },
+      {
+        "url": "/api/v1/production/batches?page=1&page_size=100&status=verified",
+        "method": "GET",
+        "status": 200
+      }
+    ]
+  }
+]
