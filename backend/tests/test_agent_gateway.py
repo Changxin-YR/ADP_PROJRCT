@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pytest
 
@@ -121,6 +122,7 @@ def test_agent_settings_defaults_and_sidecar_paths() -> None:
     assert settings.agent_sidecar_home
     assert settings.agent_sidecar_cwd
     assert settings.agent_sidecar_command == "dsh"
+    assert settings.agent_sidecar_patch.endswith("agent-restricted.patch.yml")
 
 
 @pytest.mark.parametrize(
@@ -220,6 +222,7 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     class FakeHarness:
         def __init__(self, **kwargs):
             captured["kwargs"] = kwargs
+            captured["environment"] = dict(os.environ)
         def __enter__(self):
             return self
         def __exit__(self, *args):
@@ -239,6 +242,10 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     assert captured["session_id"] == "c-1"
     assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
     assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
+    assert captured["kwargs"]["profile"] == "sdk"
+    assert captured["kwargs"]["patches"]
+    assert captured["environment"].get("MYSQL_PASSWORD") is None
+    assert captured["environment"].get("FLASK_SECRET_KEY") is None
 
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:

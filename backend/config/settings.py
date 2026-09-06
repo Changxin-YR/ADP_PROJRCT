@@ -103,6 +103,8 @@ class Settings:
     agent_sidecar_home: str = ".agent-sidecar"
     agent_sidecar_cwd: str = "."
     agent_sidecar_command: str = "dsh"
+    agent_sidecar_patch: str = "backend/layers/features/agent/agent-restricted.patch.yml"
+    agent_gateway_url: str = ""
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -201,6 +203,11 @@ class Settings:
             agent_sidecar_home=sidecar_home,
             agent_sidecar_cwd=values.get("AGENT_SIDECAR_CWD", ".").strip() or ".",
             agent_sidecar_command=values.get("AGENT_SIDECAR_COMMAND", "dsh").strip() or "dsh",
+            agent_sidecar_patch=values.get(
+                "AGENT_SIDECAR_PATCH",
+                "backend/layers/features/agent/agent-restricted.patch.yml",
+            ).strip(),
+            agent_gateway_url=values.get("AGENT_GATEWAY_URL", "").strip(),
         )
 
     def session_limit_for_user(self, user: Mapping[str, object]) -> int:

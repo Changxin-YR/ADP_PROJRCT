@@ -22,6 +22,7 @@ from backend.layers.features.agent.agent_confirmation_store import MySqlAgentCon
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
 from backend.layers.features.agent.agent_tool_registry import AgentTool, build_registry
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
+from backend.layers.common.db.connection import _request_state
 
 
 _PATH_PARAMETER = re.compile(r"\{([^}]+)\}")
@@ -29,8 +30,12 @@ _AGENT_CONTEXTS: dict[str, tuple[str, float]] = {}
 
 
 def _issue_context(session_token: str) -> str:
+    now = time.time()
+    for token, (_session_token, expires_at) in list(_AGENT_CONTEXTS.items()):
+        if expires_at <= now:
+            _AGENT_CONTEXTS.pop(token, None)
     token = secrets.token_urlsafe(32)
-    _AGENT_CONTEXTS[token] = (session_token, time.time() + 90)
+    _AGENT_CONTEXTS[token] = (session_token, now + 90)
     return token
 
 
@@ -70,7 +75,14 @@ def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: di
     headers = {"Authorization": f"Bearer {token}", "X-Request-ID": str(context.get("request_id") or "")}
     if context.get("idempotency_key"):
         headers["Idempotency-Key"] = str(context["idempotency_key"])
-    response = current_app.test_client().open(path, method=tool.method, query_string=query, json=None if tool.method == "GET" else body, headers=headers)
+    cookie = request.headers.get("Cookie")
+    if cookie:
+        headers["Cookie"] = cookie
+    outer_scope = _request_state.get()
+    try:
+        response = current_app.test_client().open(path, method=tool.method, query_string=query, json=None if tool.method == "GET" else body, headers=headers)
+    finally:
+        _request_state.set(outer_scope)
     result = response.get_json(silent=True)
     if response.status_code >= 400:
         if isinstance(result, dict):
@@ -151,7 +163,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                     context={
                         "conversation_id": conversation,
                         "request_id": str(getattr(g, "request_id", "")),
-                        "gateway_url": request.host_url.rstrip("/") + "api/v1/agent",
+                        "gateway_url": settings.agent_gateway_url or request.host_url.rstrip("/") + "/api/v1/agent",
                         "context_token": _issue_context(str(request_session_token(request) or "")),
                     },
                 )
@@ -195,7 +207,10 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     @blueprint.post("/query")
     def query() -> tuple[Response, int] | Response:
         try:
-            if not request.headers.get("X-Agent-Context"):
+            if request.headers.get("X-Agent-Context"):
+                if _context_session_token() is None or request.cookies.get("adp_session"):
+                    raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
+            else:
                 require_csrf()
             user = current_user(); arguments, operation, conversation = operation_request(json_object())
             result = gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
@@ -208,7 +223,10 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     @blueprint.post("/prepare")
     def prepare() -> tuple[Response, int] | Response:
         try:
-            if not request.headers.get("X-Agent-Context"):
+            if request.headers.get("X-Agent-Context"):
+                if _context_session_token() is None or request.cookies.get("adp_session"):
+                    raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
+            else:
                 require_csrf()
             user = current_user(); arguments, operation, conversation = operation_request(json_object())
             return jsonify(ok(gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))))
