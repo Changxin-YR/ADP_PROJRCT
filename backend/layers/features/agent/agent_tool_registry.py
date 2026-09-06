@@ -167,7 +167,7 @@ def _openapi_tools() -> list[AgentTool]:
     return tools
 
 
-def build_registry() -> AgentToolRegistry:
+def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] | None = None) -> AgentToolRegistry:
     """Build a closed registry from the checked-in API contract.
 
     Operation paths come from the generated OpenAPI document. No client input
@@ -187,6 +187,17 @@ def build_registry() -> AgentToolRegistry:
                 parameters=tool.parameters,
                 required_permission=tool.required_permission,
                 risk=tool.risk,
+            )
+        if executor_factory is not None:
+            tool = AgentTool(
+                name=tool.name,
+                description=tool.description,
+                method=tool.method,
+                path_template=tool.path_template,
+                parameters=tool.parameters,
+                required_permission=tool.required_permission,
+                risk=tool.risk,
+                execute=executor_factory(tool),
             )
         by_name[tool.name] = tool
     return AgentToolRegistry(tuple(by_name.values()))

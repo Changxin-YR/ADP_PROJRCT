@@ -21,6 +21,11 @@ class _MemoryConfirmationStore:
         self.next_id += 1
         self.rows[token] = row
         return row
+    def find(self, *, token, user_id, session_hash):
+        row = self.rows.get(token)
+        if not row or row.user_id != user_id or row.session_hash != session_hash:
+            return None
+        return row
     def claim(self, *, token, user_id, session_hash, now=None):
         row = self.rows.get(token)
         if not row or row.status != "pending" or row.user_id != user_id or row.session_hash != session_hash or row.expires_at <= (now or datetime.now(timezone.utc).replace(tzinfo=None)):
@@ -81,6 +86,24 @@ def test_agent_permission_denial_fails_closed():
     with pytest.raises(AgentGatewayError) as exc:
         gateway.prepare_tool(_active_user("production.view"), "master_data.create_record", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
     assert exc.value.code == "FORBIDDEN"
+
+
+def test_agent_data_scope_denial_fails_closed():
+    gateway = _gateway()
+    user = _active_user("master_data.view")
+    user["data_scopes"] = []
+    with pytest.raises(AgentGatewayError) as exc:
+        gateway.prepare_tool(user, "master_data.list_records", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+    assert exc.value.code == "DATA_SCOPE_REQUIRED"
+
+
+def test_agent_read_uses_registered_executor():
+    executor = lambda args, context: {"rows": [args["resource"]]}
+    registry = build_registry(lambda _tool: executor)
+    gateway = AgentGatewayService(Settings.from_env({"APP_ENV": "test"}), registry=registry, confirmations=_MemoryConfirmationStore())
+    result = gateway.prepare_tool(_active_user("master_data.view"), "master_data.list_records", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+    assert result["kind"] == "success"
+    assert result["data"]["rows"] == ["ponds"]
 
 
 def test_agent_settings_defaults_and_sidecar_paths() -> None:

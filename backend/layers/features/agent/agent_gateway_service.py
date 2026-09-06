@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 from backend.config.settings import Settings
 from backend.layers.common.governance.idempotency import execute_idempotent
-from backend.layers.common.security.data_scope import require_active_scope, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope
 from backend.layers.features.agent.agent_confirmation_store import _hash_token
 from backend.layers.features.agent.agent_contracts import AgentConfirmation, AgentConfirmationStore
 from backend.layers.features.agent.agent_tool_registry import AgentTool, AgentToolRegistry
@@ -84,6 +84,11 @@ class AgentGatewayService:
         except KeyError as exc:
             raise AgentGatewayError("TOOL_NOT_FOUND", "智能体操作不在允许范围内", 404) from exc
         self._require_permission(user, tool.required_permission)
+        if tool.risk != "human_only":
+            try:
+                require_active_scope(user)
+            except Exception as exc:
+                raise AgentGatewayError("DATA_SCOPE_REQUIRED", "当前账号没有有效数据范围，拒绝访问业务数据", 403) from exc
         arguments = self._validate_arguments(tool, arguments)
         if tool.risk == "human_only":
             self._audit(user, tool, arguments, result="human_only", request_id=request_id, conversation_id=conversation_id, reason="人工专属操作")
@@ -135,14 +140,26 @@ class AgentGatewayService:
         self._require_session(user)
         if not token.strip():
             raise AgentGatewayError("CONFIRMATION_INVALID", "确认令牌无效", 409)
-        pending = self.confirmations.claim(token=token, user_id=int(user["id"]), session_hash=self.session_hash(user))
+        session_hash = self.session_hash(user)
+        pending = self.confirmations.find(token=token, user_id=int(user["id"]), session_hash=session_hash)
         if pending is None:
             raise AgentGatewayError("CONFIRMATION_INVALID", "确认令牌无效、已过期或已使用", 409)
-        tool = self.registry.require(pending.tool_name)
+        try:
+            tool = self.registry.require(pending.tool_name)
+        except KeyError as exc:
+            raise AgentGatewayError("TOOL_NOT_FOUND", "该确认操作已失效，请重新发起", 409) from exc
         self._require_permission(user, tool.required_permission)
+        if tool.risk != "human_only":
+            try:
+                require_active_scope(user)
+            except Exception as exc:
+                raise AgentGatewayError("DATA_SCOPE_REQUIRED", "当前账号没有有效数据范围，拒绝访问业务数据", 403) from exc
         arguments = self._validate_arguments(tool, dict(pending.payload))
         if tool.risk != "write" or tool.execute is None:
             raise AgentGatewayError("TOOL_UNAVAILABLE", "该写操作尚未连接业务服务", 503)
+        pending = self.confirmations.claim(token=token, user_id=int(user["id"]), session_hash=session_hash)
+        if pending is None:
+            raise AgentGatewayError("CONFIRMATION_INVALID", "确认令牌无效、已过期或已使用", 409)
         try:
             body, status = self._idempotent(
                 self.settings,
