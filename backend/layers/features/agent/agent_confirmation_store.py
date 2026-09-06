@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from backend.layers.common.db.connection import get_connection
-from backend.layers.features.agent.agent_contracts import AgentConfirmation, AgentConfirmationStore
+from backend.layers.features.agent.agent_contracts import AgentConfirmation, AgentConfirmationError, AgentConfirmationStore
 
 
 def _hash_token(token: str) -> str:
@@ -15,6 +15,8 @@ def _hash_token(token: str) -> str:
 
 class MySqlAgentConfirmationStore(AgentConfirmationStore):
     def create(self, confirmation: AgentConfirmation, token: str) -> AgentConfirmation:
+        if confirmation.status != "pending":
+            raise AgentConfirmationError("INVALID_STATUS", "新建确认必须是 pending 状态")
         with get_connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
