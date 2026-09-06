@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from backend.layers.common.db.connection import get_connection
@@ -27,7 +27,7 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
         return AgentConfirmation(**{**confirmation.__dict__, "id": confirmation_id, "token_hash": _hash_token(token)})
 
     def claim(self, *, token: str, user_id: int, session_hash: str, now: datetime | None = None) -> AgentConfirmation | None:
-        at = now or datetime.now()
+        at = now or datetime.now(timezone.utc).replace(tzinfo=None)
         with get_connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM agent_confirmations WHERE token_hash=%s AND user_id=%s AND session_hash=%s FOR UPDATE", (_hash_token(token), user_id, session_hash))

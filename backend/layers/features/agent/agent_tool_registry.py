@@ -68,12 +68,25 @@ def _schema_for(method: str) -> dict[str, Any]:
     }
 
 
-def _permission_for(path: str) -> str | None:
+def _permission_for(path: str, method: str) -> str | None:
     segments = path.split("/")
     domain = segments[3] if len(segments) > 3 else ""
     if domain in {"work-items", "notifications"}:
         return "work_item.view"
-    return _DOMAIN_PERMISSIONS.get(domain)
+    if domain == "admin":
+        if "/roles" in path:
+            return "auth.role.manage"
+        if "/applications" in path:
+            return "auth.review"
+        if "/audit-logs" in path:
+            return "audit.view"
+        return "auth.user.manage"
+    permission = _DOMAIN_PERMISSIONS.get(domain)
+    if method != "GET" and permission and permission.endswith(".view"):
+        return permission[:-5] + ".manage"
+    if method != "GET" and permission == "work_item.view":
+        return "work_item.manage"
+    return permission
 
 
 def _risk_for(method: str, path: str) -> Risk:
@@ -147,7 +160,7 @@ def _openapi_tools() -> list[AgentTool]:
                     method=method_upper,  # type: ignore[arg-type]
                     path_template=path,
                     parameters=_schema_for(method_upper),
-                    required_permission=_permission_for(path),
+                    required_permission=_permission_for(path, method_upper),
                     risk=_risk_for(method_upper, path),
                 )
             )
