@@ -31,6 +31,10 @@ from backend.layers.product.warehouse.routes import create_warehouse_blueprint
 from backend.layers.product.purchase.routes import create_purchase_blueprint
 from backend.layers.product.sales.routes import create_sales_blueprint
 from backend.layers.product.data_exchange.routes import create_data_exchange_blueprint
+from backend.layers.features.agent.agent_confirmation_store import MySqlAgentConfirmationStore
+from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
+from backend.layers.features.agent.agent_tool_registry import build_registry
+from backend.layers.product.agent.routes import create_agent_blueprint
 
 
 def _mysql_error_field(message: str) -> str | None:
@@ -53,6 +57,7 @@ def create_app(
     purchase_store: Any | None = None,
     sales_store: Any | None = None,
     data_exchange_store: Any | None = None,
+    agent_gateway: Any | None = None,
 ) -> Flask:
     resolved = settings or Settings.from_env(env)
     auth_store = store or MySqlAuthStore(resolved)
@@ -63,6 +68,11 @@ def create_app(
     resolved_purchase_store = purchase_store or MySqlPurchaseStore(resolved)
     resolved_sales_store = sales_store or MySqlSalesStore(resolved)
     resolved_data_exchange_store = data_exchange_store or MySqlDataExchangeStore(resolved)
+    resolved_agent_gateway = agent_gateway or AgentGatewayService(
+        resolved,
+        registry=build_registry(),
+        confirmations=MySqlAgentConfirmationStore(),
+    )
     app = Flask(__name__)
     if resolved.trusted_proxy_hops:
         app.wsgi_app = ProxyFix(
@@ -107,6 +117,7 @@ def create_app(
     app.register_blueprint(create_purchase_blueprint(resolved, auth_store, resolved_purchase_store))
     app.register_blueprint(create_sales_blueprint(resolved, auth_store, resolved_sales_store))
     app.register_blueprint(create_data_exchange_blueprint(resolved, auth_store, resolved_data_exchange_store))
+    app.register_blueprint(create_agent_blueprint(resolved, auth_store, resolved_agent_gateway))
 
     @app.get("/api/v1/health")
     def health() -> Any:
