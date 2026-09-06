@@ -1,0 +1,43 @@
+{
+  "operation_count": 171,
+  "registered_count": 171,
+  "unmapped_operations": [],
+  "human_only_operations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/roles/{role_id}/copies",
+      "tool": "admin.copy"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/roles/{role_id}/permissions",
+      "tool": "admin.update_role_permissions"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/users/{user_id}/grants",
+      "tool": "admin.update_grants"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/password-reset",
+      "tool": "admin.reset"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/reset-password",
+      "tool": "admin.reset:post"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/retire",
+      "tool": "admin.retire"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/users/{user_id}/status",
+      "tool": "admin.set"
+    }
+  ],
+  "tool_count": 171
+}
