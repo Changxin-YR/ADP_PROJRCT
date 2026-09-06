@@ -8,8 +8,11 @@ from backend.layers.features.agent.agent_confirmation_store import MySqlAgentCon
 from backend.layers.features.agent.agent_tool_registry import build_registry
 import backend.layers.features.agent.agent_confirmation_store as confirmation_store_module
 from datetime import datetime, timedelta, timezone
+import sys
+import types
 
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError, AgentGatewayService
+from backend.layers.features.agent.harness_sidecar import HarnessSidecar
 
 
 class _MemoryConfirmationStore:
@@ -204,3 +207,41 @@ def test_claim_rejects_expired_and_cancel_only_pending(monkeypatch) -> None:
     assert store.claim(token="token", user_id=1, session_hash="s", now=now) is None
     assert store.mark_cancelled(4, user_id=1) is True
     assert store.mark_cancelled(4, user_id=1) is False
+
+
+def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
+    captured = {}
+
+    class FakeHarness:
+        def __init__(self, **kwargs):
+            captured["kwargs"] = kwargs
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def run(self, prompt, *, session_id):
+            captured["prompt"] = prompt
+            captured["session_id"] = session_id
+            return {"kind": "assistant", "message": "ok"}
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run(
+        "查询塘口",
+        context={"conversation_id": "c-1", "gateway_url": "http://127.0.0.1", "adp_session": "secret"},
+    )
+    assert result["kind"] == "assistant"
+    assert "adp_session" not in captured["prompt"]
+    assert captured["session_id"] == "c-1"
+
+
+def test_sidecar_maps_timeout(monkeypatch) -> None:
+    class TimeoutHarness:
+        def __init__(self, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def run(self, *args, **kwargs): raise TimeoutError()
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=TimeoutHarness))
+    with pytest.raises(AgentGatewayError) as exc:
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-1"})
+    assert exc.value.code == "AGENT_TIMEOUT"

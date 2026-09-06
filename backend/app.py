@@ -55,6 +55,7 @@ def create_app(
     sales_store: Any | None = None,
     data_exchange_store: Any | None = None,
     agent_gateway: Any | None = None,
+    agent_sidecar: Any | None = None,
 ) -> Flask:
     resolved = settings or Settings.from_env(env)
     auth_store = store or MySqlAuthStore(resolved)
@@ -109,7 +110,7 @@ def create_app(
     app.register_blueprint(create_purchase_blueprint(resolved, auth_store, resolved_purchase_store))
     app.register_blueprint(create_sales_blueprint(resolved, auth_store, resolved_sales_store))
     app.register_blueprint(create_data_exchange_blueprint(resolved, auth_store, resolved_data_exchange_store))
-    app.register_blueprint(create_agent_blueprint(resolved, auth_store, agent_gateway))
+    app.register_blueprint(create_agent_blueprint(resolved, auth_store, agent_gateway, agent_sidecar))
 
     @app.get("/api/v1/health")
     def health() -> Any:
