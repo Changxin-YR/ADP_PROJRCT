@@ -8,6 +8,7 @@ import ActionButton from './ActionButton.vue'
 import AppIcon from './AppIcon.vue'
 import { listPonds } from '../../features/workbench/workbench.service'
 import { getNotifications, getWorkItems, type NotificationRecord } from '../../features/workbench/workbench.service'
+import AgentPanel from './AgentPanel.vue'
 import type { PondSummary } from '../../common/api/workbench.models'
 import { helpSections, navGroups, type NavGroup, type NavItem } from './app-shell/navigation'
 
@@ -214,6 +215,8 @@ const signOutOpen = ref(false)
       </header>
       <main class="workbench-content"><slot /></main>
     </section>
+
+    <AgentPanel />
 
     <Teleport to="body">
       <div v-if="signOutOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="退出登录确认" @click.self="signOutOpen = false">

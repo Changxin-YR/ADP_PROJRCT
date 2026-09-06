@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS agent_confirmations (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  token_hash CHAR(64) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  session_hash CHAR(64) NOT NULL,
+  conversation_id VARCHAR(64) NOT NULL,
+  request_id VARCHAR(64) NOT NULL,
+  tool_name VARCHAR(128) NOT NULL,
+  payload_json JSON NOT NULL,
+  status ENUM('pending','confirmed','cancelled','expired') NOT NULL DEFAULT 'pending',
+  expires_at DATETIME(6) NOT NULL,
+  used_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_agent_confirmations_token_hash (token_hash),
+  KEY idx_agent_confirmations_user (user_id),
+  KEY idx_agent_confirmations_status (status),
+  KEY idx_agent_confirmations_expiry (expires_at),
+  KEY idx_agent_confirmations_user_status (user_id,status,expires_at),
+  CONSTRAINT fk_agent_confirmations_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

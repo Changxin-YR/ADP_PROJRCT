@@ -31,6 +31,13 @@ def _as_positive_int(name: str, value: str | None, *, default: int) -> int:
     return parsed
 
 
+def _as_bounded_positive_int(name: str, value: str | None, *, default: int, maximum: int) -> int:
+    parsed = _as_positive_int(name, value, default=default)
+    if parsed > maximum:
+        raise ConfigError(f"{name} 超出范围（最大 {maximum}）")
+    return parsed
+
+
 def _as_non_negative_int(name: str, value: str | None, *, default: int) -> int:
     try:
         parsed = int(value if value is not None else default)
@@ -96,6 +103,13 @@ class Settings:
     attachment_scanner_argv: tuple[str, ...] = ()
     attachment_scanner_timeout_seconds: int = 30
     attachment_scanner_threat_exit_codes: tuple[int, ...] = (2,)
+    agent_request_timeout_seconds: int = 30
+    agent_confirmation_ttl_seconds: int = 120
+    agent_sidecar_home: str = ".agent-sidecar"
+    agent_sidecar_cwd: str = "."
+    agent_sidecar_command: str = "dsh"
+    agent_sidecar_patch: str = "backend/layers/features/agent/agent-restricted.patch.yml"
+    agent_gateway_url: str = ""
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -145,6 +159,12 @@ class Settings:
         if app_env == "production" and not session_cookie_secure:
             raise ConfigError("生产环境 SESSION_COOKIE_SECURE 必须为 true")
 
+        sidecar_home = values.get("AGENT_SIDECAR_HOME", "").strip()
+        if app_env == "production" and not sidecar_home:
+            raise ConfigError("生产环境必须配置 AGENT_SIDECAR_HOME")
+        if not sidecar_home:
+            sidecar_home = ".agent-sidecar"
+
         return cls(
             app_env=app_env,
             flask_secret_key=flask_secret_key,
@@ -180,6 +200,20 @@ class Settings:
             attachment_scanner_threat_exit_codes=_as_exit_codes(
                 values.get("ATTACHMENT_SCANNER_THREAT_EXIT_CODES")
             ),
+            agent_request_timeout_seconds=_as_bounded_positive_int(
+                "AGENT_REQUEST_TIMEOUT_SECONDS", values.get("AGENT_REQUEST_TIMEOUT_SECONDS"), default=30, maximum=60
+            ),
+            agent_confirmation_ttl_seconds=_as_bounded_positive_int(
+                "AGENT_CONFIRMATION_TTL_SECONDS", values.get("AGENT_CONFIRMATION_TTL_SECONDS"), default=120, maximum=600
+            ),
+            agent_sidecar_home=sidecar_home,
+            agent_sidecar_cwd=values.get("AGENT_SIDECAR_CWD", ".").strip() or ".",
+            agent_sidecar_command=values.get("AGENT_SIDECAR_COMMAND", "dsh").strip() or "dsh",
+            agent_sidecar_patch=values.get(
+                "AGENT_SIDECAR_PATCH",
+                "backend/layers/features/agent/agent-restricted.patch.yml",
+            ).strip(),
+            agent_gateway_url=values.get("AGENT_GATEWAY_URL", "").strip(),
         )
 
     def session_limit_for_user(self, user: Mapping[str, object]) -> int:

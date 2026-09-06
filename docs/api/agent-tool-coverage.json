@@ -1,0 +1,93 @@
+{
+  "operation_count": 171,
+  "registered_count": 171,
+  "unmapped_operations": [],
+  "human_only_operations": [
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/applications/{application_id}/approve",
+      "tool": "admin.approve"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/applications/{application_id}/reject",
+      "tool": "admin.reject"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/applications/{application_id}/review",
+      "tool": "admin.review_application"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/roles/{role_id}/copies",
+      "tool": "admin.copy"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/roles/{role_id}/permissions",
+      "tool": "admin.update_role_permissions"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users",
+      "tool": "admin.create_user"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/admin/users/{user_id}",
+      "tool": "admin.delete"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/admin/users/{user_id}/grants",
+      "tool": "admin.update_grants"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/password-reset",
+      "tool": "admin.reset_password"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/reset-password",
+      "tool": "admin.reset_password:post"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/admin/users/{user_id}/retire",
+      "tool": "admin.retire_user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/admin/users/{user_id}/status",
+      "tool": "admin.set_status"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/auth/application",
+      "tool": "api.auth_resubmit_application_patch_api_v1_auth_application"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "tool": "api.auth_login_post_api_v1_auth_login"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "tool": "api.auth_logout_post_api_v1_auth_logout"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/password/change",
+      "tool": "api.auth_change_password_post_api_v1_auth_password_change"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "tool": "api.auth_register_post_api_v1_auth_register"
+    }
+  ],
+  "tool_count": 171
+}
