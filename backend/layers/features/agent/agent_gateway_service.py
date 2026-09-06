@@ -77,6 +77,11 @@ class AgentGatewayService:
             "reason": reason,
         })
 
+    def _context(self, user: dict[str, Any], request_id: str, **extra: Any) -> dict[str, Any]:
+        context = {"user": user, "request_id": request_id}
+        context.update(extra)
+        return context
+
     def prepare_tool(self, user: dict[str, Any], tool_name: str, arguments: dict[str, Any], *, conversation_id: str, request_id: str) -> dict[str, Any]:
         self._require_session(user)
         try:
@@ -97,7 +102,7 @@ class AgentGatewayService:
             if tool.execute is None:
                 raise AgentGatewayError("TOOL_UNAVAILABLE", "该查询工具尚未连接业务服务", 503)
             try:
-                data = tool.execute(arguments, {"user": user, "request_id": request_id})
+                data = tool.execute(arguments, self._context(user, request_id, session_token=user.get("_session_token")))
             except AgentGatewayError:
                 raise
             except Exception as exc:
@@ -167,7 +172,7 @@ class AgentGatewayService:
                 action_code=f"agent:{tool.name}",
                 key=pending.idempotency_key,
                 payload=arguments,
-                operation=lambda: (tool.execute(arguments, {"user": user, "request_id": request_id}), 200),
+                operation=lambda: (tool.execute(arguments, self._context(user, request_id, session_token=user.get("_session_token"), idempotency_key=pending.idempotency_key)), 200),
             )
         except AgentGatewayError:
             raise
