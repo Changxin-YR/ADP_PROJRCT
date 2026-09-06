@@ -54,17 +54,6 @@ _DOMAIN_PERMISSIONS = {
     "workbench": "work_item.view",
 }
 
-_HUMAN_ONLY_MARKERS = (
-    "/roles/",
-    "/permissions",
-    "/grants",
-    "/password",
-    "/reset-password",
-    "/status",
-    "/retire",
-)
-
-
 def _schema_for(method: str) -> dict[str, Any]:
     if method == "GET":
         return {
@@ -82,11 +71,15 @@ def _schema_for(method: str) -> dict[str, Any]:
 def _permission_for(path: str) -> str | None:
     segments = path.split("/")
     domain = segments[3] if len(segments) > 3 else ""
+    if domain in {"work-items", "notifications"}:
+        return "work_item.view"
     return _DOMAIN_PERMISSIONS.get(domain)
 
 
 def _risk_for(method: str, path: str) -> Risk:
-    if path.startswith("/api/v1/admin") and any(marker in path for marker in _HUMAN_ONLY_MARKERS):
+    if path.startswith("/api/v1/admin") and method != "GET":
+        return "human_only"
+    if path.startswith("/api/v1/auth") and method != "GET":
         return "human_only"
     if method == "GET":
         return "read"
@@ -115,11 +108,21 @@ def _tool_name(operation_id: str, method: str, path: str) -> str:
     if "/work-items" in path:
         return "workbench.list_work_items" if method == "GET" else "workbench.update_work_item"
     if path.startswith("/api/v1/admin"):
-        suffix = operation_id.removeprefix("admin_").split("_")[0]
+        if "create_user" in operation_id:
+            return "admin.create_user"
         if "update_role_permissions" in operation_id:
             return "admin.update_role_permissions"
         if "update_grants" in operation_id:
             return "admin.update_grants"
+        if "set_status" in operation_id:
+            return "admin.set_status"
+        if "reset_password" in operation_id:
+            return "admin.reset_password"
+        if "retire_user" in operation_id:
+            return "admin.retire_user"
+        if "review" in operation_id:
+            return "admin.review_application"
+        suffix = operation_id.removeprefix("admin_").split("_")[0]
         return f"admin.{suffix or 'operation'}"
     return f"api.{operation_id or method.lower()}"
 

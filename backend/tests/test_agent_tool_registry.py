@@ -8,6 +8,7 @@ def test_registry_marks_read_write_and_human_only_operations() -> None:
     assert registry.get("master_data.list_records").risk == "read"
     assert registry.get("master_data.create_record").risk == "write"
     assert registry.get("admin.update_role_permissions").risk == "human_only"
+    assert registry.get("admin.create_user").risk == "human_only"
 
 
 def test_registry_exposes_fixed_paths_and_no_arbitrary_http() -> None:
