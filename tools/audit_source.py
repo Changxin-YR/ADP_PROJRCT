@@ -23,6 +23,8 @@ IGNORED_DIRS = {
     "node_modules",
     "playwright-report",
     "test-results",
+    ".worktrees",
+    "adp_phone",
 }
 STRICT_CATEGORIES = {
     "static_business_source",
