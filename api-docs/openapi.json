@@ -55,6 +55,10 @@
     {
       "name": "workbench",
       "description": "工作台"
+    },
+    {
+      "name": "agent",
+      "description": "当前登录用户权限内的智能助手操作"
     }
   ],
   "paths": {
@@ -8404,6 +8408,21 @@
     },
     "/api/v1/sales/returns/{record_id}": {
       "delete": {"operationId": "sales_delete_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/agent/turn": {
+      "post": {"tags": ["agent"], "operationId": "agent_turn", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/agent/query": {
+      "post": {"tags": ["agent"], "operationId": "agent_query", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/agent/prepare": {
+      "post": {"tags": ["agent"], "operationId": "agent_prepare", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/agent/confirm": {
+      "post": {"tags": ["agent"], "operationId": "agent_confirm", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+    },
+    "/api/v1/agent/cancel": {
+      "post": {"tags": ["agent"], "operationId": "agent_cancel", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
     }
   },
   "components": {

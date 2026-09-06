@@ -102,7 +102,7 @@ class Settings:
     agent_confirmation_ttl_seconds: int = 120
     agent_sidecar_home: str = ".agent-sidecar"
     agent_sidecar_cwd: str = "."
-    agent_sidecar_command: str = "agent-sidecar"
+    agent_sidecar_command: str = "dsh"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -200,7 +200,7 @@ class Settings:
             ),
             agent_sidecar_home=sidecar_home,
             agent_sidecar_cwd=values.get("AGENT_SIDECAR_CWD", ".").strip() or ".",
-            agent_sidecar_command=values.get("AGENT_SIDECAR_COMMAND", "agent-sidecar").strip() or "agent-sidecar",
+            agent_sidecar_command=values.get("AGENT_SIDECAR_COMMAND", "dsh").strip() or "dsh",
         )
 
     def session_limit_for_user(self, user: Mapping[str, object]) -> int:

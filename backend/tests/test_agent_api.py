@@ -101,6 +101,7 @@ def test_agent_turn_forwards_current_user_and_message() -> None:
     assert call["conversation_id"] == "conversation-1"
     assert call["request_id"] == response.get_json()["request_id"]
     assert call["user"]["_session_hash"] == hash_session_token(client.get_cookie("adp_session").value)
+    assert response.get_json()["data"]["conversation_id"] == "conversation-1"
 
 
 def test_agent_turn_rejects_blank_message() -> None:

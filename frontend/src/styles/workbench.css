@@ -375,3 +375,38 @@
   .primary-action:disabled, .ghost-action:disabled, .table-action-btn:disabled { opacity: .6; cursor: default; }
   .primary-action:disabled:hover, .ghost-action:disabled:hover { transform: none; filter: none; }
 }
+
+/* ===== 智能助手 ===== */
+.agent-widget { position: fixed; z-index: 80; right: 22px; bottom: 22px; display: grid; justify-items: end; gap: 10px; }
+.agent-launcher { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 15px; border: 1px solid #2f7f72; border-radius: 10px; color: #fff; background: #2c6b65; box-shadow: 0 10px 24px rgba(29, 74, 68, .22); font: inherit; font-size: 13px; font-weight: 750; cursor: pointer; }
+.agent-launcher:hover { background: #245b56; }
+.agent-panel { display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px)); height: min(620px, calc(100vh - 106px)); overflow: hidden; border: 1px solid #cfe5e0; border-radius: 12px; background: #fff; box-shadow: 0 18px 48px rgba(22, 65, 60, .2); }
+.agent-panel__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 17px 14px; border-bottom: 1px solid #e6efec; background: #f8fdfc; }
+.agent-panel__header strong { display: block; color: #193b39; font-size: 15px; }
+.agent-panel__header small { display: block; margin-top: 3px; color: #708c87; font-size: 11.5px; }
+.agent-panel__close { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #cfe5e0; border-radius: 8px; color: #52716c; background: #fff; cursor: pointer; }
+.agent-panel__messages { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; background: #fff; }
+.agent-panel__empty { margin: 18px 4px; color: #7a918d; font-size: 13px; text-align: center; }
+.agent-message { display: grid; gap: 5px; max-width: 92%; margin: 0 0 10px; padding: 9px 11px; border-radius: 8px; color: #284440; font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-message--user { margin-left: auto; color: #fff; background: #2c6b65; }
+.agent-message--assistant { border: 1px solid #e2eeeb; background: #f5faf9; }
+.agent-message--system { margin-right: auto; color: #637772; background: #f3f5f4; }
+.agent-message code { color: #7b9690; font: 10px ui-monospace, SFMono-Regular, Consolas, monospace; }
+.agent-confirmation { margin: 12px 0; padding: 12px; border: 1px solid #e3c77b; border-radius: 8px; background: #fffaf0; }
+.agent-confirmation strong { display: block; color: #5f4c1e; font-size: 13px; line-height: 1.5; }
+.agent-confirmation p { margin: 6px 0; color: #77663b; font-size: 12px; line-height: 1.5; }
+.agent-confirmation pre { max-height: 130px; margin: 8px 0; padding: 8px; overflow: auto; border: 1px solid #f0e4c7; border-radius: 6px; color: #5c543d; background: #fffdf8; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-confirmation__actions { display: flex; justify-content: flex-end; gap: 8px; }
+.agent-confirmation__actions button, .agent-panel__composer button { min-height: 36px; padding: 0 12px; border: 1px solid #cfe5e0; border-radius: 8px; color: #365954; background: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.agent-confirmation__actions button:last-child, .agent-panel__composer button { border-color: #2f7f72; color: #fff; background: #2c6b65; }
+.agent-confirmation__actions button:disabled, .agent-panel__composer button:disabled { opacity: .5; cursor: not-allowed; }
+.agent-panel__error { margin: 10px 0 0; padding: 8px 10px; border: 1px solid #f1c8cb; border-radius: 7px; color: #a33f49; background: #fff5f5; font-size: 12px; line-height: 1.5; }
+.agent-panel__composer { display: flex; align-items: flex-end; gap: 8px; padding: 11px; border-top: 1px solid #e6efec; background: #f8fdfc; }
+.agent-panel__composer textarea { flex: 1; min-width: 0; min-height: 52px; max-height: 120px; resize: vertical; padding: 9px 10px; border: 1px solid #cfe5e0; border-radius: 8px; color: #193b39; background: #fff; font: inherit; font-size: 13px; line-height: 1.45; }
+.agent-panel__composer textarea:focus, .agent-panel__close:focus-visible, .agent-launcher:focus-visible, .agent-confirmation__actions button:focus-visible, .agent-panel__composer button:focus-visible { outline: none; box-shadow: var(--wb-focus-ring); }
+.agent-panel__composer button { display: inline-flex; align-items: center; gap: 6px; min-width: 70px; justify-content: center; }
+@media (max-width: 768px) {
+  .agent-widget { right: 14px; bottom: 14px; }
+  .agent-panel { position: fixed; right: 0; bottom: 0; width: 100vw; height: min(82vh, 680px); max-height: calc(100vh - 14px); border-radius: 14px 14px 0 0; }
+  .agent-launcher { min-height: 46px; }
+}

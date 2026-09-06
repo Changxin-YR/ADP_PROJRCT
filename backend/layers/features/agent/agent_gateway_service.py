@@ -23,6 +23,16 @@ class AgentGatewayError(ValueError):
 
 AuditWriter = Callable[[dict[str, Any]], None]
 
+_SENSITIVE_KEYS = {"password", "password_hash", "token", "cookie", "authorization", "attachment"}
+
+
+def _redact(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: "[REDACTED]" if any(marker in str(key).lower() for marker in _SENSITIVE_KEYS) else _redact(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    return value
+
 
 class AgentGatewayService:
     def __init__(
@@ -68,8 +78,9 @@ class AgentGatewayService:
             return
         self.audit({
             "user_id": user.get("id"),
+            "session_hash": user.get("_session_hash"),
             "tool_name": tool.name,
-            "arguments": arguments,
+            "arguments": _redact(arguments),
             "risk": tool.risk,
             "result": result,
             "request_id": request_id,
@@ -133,7 +144,7 @@ class AgentGatewayService:
                 "token": token,
                 "tool_name": tool.name,
                 "summary": tool.description,
-                "arguments": arguments,
+                "arguments": _redact(arguments),
                 "risk": "该操作会修改业务数据，确认后才会执行",
                 "expires_at": saved.expires_at.isoformat(),
                 "conversation_id": saved.conversation_id,

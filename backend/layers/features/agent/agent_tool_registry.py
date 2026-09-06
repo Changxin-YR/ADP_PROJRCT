@@ -147,6 +147,8 @@ def _openapi_tools() -> list[AgentTool]:
     spec = json.loads(source.read_text(encoding="utf-8"))
     tools: list[AgentTool] = []
     for path, operations in spec.get("paths", {}).items():
+        if path.startswith("/api/v1/agent/"):
+            continue
         for method, operation in operations.items():
             method_upper = method.upper()
             if method_upper not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
@@ -213,7 +215,7 @@ def build_agent_catalog(app: Any, registry: AgentToolRegistry | None = None) -> 
     registry = registry or build_registry()
     operations: list[dict[str, str]] = []
     for rule in app.url_map.iter_rules():
-        if not rule.rule.startswith("/api/v1"):
+        if not rule.rule.startswith("/api/v1") or rule.rule.startswith("/api/v1/agent/"):
             continue
         for method in sorted(rule.methods & {"GET", "POST", "PUT", "PATCH", "DELETE"}):
             operations.append({"method": method, "path": _flask_path(rule.rule)})

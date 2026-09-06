@@ -109,13 +109,18 @@ def test_agent_read_uses_registered_executor():
     assert result["data"]["rows"] == ["ponds"]
 
 
+def test_agent_registry_excludes_gateway_endpoints() -> None:
+    registry = build_registry()
+    assert all(not tool.path_template.startswith("/api/v1/agent/") for tool in registry.tools)
+
+
 def test_agent_settings_defaults_and_sidecar_paths() -> None:
     settings = Settings.from_env({"APP_ENV": "test"})
     assert settings.agent_request_timeout_seconds == 30
     assert settings.agent_confirmation_ttl_seconds == 120
     assert settings.agent_sidecar_home
     assert settings.agent_sidecar_cwd
-    assert settings.agent_sidecar_command
+    assert settings.agent_sidecar_command == "dsh"
 
 
 @pytest.mark.parametrize(
@@ -227,11 +232,13 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
     result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run(
         "查询塘口",
-        context={"conversation_id": "c-1", "gateway_url": "http://127.0.0.1", "adp_session": "secret"},
+        context={"conversation_id": "c-1", "gateway_url": "http://127.0.0.1", "context_token": "short-lived", "adp_session": "secret"},
     )
     assert result["kind"] == "assistant"
     assert "adp_session" not in captured["prompt"]
     assert captured["session_id"] == "c-1"
+    assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
+    assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
 
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:

@@ -86,7 +86,25 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     blueprint = Blueprint("agent", __name__, url_prefix="/api/v1/agent")
     auth = AuthService(auth_store, settings)
     if gateway is None:
-        gateway = AgentGatewayService(settings, registry=build_registry(lambda tool: lambda arguments, context: _dispatch_fixed_tool(tool, arguments, context)), confirmations=MySqlAgentConfirmationStore())
+        def audit(event: dict[str, Any]) -> None:
+            writer = getattr(auth_store, "audit_event", None)
+            if callable(writer):
+                writer(
+                    action="agent_tool",
+                    object_type="agent_tool",
+                    object_ref=str(event.get("tool_name") or "agent"),
+                    user_id=event.get("user_id"),
+                    result=str(event.get("result") or "failure"),
+                    request_id=event.get("request_id"),
+                    reason=event.get("reason"),
+                    detail=event,
+                )
+        gateway = AgentGatewayService(
+            settings,
+            registry=build_registry(lambda tool: lambda arguments, context: _dispatch_fixed_tool(tool, arguments, context)),
+            confirmations=MySqlAgentConfirmationStore(),
+            audit=audit,
+        )
     sidecar = sidecar or HarnessSidecar(settings)
 
     def current_user() -> dict[str, Any]:
@@ -123,14 +141,15 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             if len(message.strip()) > 4000:
                 raise AgentGatewayError("VALIDATION_ERROR", "指令长度不能超过 4000 个字符", 400)
             runner = getattr(gateway, "run_turn", None)
+            conversation = conversation_id(payload)
             if callable(runner):
                 safe_user = {key: value for key, value in user.items() if key != "_session_token"}
-                result = runner(safe_user, message.strip(), conversation_id=conversation_id(payload), request_id=str(getattr(g, "request_id", "")))
+                result = runner(safe_user, message.strip(), conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
             elif sidecar is not None:
                 result = sidecar.run(
                     message.strip(),
                     context={
-                        "conversation_id": conversation_id(payload),
+                        "conversation_id": conversation,
                         "request_id": str(getattr(g, "request_id", "")),
                         "gateway_url": request.host_url.rstrip("/") + "api/v1/agent",
                         "context_token": _issue_context(str(request_session_token(request) or "")),
@@ -142,6 +161,8 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 if not operation or not isinstance(arguments, dict):
                     raise AgentGatewayError("AGENT_UNAVAILABLE", "智能体服务暂时不可用，请稍后重试", 503)
                 result = gateway.prepare_tool(user, operation, arguments, conversation_id=conversation_id(payload), request_id=str(getattr(g, "request_id", "")))
+            if isinstance(result, dict):
+                result.setdefault("conversation_id", conversation)
             return jsonify(ok(result))
         except (CsrfError, AuthServiceError, AgentGatewayError, DomainError) as error:
             return error_response(error)
@@ -191,6 +212,17 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 require_csrf()
             user = current_user(); arguments, operation, conversation = operation_request(json_object())
             return jsonify(ok(gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))))
+        except (CsrfError, AuthServiceError, AgentGatewayError, TypeError, ValueError) as error:
+            return error_response(error)
+
+    @blueprint.post("/cancel")
+    def cancel() -> tuple[Response, int] | Response:
+        try:
+            require_csrf(); user = current_user(); payload = json_object()
+            confirmation_id = int(payload.get("confirmation_id") or 0)
+            if confirmation_id <= 0 or not gateway.confirmations.mark_cancelled(confirmation_id, user_id=int(user["id"])):
+                raise AgentGatewayError("CONFIRMATION_INVALID", "确认操作不存在或已处理", 409)
+            return jsonify(ok({"cancelled": True}))
         except (CsrfError, AuthServiceError, AgentGatewayError, TypeError, ValueError) as error:
             return error_response(error)
 

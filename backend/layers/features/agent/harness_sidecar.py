@@ -34,6 +34,10 @@ class HarnessSidecar:
                 dsh_bin=self.settings.agent_sidecar_command or None,
                 profile="sdk",
                 request_timeout_seconds=float(self.settings.agent_request_timeout_seconds),
+                env={
+                    "ADP_AGENT_GATEWAY_URL": safe_context.get("gateway_url", ""),
+                    "ADP_AGENT_CONTEXT_TOKEN": safe_context.get("context_token", ""),
+                },
             ) as harness:
                 result = harness.run(
                     json.dumps({"prompt": prompt, "context": safe_context}, ensure_ascii=False),
