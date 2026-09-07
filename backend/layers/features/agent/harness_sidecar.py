@@ -22,9 +22,9 @@ class HarnessSidecar:
             if key in {"conversation_id", "request_id", "gateway_url", "context_token"}
             and value is not None
         }
-        session_id = safe_context.get("conversation_id")
-        if not session_id:
+        if not safe_context.get("conversation_id"):
             raise AgentGatewayError("VALIDATION_ERROR", "缺少对话标识", 400)
+        session_id = safe_context.get("request_id") or safe_context["conversation_id"]
         try:
             from deepseek_harness import DeepSeekHarness
         except ImportError as exc:

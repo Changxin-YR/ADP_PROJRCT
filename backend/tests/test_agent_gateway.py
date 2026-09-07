@@ -246,11 +246,11 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
     result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run(
         "查询塘口",
-        context={"conversation_id": "c-1", "gateway_url": "http://127.0.0.1", "context_token": "short-lived", "adp_session": "secret"},
+        context={"conversation_id": "c-1", "request_id": "r-1", "gateway_url": "http://127.0.0.1", "context_token": "short-lived", "adp_session": "secret"},
     )
     assert result["kind"] == "assistant"
     assert "adp_session" not in captured["prompt"]
-    assert captured["session_id"] == "c-1"
+    assert captured["session_id"] == "r-1"
     assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
     assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
     assert captured["kwargs"]["profile"] == "sdk"
