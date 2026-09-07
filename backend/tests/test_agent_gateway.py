@@ -125,6 +125,7 @@ def test_agent_settings_defaults_and_sidecar_paths() -> None:
     assert settings.agent_sidecar_patch.endswith("agent-restricted.patch.yml")
     assert settings.agent_model_provider == "deepseek-official"
     assert settings.agent_model == "deepseek-v4-flash"
+    assert settings.agent_model_max_tokens == 32768
 
 
 def test_agent_restricted_patch_disables_host_native_modules() -> None:
@@ -273,11 +274,17 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
     settings = Settings.from_env(
-        {"APP_ENV": "test", "AGENT_MODEL_PROVIDER": "deepseek-official", "AGENT_MODEL": "qwen-plus"}
+        {
+            "APP_ENV": "test",
+            "AGENT_MODEL_PROVIDER": "deepseek-official",
+            "AGENT_MODEL": "qwen-plus",
+            "AGENT_MODEL_MAX_TOKENS": "32768",
+        }
     )
     HarnessSidecar(settings).run("查询", context={"conversation_id": "c-1"})
     assert captured["kwargs"]["provider"] == "deepseek-official"
     assert captured["kwargs"]["model"] == "qwen-plus"
+    assert captured["kwargs"]["max_tokens"] == 32768
 
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:

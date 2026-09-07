@@ -48,6 +48,7 @@ class HarnessSidecar:
                         profile="sdk",
                         provider=self.settings.agent_model_provider,
                         model=self.settings.agent_model,
+                        max_tokens=self.settings.agent_model_max_tokens,
                         patches=patches,
                         request_timeout_seconds=float(self.settings.agent_request_timeout_seconds),
                         env={

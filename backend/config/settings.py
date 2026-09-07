@@ -111,6 +111,7 @@ class Settings:
     agent_sidecar_patch: str = "backend/layers/features/agent/agent-restricted.patch.yml"
     agent_model_provider: str = "deepseek-official"
     agent_model: str = "deepseek-v4-flash"
+    agent_model_max_tokens: int = 32768
     agent_gateway_url: str = ""
 
     @classmethod
@@ -217,6 +218,9 @@ class Settings:
             ).strip(),
             agent_model_provider=values.get("AGENT_MODEL_PROVIDER", "deepseek-official").strip() or "deepseek-official",
             agent_model=values.get("AGENT_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
+            agent_model_max_tokens=_as_bounded_positive_int(
+                "AGENT_MODEL_MAX_TOKENS", values.get("AGENT_MODEL_MAX_TOKENS"), default=32768, maximum=256000
+            ),
             agent_gateway_url=values.get("AGENT_GATEWAY_URL", "").strip(),
         )
 
