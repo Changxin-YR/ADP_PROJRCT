@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Literal
 
@@ -32,6 +33,10 @@ class AgentToolRegistry:
         self.tools = tools
         self._by_name = {tool.name: tool for tool in tools}
         self._by_operation = {(tool.method, tool.path_template): tool for tool in tools}
+        if len(self._by_name) != len(tools):
+            raise ValueError("duplicate agent tool names are not allowed")
+        if len(self._by_operation) != len(tools):
+            raise ValueError("duplicate agent tool operations are not allowed")
 
     def get(self, name: str) -> AgentTool:
         return self._by_name[name]
@@ -239,55 +244,50 @@ def _openapi_tools() -> list[AgentTool]:
     return tools
 
 
+def _unique_tool_name(tool: AgentTool, by_name: dict[str, AgentTool]) -> str:
+    """Return a deterministic unique name without dropping duplicate aliases.
+
+    Several generic ADP routes intentionally share a friendly canonical tool
+    name. The previous implementation only appended the HTTP method, so a third
+    route using the same method silently replaced the second route in the dict.
+    """
+    if tool.name not in by_name:
+        return tool.name
+
+    method_name = f"{tool.name}:{tool.method.lower()}"
+    if method_name not in by_name:
+        return method_name
+
+    path_slug = re.sub(r"[^a-z0-9]+", "_", tool.path_template.lower()).strip("_") or "route"
+    candidate = f"{method_name}:{path_slug}"
+    suffix = 2
+    while candidate in by_name:
+        candidate = f"{method_name}:{path_slug}:{suffix}"
+        suffix += 1
+    return candidate
+
+
 def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] | None = None) -> AgentToolRegistry:
     """Build a closed registry from the checked-in API contract.
 
     Operation paths come from the generated OpenAPI document. No client input
-    can add a URL, HTTP method, SQL expression, or tool at runtime.
+    can add a URL, HTTP method, SQL expression, or tool at runtime. Every
+    OpenAPI operation is retained exactly once, even when friendly tool names
+    collide across route aliases or generic resource endpoints.
     """
     tools = _openapi_tools()
     by_name: dict[str, AgentTool] = {}
     for tool in tools:
-        # Canonical names are useful to the Harness plugin; duplicate route
-        # variants retain their operation id so every route remains auditable.
-        if tool.name in by_name:
-            tool = AgentTool(
-                name=f"{tool.name}:{tool.method.lower()}",
-                description=tool.description,
-                method=tool.method,
-                path_template=tool.path_template,
-                parameters=tool.parameters,
-                required_permission=tool.required_permission,
-                risk=tool.risk,
-                required_role=tool.required_role,
-                permission_namespace=tool.permission_namespace,
-                permission_action=tool.permission_action,
-                resource_argument=tool.resource_argument,
-                requires_data_scope=tool.requires_data_scope,
-            )
+        unique_name = _unique_tool_name(tool, by_name)
+        if unique_name != tool.name:
+            tool = replace(tool, name=unique_name)
         if executor_factory is not None:
-            tool = AgentTool(
-                name=tool.name,
-                description=tool.description,
-                method=tool.method,
-                path_template=tool.path_template,
-                parameters=tool.parameters,
-                required_permission=tool.required_permission,
-                risk=tool.risk,
-                execute=executor_factory(tool),
-                required_role=tool.required_role,
-                permission_namespace=tool.permission_namespace,
-                permission_action=tool.permission_action,
-                resource_argument=tool.resource_argument,
-                requires_data_scope=tool.requires_data_scope,
-            )
+            tool = replace(tool, execute=executor_factory(tool))
         by_name[tool.name] = tool
     return AgentToolRegistry(tuple(by_name.values()))
 
 
 def _flask_path(rule: str) -> str:
-    import re
-
     return re.sub(r"<(?:int|path):([^>]+)>|<([^>]+)>", lambda match: "{" + (match.group(1) or match.group(2)) + "}", rule)
 
 
