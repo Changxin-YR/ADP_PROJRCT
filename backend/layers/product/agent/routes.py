@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import re
-import secrets
-import time
 from typing import Any
 from urllib.parse import quote
 from uuid import uuid4
 
+from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from backend.config.settings import Settings
@@ -26,31 +27,43 @@ from backend.layers.common.db.connection import _request_state
 
 
 _PATH_PARAMETER = re.compile(r"\{([^}]+)\}")
-_AGENT_CONTEXTS: dict[str, tuple[str, float]] = {}
+_AGENT_CONTEXT_TTL_SECONDS = 90
 
 
-def _issue_context(session_token: str) -> str:
-    now = time.time()
-    for token, (_session_token, expires_at) in list(_AGENT_CONTEXTS.items()):
-        if expires_at <= now:
-            _AGENT_CONTEXTS.pop(token, None)
-    token = secrets.token_urlsafe(32)
-    _AGENT_CONTEXTS[token] = (session_token, now + 90)
-    return token
+def _context_cipher(settings: Settings) -> Fernet:
+    """Derive an authenticated-encryption key dedicated to Agent delegation.
+
+    The delegated context carries the existing web session token only in
+    encrypted form. Because it is self-contained, any Gunicorn worker can
+    validate it without a process-local cache.
+    """
+    material = f"adp-agent-context-v1:{settings.flask_secret_key}".encode("utf-8")
+    key = base64.urlsafe_b64encode(hashlib.sha256(material).digest())
+    return Fernet(key)
 
 
-def _context_session_token() -> str | None:
-    token = request.headers.get("X-Agent-Context", "").strip()
+def _issue_context(settings: Settings, session_token: str) -> str:
+    if not session_token:
+        raise AgentGatewayError("UNAUTHENTICATED", "当前会话不能委托给智能体", 401)
+    return _context_cipher(settings).encrypt(session_token.encode("utf-8")).decode("ascii")
+
+
+def _decode_context_token(settings: Settings, token: str) -> str | None:
     if not token:
         return None
-    record = _AGENT_CONTEXTS.get(token)
-    if record is None:
+    try:
+        value = _context_cipher(settings).decrypt(
+            token.encode("ascii"),
+            ttl=_AGENT_CONTEXT_TTL_SECONDS,
+        )
+        return value.decode("utf-8")
+    except (InvalidToken, UnicodeDecodeError, UnicodeEncodeError):
         return None
-    session_token, expires_at = record
-    if expires_at <= time.time():
-        _AGENT_CONTEXTS.pop(token, None)
-        return None
-    return session_token
+
+
+def _context_session_token(settings: Settings) -> str | None:
+    token = request.headers.get("X-Agent-Context", "").strip()
+    return _decode_context_token(settings, token)
 
 
 def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
@@ -120,7 +133,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     sidecar = sidecar or HarnessSidecar(settings)
 
     def current_user() -> dict[str, Any]:
-        session_token = request_session_token(request) or _context_session_token()
+        session_token = request_session_token(request) or _context_session_token(settings)
         user = auth.current_user(session_token, request_id=getattr(g, "request_id", None))
         if session_token:
             # Keep the confirmation bound to this session without exposing the raw token.
@@ -158,13 +171,18 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 safe_user = {key: value for key, value in user.items() if key != "_session_token"}
                 result = runner(safe_user, message.strip(), conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
             elif sidecar is not None:
+                session_token = str(request_session_token(request) or "")
                 result = sidecar.run(
                     message.strip(),
                     context={
                         "conversation_id": conversation,
                         "request_id": str(getattr(g, "request_id", "")),
                         "gateway_url": settings.agent_gateway_url or request.host_url.rstrip("/") + "/api/v1/agent",
-                        "context_token": _issue_context(str(request_session_token(request) or "")),
+                        "context_token": _issue_context(settings, session_token),
+                        # Namespace Harness sessions by the authenticated web
+                        # session so two users choosing the same conversation_id
+                        # can never share model history.
+                        "user_namespace": hash_session_token(session_token)[:16],
                     },
                 )
             else:
@@ -178,7 +196,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             return jsonify(ok(result))
         except (CsrfError, AuthServiceError, AgentGatewayError, DomainError) as error:
             return error_response(error)
-        except (TypeError, ValueError) as error:
+        except (TypeError, ValueError):
             return error_response(AgentGatewayError("VALIDATION_ERROR", "请求参数无效", 400))
 
     @blueprint.post("/confirm")
@@ -208,7 +226,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     def query() -> tuple[Response, int] | Response:
         try:
             if request.headers.get("X-Agent-Context"):
-                if _context_session_token() is None or request.cookies.get("adp_session"):
+                if _context_session_token(settings) is None or request.cookies.get("adp_session"):
                     raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
             else:
                 require_csrf()
@@ -224,7 +242,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     def prepare() -> tuple[Response, int] | Response:
         try:
             if request.headers.get("X-Agent-Context"):
-                if _context_session_token() is None or request.cookies.get("adp_session"):
+                if _context_session_token(settings) is None or request.cookies.get("adp_session"):
                     raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
             else:
                 require_csrf()

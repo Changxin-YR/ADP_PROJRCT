@@ -19,12 +19,16 @@ class HarnessSidecar:
         safe_context = {
             key: str(value)
             for key, value in context.items()
-            if key in {"conversation_id", "request_id", "gateway_url", "context_token"}
+            if key in {"conversation_id", "request_id", "gateway_url", "context_token", "user_namespace"}
             and value is not None
         }
         if not safe_context.get("conversation_id"):
             raise AgentGatewayError("VALIDATION_ERROR", "缺少对话标识", 400)
-        session_id = safe_context.get("request_id") or safe_context["conversation_id"]
+        # A conversation must remain stable across turns. request_id changes on
+        # every HTTP request and therefore must never be used as Harness session id.
+        namespace = safe_context.get("user_namespace", "").strip()
+        conversation_id = safe_context["conversation_id"]
+        session_id = f"{namespace}:{conversation_id}" if namespace else conversation_id
         try:
             from deepseek_harness import DeepSeekHarness
         except ImportError as exc:
