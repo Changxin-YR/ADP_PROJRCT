@@ -1,7 +1,7 @@
 # ADP_PROJRCT 第二轮验收矩阵
 
 审查日期：2026-09-08  
-本地提交：`be7cd1ee1b75a0b2b2c281de6c8f7d593510f7fc` 及本轮修正  
+本地提交：`722f2c2f5a95eba653b51422ca616fa3c2388700`（包含本轮修正）  
 测试数据库：Docker disposable MySQL 8.0.46（33080）与 MySQL 8.4（33084）
 
 状态只使用 `PASS`、`FAIL`、`BLOCKED`、`NOT_APPLICABLE`。`BLOCKED` 不得提升为 `PASS`，除非重新执行对应门禁并取得证据。
@@ -10,8 +10,8 @@
 
 | 项目 | 结果 | 证据 |
 | --- | --- | --- |
-| Unit + MySQL 8.0 | PASS | `527 passed, 0 failed, 0 skipped` |
-| Unit + MySQL 8.4 | PASS | `527 passed, 0 failed, 0 skipped` |
+| Unit + MySQL 8.0 | PASS | `528 passed, 0 failed, 0 skipped` |
+| Unit + MySQL 8.4 | PASS | `528 passed, 0 failed, 0 skipped` |
 | Coverage >= 85% | FAIL | fresh `--cov=backend` 总覆盖率 `82.29%` |
 | 无数据库时的预期 skip | PASS | `40 skipped` 全部为 disposable MySQL/真实注册适配器；无意外 skip |
 | Schema/Migration/Seed | PASS | 双版本全量测试均完成隔离库创建、迁移、种子和销毁 |
