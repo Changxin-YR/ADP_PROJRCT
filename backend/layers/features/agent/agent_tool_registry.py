@@ -6,7 +6,6 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Literal
 from backend.layers.features.agent.agent_permission_mapping import specialized_permission
-
 Risk = Literal["read", "write", "human_only"]
 Method = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
 ToolExecutor = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
@@ -79,6 +78,7 @@ def _permission_action(path: str, method: str) -> str:
         return "verify"
     return "manage"
 def _permission_for(path: str, method: str) -> str | None:
+    if path == "/api/v1/workbench/summary": return "workbench.enter"
     domain = _domain(path)
     if domain in {"work-items", "notifications"}:
         return "work_item.view" if method == "GET" else "work_item.manage"
