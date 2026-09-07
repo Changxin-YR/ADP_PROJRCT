@@ -80,3 +80,11 @@ def test_approved_offline_draft_adapter_is_not_reported() -> None:
         and item.category == "browser_business_storage"
         for item in findings
     )
+
+
+def test_embedded_harness_is_outside_adp_source_audit(tmp_path: Path) -> None:
+    source = tmp_path / "deepseek-harness/packages/core/src/large.ts"
+    source.parent.mkdir(parents=True)
+    source.write_text("\n".join(["const value = 1"] * 301), encoding="utf-8")
+
+    assert not any(item.category == "over_300_lines" for item in scan_tree(tmp_path).findings)

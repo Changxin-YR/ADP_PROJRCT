@@ -20,25 +20,55 @@ class _MemoryConfirmationStore:
     def __init__(self):
         self.rows = {}
         self.next_id = 1
+
     def create(self, confirmation, token):
-        row = AgentConfirmation(self.next_id, f"agent-confirmation:{self.next_id}", confirmation.token_hash, confirmation.user_id, confirmation.session_hash, confirmation.conversation_id, confirmation.request_id, confirmation.tool_name, confirmation.payload, "pending", confirmation.expires_at)
+        row = AgentConfirmation(
+            self.next_id,
+            f"agent-confirmation:{self.next_id}",
+            confirmation.token_hash,
+            confirmation.user_id,
+            confirmation.session_hash,
+            confirmation.conversation_id,
+            confirmation.request_id,
+            confirmation.tool_name,
+            confirmation.payload,
+            "pending",
+            confirmation.expires_at,
+        )
         self.next_id += 1
         self.rows[token] = row
         return row
+
     def find(self, *, token, user_id, session_hash):
         row = self.rows.get(token)
         if not row or row.user_id != user_id or row.session_hash != session_hash:
             return None
         return row
+
     def claim(self, *, token, user_id, session_hash, now=None):
         row = self.rows.get(token)
         if not row or row.status != "pending" or row.user_id != user_id or row.session_hash != session_hash or row.expires_at <= (now or datetime.now(timezone.utc).replace(tzinfo=None)):
             return None
-        claimed = AgentConfirmation(row.id, row.idempotency_key, row.token_hash, row.user_id, row.session_hash, row.conversation_id, row.request_id, row.tool_name, row.payload, "confirmed", row.expires_at, datetime.now(timezone.utc).replace(tzinfo=None))
+        claimed = AgentConfirmation(
+            row.id,
+            row.idempotency_key,
+            row.token_hash,
+            row.user_id,
+            row.session_hash,
+            row.conversation_id,
+            row.request_id,
+            row.tool_name,
+            row.payload,
+            "confirmed",
+            row.expires_at,
+            datetime.now(timezone.utc).replace(tzinfo=None),
+        )
         self.rows[token] = claimed
         return claimed
+
     def mark_cancelled(self, confirmation_id, *, user_id):
         return False
+
     def mark_expired(self, *, now=None):
         return 0
 
@@ -47,23 +77,51 @@ def _gateway(executor=None):
     registry = build_registry()
     if executor:
         original = registry.get("master_data.create_record")
-        replacement = type(original)(original.name, original.description, original.method, original.path_template, original.parameters, "master_data.manage", "write", executor)
+        replacement = type(original)(
+            original.name,
+            original.description,
+            original.method,
+            original.path_template,
+            original.parameters,
+            "master_data.manage",
+            "write",
+            executor,
+            original.required_role,
+            original.permission_namespace,
+            original.permission_action,
+            original.resource_argument,
+            original.requires_data_scope,
+        )
         registry = type(registry)(tuple(replacement if item.name == original.name else item for item in registry.tools))
     settings = Settings.from_env({"APP_ENV": "test"})
+
     def idempotent(_settings, *, user_id, action_code, key, payload, operation):
         body, status = operation()
         return body, status
+
     return AgentGatewayService(settings, registry=registry, confirmations=_MemoryConfirmationStore(), idempotent=idempotent)
 
 
-def _active_user(*permissions):
-    return {"id": 7, "status": "active", "permissions": list(permissions), "roles": [{"code": "operator"}], "data_scopes": [{"scope_type": "area", "area_id": 1}]}
+def _active_user(*permissions, roles=("operator",), data_scopes=None):
+    return {
+        "id": 7,
+        "status": "active",
+        "permissions": list(permissions),
+        "roles": [{"code": code} for code in roles],
+        "data_scopes": [{"scope_type": "area", "area_id": 1}] if data_scopes is None else data_scopes,
+    }
 
 
 def test_agent_write_returns_pending_without_executing():
     called = []
     gateway = _gateway(lambda args, context: called.append(args) or {"id": 1})
-    result = gateway.prepare_tool(_active_user("master_data.manage"), "master_data.create_record", {"resource": "ponds", "name": "一号塘"}, conversation_id="c-1", request_id="r-1")
+    result = gateway.prepare_tool(
+        _active_user("master_data.manage"),
+        "master_data.create_record",
+        {"resource": "ponds", "name": "一号塘"},
+        conversation_id="c-1",
+        request_id="r-1",
+    )
     assert result["kind"] == "confirmation_required"
     assert result["confirmation"]["tool_name"] == "master_data.create_record"
     assert called == []
@@ -72,40 +130,107 @@ def test_agent_write_returns_pending_without_executing():
 def test_agent_confirmation_is_single_use_and_rechecks_identity():
     gateway = _gateway(lambda args, context: {"record": args})
     user = _active_user("master_data.manage")
-    pending = gateway.prepare_tool(user, "master_data.create_record", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+    pending = gateway.prepare_tool(
+        user,
+        "master_data.create_record",
+        {"resource": "ponds"},
+        conversation_id="c-1",
+        request_id="r-1",
+    )
     token = pending["confirmation"]["token"]
     assert gateway.confirm(user, token, request_id="r-2")["kind"] == "success"
     with pytest.raises(AgentGatewayError, match="确认令牌无效"):
         gateway.confirm(user, token, request_id="r-3")
 
 
-def test_agent_human_only_permission_change_is_rejected():
+def test_agent_admin_write_is_delegable_for_authorized_super_admin():
     gateway = _gateway()
-    result = gateway.prepare_tool(_active_user("auth.role.manage"), "admin.update_role_permissions", {"role_id": 1}, conversation_id="c-1", request_id="r-1")
-    assert result["kind"] == "human_only"
+    user = _active_user("auth.role.manage", roles=("super_admin",), data_scopes=[])
+    result = gateway.prepare_tool(
+        user,
+        "admin.update_role_permissions",
+        {"role_id": 1, "payload": {"permission_ids": [1, 2]}},
+        conversation_id="c-1",
+        request_id="r-1",
+    )
+    assert result["kind"] == "confirmation_required"
+    assert result["confirmation"]["risk_level"] == "high"
+
+
+def test_agent_admin_write_requires_super_admin_role():
+    gateway = _gateway()
+    with pytest.raises(AgentGatewayError) as exc:
+        gateway.prepare_tool(
+            _active_user("auth.role.manage"),
+            "admin.update_role_permissions",
+            {"role_id": 1, "payload": {"permission_ids": [1]}},
+            conversation_id="c-1",
+            request_id="r-1",
+        )
+    assert exc.value.code == "FORBIDDEN"
+
+
+def test_agent_resource_specific_permission_is_accepted():
+    executor = lambda args, context: {"rows": [args["resource"]]}
+    registry = build_registry(lambda _tool: executor)
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=registry,
+        confirmations=_MemoryConfirmationStore(),
+    )
+    result = gateway.prepare_tool(
+        _active_user("production.feed_logs.view"),
+        "production.list_records",
+        {"resource": "feed-logs"},
+        conversation_id="c-1",
+        request_id="r-1",
+    )
+    assert result["kind"] == "success"
+    assert result["data"]["rows"] == ["feed-logs"]
 
 
 def test_agent_permission_denial_fails_closed():
     gateway = _gateway()
     with pytest.raises(AgentGatewayError) as exc:
-        gateway.prepare_tool(_active_user("production.view"), "master_data.create_record", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+        gateway.prepare_tool(
+            _active_user("production.view"),
+            "master_data.create_record",
+            {"resource": "ponds"},
+            conversation_id="c-1",
+            request_id="r-1",
+        )
     assert exc.value.code == "FORBIDDEN"
 
 
 def test_agent_data_scope_denial_fails_closed():
     gateway = _gateway()
-    user = _active_user("master_data.view")
-    user["data_scopes"] = []
+    user = _active_user("master_data.view", data_scopes=[])
     with pytest.raises(AgentGatewayError) as exc:
-        gateway.prepare_tool(user, "master_data.list_records", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+        gateway.prepare_tool(
+            user,
+            "master_data.list_records",
+            {"resource": "ponds"},
+            conversation_id="c-1",
+            request_id="r-1",
+        )
     assert exc.value.code == "DATA_SCOPE_REQUIRED"
 
 
 def test_agent_read_uses_registered_executor():
     executor = lambda args, context: {"rows": [args["resource"]]}
     registry = build_registry(lambda _tool: executor)
-    gateway = AgentGatewayService(Settings.from_env({"APP_ENV": "test"}), registry=registry, confirmations=_MemoryConfirmationStore())
-    result = gateway.prepare_tool(_active_user("master_data.view"), "master_data.list_records", {"resource": "ponds"}, conversation_id="c-1", request_id="r-1")
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=registry,
+        confirmations=_MemoryConfirmationStore(),
+    )
+    result = gateway.prepare_tool(
+        _active_user("master_data.view"),
+        "master_data.list_records",
+        {"resource": "ponds"},
+        conversation_id="c-1",
+        request_id="r-1",
+    )
     assert result["kind"] == "success"
     assert result["data"]["rows"] == ["ponds"]
 
@@ -160,7 +285,20 @@ def test_production_requires_agent_sidecar_home() -> None:
 
 def test_agent_confirmation_migration_declares_atomic_claim_contract() -> None:
     sql = (Path(__file__).parents[2] / "database/migrations/031_agent_confirmations.sql").read_text().lower()
-    for field in ("token_hash char(64)", "user_id", "session_hash char(64)", "conversation_id varchar(64)", "request_id varchar(64)", "tool_name", "payload_json json", "expires_at datetime(6)", "used_at datetime(6)", "created_at datetime(6)", "current_timestamp(6)", "idx_agent_confirmations_user_status"):
+    for field in (
+        "token_hash char(64)",
+        "user_id",
+        "session_hash char(64)",
+        "conversation_id varchar(64)",
+        "request_id varchar(64)",
+        "tool_name",
+        "payload_json json",
+        "expires_at datetime(6)",
+        "used_at datetime(6)",
+        "created_at datetime(6)",
+        "current_timestamp(6)",
+        "idx_agent_confirmations_user_status",
+    ):
         assert field in sql
     assert "status enum('pending','confirmed','cancelled','expired')" in sql
     assert "unique" in sql
@@ -168,7 +306,19 @@ def test_agent_confirmation_migration_declares_atomic_claim_contract() -> None:
 
 
 def _confirmation(status="pending", expires_at=None):
-    return AgentConfirmation(0, "key", "", 1, "session", "conversation", "request", "tool", {}, status, expires_at or datetime.now() + timedelta(minutes=1))
+    return AgentConfirmation(
+        0,
+        "key",
+        "",
+        1,
+        "session",
+        "conversation",
+        "request",
+        "tool",
+        {},
+        status,
+        expires_at or datetime.now() + timedelta(minutes=1),
+    )
 
 
 def test_create_rejects_non_pending_confirmation() -> None:
@@ -181,8 +331,13 @@ class _FakeCursor:
         self.row = row
         self.rowcount = 0
         self.statements = []
-    def __enter__(self): return self
-    def __exit__(self, *args): return False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
     def execute(self, sql, params=()):
         self.statements.append((sql, params))
         if sql.startswith("SELECT") and self.row and (params[1] != self.row["user_id"] or params[2] != self.row["session_hash"]):
@@ -194,19 +349,41 @@ class _FakeCursor:
             if self.rowcount:
                 self.row["status"] = "confirmed"
         return self.rowcount
-    def fetchone(self): return getattr(self, "_selected", self.row)
+
+    def fetchone(self):
+        return getattr(self, "_selected", self.row)
 
 
 class _FakeConnection:
-    def __init__(self, row): self.cursor_obj = _FakeCursor(row)
-    def __enter__(self): return self
-    def __exit__(self, *args): return False
-    def cursor(self): return self.cursor_obj
+    def __init__(self, row):
+        self.cursor_obj = _FakeCursor(row)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def cursor(self):
+        return self.cursor_obj
 
 
 def test_claim_is_single_use_and_rejects_expired_or_mismatched(monkeypatch) -> None:
     now = datetime.now()
-    row = {"id": 3, "token_hash": "x", "user_id": 1, "session_hash": "s", "conversation_id": "c", "request_id": "r", "tool_name": "t", "payload_json": "{}", "status": "pending", "expires_at": now + timedelta(seconds=5), "used_at": None, "created_at": now}
+    row = {
+        "id": 3,
+        "token_hash": "x",
+        "user_id": 1,
+        "session_hash": "s",
+        "conversation_id": "c",
+        "request_id": "r",
+        "tool_name": "t",
+        "payload_json": "{}",
+        "status": "pending",
+        "expires_at": now + timedelta(seconds=5),
+        "used_at": None,
+        "created_at": now,
+    }
     fake = _FakeConnection(row)
     monkeypatch.setattr(confirmation_store_module, "get_connection", lambda: fake)
     store = MySqlAgentConfirmationStore()
@@ -218,7 +395,20 @@ def test_claim_is_single_use_and_rejects_expired_or_mismatched(monkeypatch) -> N
 
 def test_claim_rejects_expired_and_cancel_only_pending(monkeypatch) -> None:
     now = datetime.now()
-    row = {"id": 4, "token_hash": "x", "user_id": 1, "session_hash": "s", "conversation_id": "c", "request_id": "r", "tool_name": "t", "payload_json": "{}", "status": "pending", "expires_at": now - timedelta(seconds=1), "used_at": None, "created_at": now}
+    row = {
+        "id": 4,
+        "token_hash": "x",
+        "user_id": 1,
+        "session_hash": "s",
+        "conversation_id": "c",
+        "request_id": "r",
+        "tool_name": "t",
+        "payload_json": "{}",
+        "status": "pending",
+        "expires_at": now - timedelta(seconds=1),
+        "used_at": None,
+        "created_at": now,
+    }
     fake = _FakeConnection(row)
     monkeypatch.setattr(confirmation_store_module, "get_connection", lambda: fake)
     store = MySqlAgentConfirmationStore()
@@ -234,10 +424,13 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
         def __init__(self, **kwargs):
             captured["kwargs"] = kwargs
             captured["environment"] = dict(os.environ)
+
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             return False
+
         def run(self, prompt, *, session_id):
             captured["prompt"] = prompt
             captured["session_id"] = session_id
@@ -246,11 +439,18 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
     result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run(
         "查询塘口",
-        context={"conversation_id": "c-1", "request_id": "r-1", "gateway_url": "http://127.0.0.1", "context_token": "short-lived", "adp_session": "secret"},
+        context={
+            "conversation_id": "c-1",
+            "request_id": "r-1",
+            "gateway_url": "http://127.0.0.1",
+            "context_token": "short-lived",
+            "user_namespace": "session-a",
+            "adp_session": "secret",
+        },
     )
     assert result["kind"] == "assistant"
     assert "adp_session" not in captured["prompt"]
-    assert captured["session_id"] == "r-1"
+    assert captured["session_id"] == "session-a:c-1"
     assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
     assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
     assert captured["kwargs"]["profile"] == "sdk"
@@ -265,10 +465,13 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
     class FakeHarness:
         def __init__(self, **kwargs):
             captured["kwargs"] = kwargs
+
         def __enter__(self):
             return self
+
         def __exit__(self, *args):
             return False
+
         def run(self, prompt, *, session_id):
             return {"kind": "assistant", "message": "ok"}
 
@@ -289,10 +492,17 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:
     class TimeoutHarness:
-        def __init__(self, **kwargs): pass
-        def __enter__(self): return self
-        def __exit__(self, *args): return False
-        def run(self, *args, **kwargs): raise TimeoutError()
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def run(self, *args, **kwargs):
+            raise TimeoutError()
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=TimeoutHarness))
     with pytest.raises(AgentGatewayError) as exc:

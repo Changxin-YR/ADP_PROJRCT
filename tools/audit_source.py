@@ -25,6 +25,7 @@ IGNORED_DIRS = {
     "test-results",
     ".worktrees",
     "adp_phone",
+    "deepseek-harness",
 }
 STRICT_CATEGORIES = {
     "static_business_source",
