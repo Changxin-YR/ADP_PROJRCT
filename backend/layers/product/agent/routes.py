@@ -158,13 +158,18 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 safe_user = {key: value for key, value in user.items() if key != "_session_token"}
                 result = runner(safe_user, message.strip(), conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
             elif sidecar is not None:
+                session_token = str(request_session_token(request) or "")
                 result = sidecar.run(
                     message.strip(),
                     context={
                         "conversation_id": conversation,
                         "request_id": str(getattr(g, "request_id", "")),
                         "gateway_url": settings.agent_gateway_url or request.host_url.rstrip("/") + "/api/v1/agent",
-                        "context_token": _issue_context(str(request_session_token(request) or "")),
+                        "context_token": _issue_context(session_token),
+                        # Namespace Harness sessions by the authenticated web
+                        # session so two users choosing the same conversation_id
+                        # can never share model history.
+                        "user_namespace": hash_session_token(session_token)[:16],
                     },
                 )
             else:
