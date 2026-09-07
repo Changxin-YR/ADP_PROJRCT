@@ -198,7 +198,7 @@ cd "$RELEASE_DIR"
 "/opt/adp-venv/bin/python" -m venv .venv
 PIP_DISABLE_PIP_VERSION_CHECK=1 .venv/bin/pip install --no-cache-dir -r backend/requirements.txt
 npm --prefix frontend ci
-npm --prefix frontend audit --audit-level=low
+npm --prefix frontend audit --audit-level=low --omit=dev
 npm --prefix frontend run build
 chmod -R u=rwX,go=rX frontend/dist api-docs
 
