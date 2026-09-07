@@ -123,6 +123,16 @@ def test_agent_settings_defaults_and_sidecar_paths() -> None:
     assert settings.agent_sidecar_cwd
     assert settings.agent_sidecar_command == "dsh"
     assert settings.agent_sidecar_patch.endswith("agent-restricted.patch.yml")
+    assert settings.agent_model_provider == "deepseek-official"
+    assert settings.agent_model == "deepseek-v4-flash"
+
+
+def test_agent_restricted_patch_disables_host_native_modules() -> None:
+    patch = (Path(__file__).parents[2] / "backend/layers/features/agent/agent-restricted.patch.yml").read_text()
+    assert "- id: subprocess\n  disabled: true" in patch
+    assert "- id: sandbox\n  disabled: true" in patch
+    assert "- id: permission\n  disabled: true" in patch
+    assert "- id: command-compact\n  disabled: true" in patch
 
 
 @pytest.mark.parametrize(
@@ -246,6 +256,28 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     assert captured["kwargs"]["patches"]
     assert captured["environment"].get("MYSQL_PASSWORD") is None
     assert captured["environment"].get("FLASK_SECRET_KEY") is None
+
+
+def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
+    captured = {}
+
+    class FakeHarness:
+        def __init__(self, **kwargs):
+            captured["kwargs"] = kwargs
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False
+        def run(self, prompt, *, session_id):
+            return {"kind": "assistant", "message": "ok"}
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    settings = Settings.from_env(
+        {"APP_ENV": "test", "AGENT_MODEL_PROVIDER": "deepseek-official", "AGENT_MODEL": "qwen-plus"}
+    )
+    HarnessSidecar(settings).run("查询", context={"conversation_id": "c-1"})
+    assert captured["kwargs"]["provider"] == "deepseek-official"
+    assert captured["kwargs"]["model"] == "qwen-plus"
 
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:

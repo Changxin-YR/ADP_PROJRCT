@@ -109,6 +109,8 @@ class Settings:
     agent_sidecar_cwd: str = "."
     agent_sidecar_command: str = "dsh"
     agent_sidecar_patch: str = "backend/layers/features/agent/agent-restricted.patch.yml"
+    agent_model_provider: str = "deepseek-official"
+    agent_model: str = "deepseek-v4-flash"
     agent_gateway_url: str = ""
 
     @classmethod
@@ -213,6 +215,8 @@ class Settings:
                 "AGENT_SIDECAR_PATCH",
                 "backend/layers/features/agent/agent-restricted.patch.yml",
             ).strip(),
+            agent_model_provider=values.get("AGENT_MODEL_PROVIDER", "deepseek-official").strip() or "deepseek-official",
+            agent_model=values.get("AGENT_MODEL", "deepseek-v4-flash").strip() or "deepseek-v4-flash",
             agent_gateway_url=values.get("AGENT_GATEWAY_URL", "").strip(),
         )
 

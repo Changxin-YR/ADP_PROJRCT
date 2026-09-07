@@ -95,3 +95,11 @@
   disabled: true
 - id: tool-ralph
   disabled: true
+- id: subprocess
+  disabled: true
+- id: sandbox
+  disabled: true
+- id: permission
+  disabled: true
+- id: command-compact
+  disabled: true

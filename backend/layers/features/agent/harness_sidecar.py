@@ -46,6 +46,8 @@ class HarnessSidecar:
                         cwd=self.settings.agent_sidecar_cwd,
                         dsh_bin=self.settings.agent_sidecar_command or None,
                         profile="sdk",
+                        provider=self.settings.agent_model_provider,
+                        model=self.settings.agent_model,
                         patches=patches,
                         request_timeout_seconds=float(self.settings.agent_request_timeout_seconds),
                         env={
