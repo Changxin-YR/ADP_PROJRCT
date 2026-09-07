@@ -59,6 +59,20 @@ def test_registry_exposes_fixed_paths_and_no_arbitrary_http() -> None:
         assert "sql" not in tool.parameters
 
 
+def test_registry_never_drops_operations_when_friendly_names_collide() -> None:
+    registry = build_registry()
+    names = [tool.name for tool in registry.tools]
+    operations = [(tool.method, tool.path_template) for tool in registry.tools]
+    assert len(names) == len(set(names))
+    assert len(operations) == len(set(operations))
+
+    # Generic production/warehouse routes intentionally share friendly names.
+    # All route variants must survive registration instead of overwriting each
+    # other when the same HTTP method appears more than once.
+    assert sum(name.startswith("production.list_records") for name in names) > 2
+    assert sum(name.startswith("warehouse.list_records") for name in names) > 2
+
+
 def test_registry_contains_all_business_domains() -> None:
     names = {tool.name for tool in build_registry().tools}
     for prefix in {"master_data", "production", "warehouse", "purchase", "sales", "cost", "data_exchange", "workbench"}:
