@@ -69,4 +69,4 @@
 
 ## Final Rating
 
-`C`：确定性 Agent、安全和 pond 业务等价证据已通过；coverage、完整 16 模块等价矩阵与真实 DeepSeek 认证仍未全部完成。
+`C`：确定性 Agent、安全和 pond 业务等价证据已通过；coverage、完整 16 模块等价矩阵仍未完成，且 Live Agent 有一项 `FAIL_AGENT_RESPONSE`。
