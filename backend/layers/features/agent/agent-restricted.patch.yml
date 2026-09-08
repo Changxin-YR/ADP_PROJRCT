@@ -1,4 +1,12 @@
 # ADP sidecar allowlist: the only runtime tools are supplied by the ADP extension.
+- insert:
+    - id: adp-agent-tools
+      name: '@deepseek-ai/dsh-adp-agent-tools'
+      config:
+        gatewayUrl: !!js process.env.ADP_AGENT_GATEWAY_URL ?? ''
+        contextToken: !!js process.env.ADP_AGENT_CONTEXT_TOKEN ?? ''
+        operationCatalog: !!js process.env.ADP_AGENT_TOOL_CATALOG ?? ''
+
 - id: tool-bash
   disabled: true
 - id: tool-pwsh

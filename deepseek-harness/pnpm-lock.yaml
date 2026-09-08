@@ -1327,6 +1327,9 @@ importers:
 
   packages/bundle/sdk-app:
     dependencies:
+      '@deepseek-ai/dsh-adp-agent-tools':
+        specifier: workspace:^
+        version: link:../../extensions/adp-agent-tools
       '@deepseek-ai/dsh-cmdline':
         specifier: workspace:^
         version: link:../../boot/cmdline
@@ -9699,6 +9702,9 @@ importers:
       '@deepseek-ai/dsh-acp':
         specifier: workspace:^
         version: link:../../packages/acp/acp
+      '@deepseek-ai/dsh-adp-agent-tools':
+        specifier: workspace:^
+        version: link:../../packages/extensions/adp-agent-tools
       '@deepseek-ai/dsh-agent':
         specifier: workspace:^
         version: link:../../packages/core/agent

@@ -5,6 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from backend.config.settings import Settings
 from backend.layers.common.db.connection import get_connection
 from backend.layers.features.agent.agent_contracts import AgentConfirmation, AgentConfirmationError, AgentConfirmationStore
 
@@ -14,10 +15,16 @@ def _hash_token(token: str) -> str:
 
 
 class MySqlAgentConfirmationStore(AgentConfirmationStore):
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings
+
+    def _connection(self):
+        return get_connection(self.settings) if self.settings is not None else get_connection()
+
     def create(self, confirmation: AgentConfirmation, token: str) -> AgentConfirmation:
         if confirmation.status != "pending":
             raise AgentConfirmationError("INVALID_STATUS", "新建确认必须是 pending 状态")
-        with get_connection() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO agent_confirmations (token_hash,user_id,session_hash,conversation_id,request_id,tool_name,payload_json,status,expires_at,used_at,created_at) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s,CURRENT_TIMESTAMP))",
@@ -45,7 +52,7 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
         )
 
     def find(self, *, token: str, user_id: int, session_hash: str) -> AgentConfirmation | None:
-        with get_connection() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "SELECT * FROM agent_confirmations WHERE token_hash=%s AND user_id=%s AND session_hash=%s",
@@ -56,7 +63,7 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
 
     def claim(self, *, token: str, user_id: int, session_hash: str, now: datetime | None = None) -> AgentConfirmation | None:
         at = now or datetime.now(timezone.utc).replace(tzinfo=None)
-        with get_connection() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("SELECT * FROM agent_confirmations WHERE token_hash=%s AND user_id=%s AND session_hash=%s FOR UPDATE", (_hash_token(token), user_id, session_hash))
                 row = cursor.fetchone()
@@ -69,13 +76,13 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
         return self._from_row(row)
 
     def mark_cancelled(self, confirmation_id: int, *, user_id: int) -> bool:
-        with get_connection() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("UPDATE agent_confirmations SET status='cancelled' WHERE id=%s AND user_id=%s AND status='pending'", (confirmation_id, user_id))
                 return cursor.rowcount == 1
 
     def mark_expired(self, *, now: datetime | None = None) -> int:
-        with get_connection() as connection:
+        with self._connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute("UPDATE agent_confirmations SET status='expired' WHERE status='pending' AND expires_at<=COALESCE(%s,CURRENT_TIMESTAMP)", (now,))
                 return cursor.rowcount

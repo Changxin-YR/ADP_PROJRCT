@@ -453,6 +453,7 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     assert captured["session_id"] == "session-a:c-1"
     assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
     assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
+    assert "master_data.list_records" in captured["kwargs"]["env"]["ADP_AGENT_TOOL_CATALOG"]
     assert captured["kwargs"]["profile"] == "sdk"
     assert captured["kwargs"]["patches"]
     assert captured["environment"].get("MYSQL_PASSWORD") is None
@@ -508,3 +509,34 @@ def test_sidecar_maps_timeout(monkeypatch) -> None:
     with pytest.raises(AgentGatewayError) as exc:
         HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-1"})
     assert exc.value.code == "AGENT_TIMEOUT"
+
+
+def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
+    created = []
+
+    class FakeHarness:
+        def __init__(self, **kwargs):
+            created.append(self)
+            self.closed = False
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.closed = True
+
+        def run(self, prompt, *, session_id):
+            return {"kind": "assistant", "message": f"{prompt}:{session_id}"}
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test"}))
+    first = sidecar.run("第一轮", context={"conversation_id": "c-1", "user_namespace": "user-a"})
+    second = sidecar.run("第二轮", context={"conversation_id": "c-1", "user_namespace": "user-a"})
+    other = sidecar.run("另一用户", context={"conversation_id": "c-1", "user_namespace": "user-b"})
+
+    assert len(created) == 2
+    assert first["message"].endswith("user-a:c-1")
+    assert second["message"].startswith("第二轮")
+    assert other["message"].endswith("user-b:c-1")
+    sidecar.close()
+    assert all(item.closed for item in created)

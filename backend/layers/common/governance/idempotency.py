@@ -51,7 +51,7 @@ def execute_idempotent(
     if not key:
         return operation()
     from backend.layers.common.db.connection import get_connection
-    from pymysql.err import IntegrityError
+    from pymysql.err import IntegrityError, OperationalError
 
     normalized = validate_key(key)
     action_code = action_code if len(action_code) <= 64 else f"{action_code[:15]}:{hashlib.sha256(action_code.encode()).hexdigest()[:48]}"
@@ -83,6 +83,13 @@ def execute_idempotent(
                 )
         except IntegrityError:
             raise DomainError("IDEMPOTENCY_IN_PROGRESS", "相同请求正在处理中，请稍后重试", 409)
+        except OperationalError as exc:
+            # Concurrent first writers can deadlock while contending on the
+            # unique reservation. Treat both MySQL retryable lock errors as a
+            # safe duplicate-request outcome.
+            if exc.args and int(exc.args[0]) in {1205, 1213}:
+                raise DomainError("IDEMPOTENCY_IN_PROGRESS", "相同请求正在处理中，请稍后重试", 409) from exc
+            raise
     try:
         body, status = operation()
     except Exception:

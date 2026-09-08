@@ -127,7 +127,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
         gateway = AgentGatewayService(
             settings,
             registry=build_registry(lambda tool: lambda arguments, context: _dispatch_fixed_tool(tool, arguments, context)),
-            confirmations=MySqlAgentConfirmationStore(),
+            confirmations=MySqlAgentConfirmationStore(settings),
             audit=audit,
         )
     sidecar = sidecar or HarnessSidecar(settings)

@@ -7,6 +7,7 @@ from typing import Any
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
+from backend.layers.features.agent.agent_tool_registry import build_registry
 
 
 class HarnessSidecar:
@@ -14,6 +15,61 @@ class HarnessSidecar:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+        self._harnesses: dict[str, Any] = {}
+        self._lock = threading.RLock()
+
+    def _new_harness(self, runtime_env: dict[str, str], safe_context: dict[str, str]) -> Any:
+        from deepseek_harness import DeepSeekHarness
+
+        patch = self.settings.agent_sidecar_patch.strip()
+        patches = (patch,) if patch else ()
+        # HarnessClient snapshots os.environ while spawning the child. Keep the
+        # temporary setup isolated so unrelated requests cannot leak secrets.
+        with _HARNESS_ENV_LOCK:
+            previous = dict(os.environ)
+            try:
+                os.environ.clear()
+                os.environ.update(runtime_env)
+                harness = DeepSeekHarness(
+                    dsh_home=self.settings.agent_sidecar_home,
+                    cwd=self.settings.agent_sidecar_cwd,
+                    dsh_bin=self.settings.agent_sidecar_command or None,
+                    profile="sdk",
+                    provider=self.settings.agent_model_provider,
+                    model=self.settings.agent_model,
+                    max_tokens=self.settings.agent_model_max_tokens,
+                    patches=patches,
+                    request_timeout_seconds=float(self.settings.agent_request_timeout_seconds),
+                    env={
+                        "ADP_AGENT_GATEWAY_URL": safe_context.get("gateway_url", ""),
+                        "ADP_AGENT_CONTEXT_TOKEN": safe_context.get("context_token", ""),
+                        "ADP_AGENT_TOOL_CATALOG": ", ".join(sorted(tool.name for tool in build_registry().tools)),
+                    },
+                )
+                enter = getattr(harness, "__enter__", None)
+                return enter() if callable(enter) else harness
+            finally:
+                os.environ.clear()
+                os.environ.update(previous)
+
+    def close(self) -> None:
+        """Stop cached runtimes; useful for orderly application shutdown."""
+        with self._lock:
+            harnesses, self._harnesses = self._harnesses, {}
+        for harness in harnesses.values():
+            close = getattr(harness, "__exit__", None)
+            if callable(close):
+                try:
+                    close(None, None, None)
+                except Exception:
+                    pass
+            else:
+                close = getattr(harness, "close", None)
+                if callable(close):
+                    try:
+                        close()
+                    except Exception:
+                        pass
 
     def run(self, prompt: str, *, context: dict[str, str]) -> dict[str, Any]:
         safe_context = {
@@ -30,40 +86,18 @@ class HarnessSidecar:
         conversation_id = safe_context["conversation_id"]
         session_id = f"{namespace}:{conversation_id}" if namespace else conversation_id
         try:
-            from deepseek_harness import DeepSeekHarness
+            import deepseek_harness  # noqa: F401
         except ImportError as exc:
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能体运行时未安装", 503) from exc
         runtime_env = _runtime_environment(self.settings, safe_context)
-        patch = self.settings.agent_sidecar_patch.strip()
-        patches = (patch,) if patch else ()
+        namespace = safe_context.get("user_namespace", "").strip() or "__default__"
         try:
-            # HarnessClient snapshots os.environ when starting its child process.
-            # Serialize that short setup window so concurrent web requests cannot
-            # observe the restricted environment.
-            with _HARNESS_ENV_LOCK:
-                previous = dict(os.environ)
-                try:
-                    os.environ.clear()
-                    os.environ.update(runtime_env)
-                    with DeepSeekHarness(
-                        dsh_home=self.settings.agent_sidecar_home,
-                        cwd=self.settings.agent_sidecar_cwd,
-                        dsh_bin=self.settings.agent_sidecar_command or None,
-                        profile="sdk",
-                        provider=self.settings.agent_model_provider,
-                        model=self.settings.agent_model,
-                        max_tokens=self.settings.agent_model_max_tokens,
-                        patches=patches,
-                        request_timeout_seconds=float(self.settings.agent_request_timeout_seconds),
-                        env={
-                            "ADP_AGENT_GATEWAY_URL": safe_context.get("gateway_url", ""),
-                            "ADP_AGENT_CONTEXT_TOKEN": safe_context.get("context_token", ""),
-                        },
-                    ) as harness:
-                        result = harness.run(prompt, session_id=session_id)
-                finally:
-                    os.environ.clear()
-                    os.environ.update(previous)
+            with self._lock:
+                harness = self._harnesses.get(namespace)
+                if harness is None:
+                    harness = self._new_harness(runtime_env, safe_context)
+                    self._harnesses[namespace] = harness
+                result = harness.run(prompt, session_id=session_id)
         except TimeoutError as exc:
             raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc
         except AgentGatewayError:

@@ -8,6 +8,7 @@ export const inject = ['tools']
 export interface AdpAgentToolsConfig {
   gatewayUrl: string
   contextToken: string
+  operationCatalog?: string
 }
 
 function endpoint(config: AdpAgentToolsConfig, path: '/query' | '/prepare'): string {
@@ -47,11 +48,15 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
     delete process.env.ADP_AGENT_GATEWAY_URL
     delete process.env.ADP_AGENT_CONTEXT_TOKEN
   }
+  const catalog = config.operationCatalog?.trim()
+  const operationDescription = catalog
+    ? `必须从已登记的 ADP 工具名中选择：${catalog}`
+    : '必须使用已登记的 ADP 工具名。'
   ctx.tools.register(defineTool({
     name: 'adp_query',
     description: '查询当前登录用户有权查看的 ADP 数据。',
     parameters: {
-      operation: { type: 'string', required: true, description: '必须使用已登记的 ADP 工具名。' },
+      operation: { type: 'string', required: true, description: operationDescription },
       arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
     },
     output: {
@@ -67,7 +72,7 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
     name: 'adp_mutation',
     description: '准备一个需要登录者确认的 ADP 业务写操作。',
     parameters: {
-      operation: { type: 'string', required: true, description: '必须使用已登记的 ADP 工具名。' },
+      operation: { type: 'string', required: true, description: operationDescription },
       arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
     },
     output: {

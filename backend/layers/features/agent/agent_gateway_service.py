@@ -123,13 +123,21 @@ class AgentGatewayService:
             raise AgentGatewayError("TOOL_NOT_FOUND", "智能体操作不在允许范围内", 404) from exc
 
         arguments = self._validate_arguments(tool, arguments)
-        self._require_authorization(user, tool, arguments)
+        try:
+            self._require_authorization(user, tool, arguments)
+        except AgentGatewayError as error:
+            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=conversation_id, reason=error.code)
+            raise
 
         if tool.risk == "human_only":
             self._audit(user, tool, arguments, result="human_only", request_id=request_id, conversation_id=conversation_id, reason="身份/会话生命周期操作不允许委托")
             return {"kind": "human_only", "code": "HUMAN_REQUIRED", "message": "该操作会改变登录身份或会话，请由本人在系统页面完成"}
 
-        self._require_data_scope(user, tool)
+        try:
+            self._require_data_scope(user, tool)
+        except AgentGatewayError as error:
+            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=conversation_id, reason=error.code)
+            raise
 
         if tool.risk == "read":
             if tool.execute is None:
@@ -200,8 +208,16 @@ class AgentGatewayService:
         arguments = self._validate_arguments(tool, dict(pending.payload))
         # Authorization and data scope are deliberately re-evaluated at confirm
         # time so a permission/role/scope change invalidates an older pending action.
-        self._require_authorization(user, tool, arguments)
-        self._require_data_scope(user, tool)
+        try:
+            self._require_authorization(user, tool, arguments)
+        except AgentGatewayError as error:
+            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=pending.conversation_id, reason=error.code)
+            raise
+        try:
+            self._require_data_scope(user, tool)
+        except AgentGatewayError as error:
+            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=pending.conversation_id, reason=error.code)
+            raise
 
         if tool.risk != "write" or tool.execute is None:
             raise AgentGatewayError("TOOL_UNAVAILABLE", "该写操作尚未连接业务服务", 503)
