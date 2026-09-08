@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+.coverage.*
+coverage-*.json
 htmlcov/
 .venv/
 venv/
@@ -27,6 +29,7 @@ coverage/
 uploads/
 attachments/
 instance/
+.agent-sidecar-live/
 
 # Editors and operating systems
 .idea/

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ IGNORED_DIRS = {
     "test-results",
     ".worktrees",
     "adp_phone",
+    ".agent-sidecar-live",
     "deepseek-harness",
 }
 STRICT_CATEGORIES = {
@@ -95,7 +97,9 @@ def _source_files(root: Path, paths: Iterable[str] | None) -> list[Path]:
         if target.is_file():
             candidates.append(target)
         elif target.is_dir():
-            candidates.extend(target.rglob("*"))
+            for directory, directories, files in os.walk(target):
+                directories[:] = [name for name in directories if name not in IGNORED_DIRS]
+                candidates.extend(Path(directory) / name for name in files)
     return sorted(
         path
         for path in set(candidates)
