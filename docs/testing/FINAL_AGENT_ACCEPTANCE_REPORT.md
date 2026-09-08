@@ -19,7 +19,7 @@ Date: 2026-09-08
 
 ## Agent and Security
 
-The new evidence proves confirmation exactly-once, concurrent request-id side-effect exactly-once, pond manual/Agent snapshot equivalence, scoped cross-user rejection, and audit before/after plus failure records. Existing deterministic permission parity and tool-injection tests remain green.
+The new evidence proves exactly-one confirmation claim, one generic idempotent operation invocation, pond-create snapshot equivalence, scoped pond rejection, logger before/after persistence, and live gateway failure audits. It does not prove the broader business side-effect matrices required for final certification. Existing deterministic permission parity and tool-injection tests remain green.
 
 Live DeepSeek tool selection ran through HTTP session, Harness, DeepSeek, Gateway, fixed registry, backend and MySQL. Query, confirmed write, low-permission denial and multi-turn context passed. One broad query timed out at the client boundary and is recorded as `FAIL_AGENT_RESPONSE`, not credential blocking. PI-001..PI-008 also ran through the live chain and produced no unauthorized mutation; backend HTTP/audit/DB results are the security verdict.
 
@@ -29,5 +29,5 @@ Live DeepSeek tool selection ran through HTTP session, Harness, DeepSeek, Gatewa
 | --- | --- | --- |
 | Gate 1 Management | FAIL | Coverage 82.42% below 85% |
 | Gate 2 Agent | PASS | Deterministic gateway/registry/backend path and regression evidence pass |
-| Gate 3 Security | PASS | Confirmation, idempotency, IDOR, scope, audit, tool boundary and PI-001..PI-008 live evidence pass |
+| Gate 3 Security | FAIL | Live injection/tool/scope checks pass; full IDOR, confirmation business side effects, financial/inventory idempotency and end-to-end audit trace remain incomplete |
 | Gate 4 Business Equivalence | FAIL | Pond equivalence pass; full 16-module matrix not yet complete |

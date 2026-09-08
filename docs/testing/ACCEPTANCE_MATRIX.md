@@ -32,7 +32,7 @@
 | 工作台摘要权限 | PASS | `/api/v1/workbench/summary` 与 `WorkbenchService.summary()` 均要求 `workbench.enter` |
 | Gateway/Registry deterministic Tool execution | PASS | Agent Gateway/Registry 与固定后端 dispatch 测试通过 |
 | Live DeepSeek natural-language E2E | FAIL_AGENT_RESPONSE | Machine-scope key configured; real query, write/confirmation, permission denial and multi-turn passed. One broad query exceeded the 75s client timeout. |
-| Manual/API vs Agent MySQL snapshot equivalence | PASS (pond scope) | `MANUAL_AGENT_EQUIVALENCE.md`；完整 16 模块矩阵仍开放 |
+| Manual/API vs Agent MySQL snapshot equivalence | FAIL | Pond create snapshot passes; the required 16-module and mixed-operation matrix is incomplete |
 
 ## Security
 
@@ -40,13 +40,13 @@
 | --- | --- | --- |
 | Prompt injection full matrix | PASS | PI-001..PI-008 executed through DeepSeek -> Gateway; identity, permission and scope stayed unchanged; no unauthorized DB mutation; HTTP/audit/DB evidence used |
 | Tool injection / unknown tool / parameter validation | PASS | Registry 固定路径、未知 Tool 拒绝、参数校验测试通过 |
-| IDOR / cross-scope HTTP matrix | PASS (service/MySQL scope) | `SEC-IDOR-001` 真实 MySQL 资源未发生越权变更 |
+| IDOR / cross-scope HTTP matrix | FAIL | Pond service/MySQL scope rejection passes; required REST verbs, attachment/export and Agent natural-language matrix is incomplete |
 | DataScope bypass | PASS | 跨组织、区域、个人范围和导入/附件范围测试通过 |
 | Confirmation replay / wrong user / expiry | PASS | 单次消费、身份/会话绑定、过期和取消 deterministic 测试通过 |
-| Confirmation DB concurrency | PASS | 20 并发请求中 exactly one confirmation claim（MySQL 8.0/8.4） |
-| Idempotency for Agent high-risk writes | PASS | 同一 request_id 10 并发请求只产生一次 operation side effect；MySQL 8.0/8.4 |
+| Confirmation DB concurrency | FAIL | 20 concurrent claims yield one winner on MySQL 8.0/8.4, but business row/ledger/audit exactly-once was not proven |
+| Idempotency for Agent high-risk writes | FAIL | Generic operation invocation is exactly once, but payment/receipt/inventory/data-import side effects were not covered |
 | Attachment validation | PASS | MIME、后缀、大小、重复和目标范围测试通过 |
-| Agent audit before/after and failure | PASS (core path) | 成功 before/after 与 scope failure reason 已自动断言 |
+| Agent audit before/after and failure | FAIL | Logger persistence and live gateway failure audit pass; actual Agent business write trace lacks the full required instruction/intent/before/after assertion |
 
 ## Four Gates
 
@@ -54,7 +54,7 @@
 | --- | --- | --- |
 | Gate 1 Management | FAIL | 覆盖率 `82% < 85%` |
 | Gate 2 Agent | PASS | deterministic Gateway -> Tool -> fixed Backend dispatch and live DeepSeek tool selection passed; one broad query has `FAIL_AGENT_RESPONSE` |
-| Gate 3 Authorization & Security | PASS | 并发确认、幂等、IDOR、DataScope、审计、工具边界和 PI-001..PI-008 live evidence pass |
+| Gate 3 Authorization & Security | FAIL | PI-001..PI-008, Tool Injection and DataScope pass; full IDOR, confirmation side effects, financial/inventory idempotency and audit closure remain incomplete |
 | Gate 4 Business Equivalence | FAIL | pond snapshot PASS；完整 16 模块业务等价矩阵未完成 |
 
 ## Bugs / Gaps
@@ -63,7 +63,7 @@
 | --- | --- | --- |
 | P0 | 当前已发现业务代码故障 | 0 |
 | P1 | 人工/Agent 全业务 MySQL 等价性 | OPEN（pond 场景 PASS） |
-| P1 | 完整 Agent 安全攻击矩阵与确认并发 | 并发/IDOR/审计与 PI-001..PI-008 live PASS；完整业务矩阵仍开放 |
+| P1 | 完整 Agent 安全攻击矩阵与确认并发 | PI-001..PI-008 live PASS; IDOR/confirmation side-effect/idempotency/audit matrices incomplete |
 | P1 | Live DeepSeek provider E2E | FAIL_AGENT_RESPONSE（broad query client timeout） |
 | P2 | Coverage threshold | FAIL（82.42%） |
 

@@ -15,3 +15,7 @@ The deterministic malicious-tool boundary remains enforced by the existing regis
 ## Live Prompt Injection Evidence
 
 PI-001 through PI-008 were executed with `test-breed-worker` through the real DeepSeek Harness. Session identity stayed unchanged (`user_id=3`), unauthorized operations returned backend `403`/`404`/`400`, failure audits were written, and no unauthorized business mutation was observed. Result: `PASS`.
+
+## Certification Limits
+
+The table proves its named controls only. It does not complete the required two-user REST verb matrix, confirmation business/ledger/audit side-effect count, financial/inventory idempotency matrix, or a real Agent write's full instruction/intent/before/after trace. Those final security gates remain `FAIL` until exercised.
