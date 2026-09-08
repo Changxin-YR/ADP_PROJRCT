@@ -8,8 +8,8 @@ Date: 2026-09-08
 
 ## Verified
 
-- MySQL 8.0 full baseline: `528 passed, 0 failed`.
-- MySQL 8.4 full baseline: `528 passed, 0 failed`.
+- MySQL 8.0 full regression: `533 passed, 0 failed, 0 skipped`.
+- MySQL 8.4 full regression: `534 passed, 0 failed, 0 skipped`.
 - Fresh frontend unit: `117 passed`.
 - Fresh frontend build: PASS.
 - Fresh Playwright E2E: `34 passed`.

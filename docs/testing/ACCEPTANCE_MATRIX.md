@@ -10,8 +10,8 @@
 
 | 项目 | 结果 | 证据 |
 | --- | --- | --- |
-| Unit + MySQL 8.0 | PASS | `528 passed, 0 failed, 0 skipped` |
-| Unit + MySQL 8.4 | PASS | `528 passed, 0 failed, 0 skipped` |
+| Unit + MySQL 8.0 | PASS | `533 passed, 0 failed, 0 skipped` |
+| Unit + MySQL 8.4 | PASS | `534 passed, 0 failed, 0 skipped` |
 | Coverage >= 85% | FAIL | fresh MySQL 8.0 `--cov=backend` 总覆盖率 `82.42%` (`533 passed`, gate remains unmet) |
 | 无数据库时的预期 skip | PASS | `40 skipped` 全部为 disposable MySQL/真实注册适配器；无意外 skip |
 | Schema/Migration/Seed | PASS | 双版本全量测试均完成隔离库创建、迁移、种子和销毁 |

@@ -8,5 +8,5 @@
 | P1 | LIVE-001 | Live DeepSeek provider E2E | FAIL_AGENT_RESPONSE; Machine-scope key is configured and real turns run, but one broad query exceeded the 75s client timeout |
 | P1 | EQUIV-001 | Full 16-module manual/Agent equivalence matrix | OPEN; pond scenario is proven |
 | P1 | AUDIT-001 | Full Agent instruction-to-before/after reconstruction across every high-risk write | PASS for exercised write and failure paths; broader business-module evidence remains open |
-| P2 | DOC-001 | Final acceptance evidence consolidation | IN PROGRESS |
+| P2 | DOC-001 | Final acceptance evidence consolidation | PASS; reports include fresh MySQL 8.0/8.4, frontend, live agent and security evidence |
 | P3 | - | None | 0 |
