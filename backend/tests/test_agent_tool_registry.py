@@ -42,6 +42,7 @@ def test_resource_permissions_match_business_service_alternatives() -> None:
         "production.view",
         "production.feed_logs.view",
     }
+    assert "uninspected_on" in production.parameters
 
     warehouse = registry.get("warehouse.list_records")
     assert set(permission_options(warehouse, {"resource": "issue-requests"})) == {

@@ -79,6 +79,13 @@ def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: di
     body = dict(payload)
     for name in path_params:
         body.pop(name, None)
+    if tool.method == "GET":
+        # Agent reads are deliberately bounded. The model can paginate, but a
+        # single turn must not receive an unbounded business-object payload.
+        try:
+            body["page_size"] = min(20, max(1, int(body.get("page_size", 20))))
+        except (TypeError, ValueError):
+            raise AgentGatewayError("VALIDATION_ERROR", "page_size 必须是正整数", 400)
     query = body if tool.method == "GET" else {}
     if tool.method == "GET":
         body = {}
@@ -122,6 +129,8 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                     result=str(event.get("result") or "failure"),
                     request_id=event.get("request_id"),
                     reason=event.get("reason"),
+                    before=event.get("before"),
+                    after=event.get("after"),
                     detail=event,
                 )
         gateway = AgentGatewayService(

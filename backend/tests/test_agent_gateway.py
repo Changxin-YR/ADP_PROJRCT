@@ -14,6 +14,8 @@ import types
 
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError, AgentGatewayService
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
+from backend.layers.features.agent.harness_sidecar import _bounded_query_prompt, _runtime_environment
+from backend.layers.common.db.query_guard import select_from, sql_identifier
 
 
 class _MemoryConfirmationStore:
@@ -141,6 +143,37 @@ def test_agent_confirmation_is_single_use_and_rechecks_identity():
     assert gateway.confirm(user, token, request_id="r-2")["kind"] == "success"
     with pytest.raises(AgentGatewayError, match="确认令牌无效"):
         gateway.confirm(user, token, request_id="r-3")
+
+
+def test_agent_audit_event_contains_authorization_and_business_trace_fields():
+    events = []
+    registry = build_registry(lambda _tool: lambda _args, _context: {"before": {"status": "active"}, "after": {"status": "inactive"}})
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=registry,
+        confirmations=_MemoryConfirmationStore(),
+        audit=events.append,
+        idempotent=lambda _settings, **kwargs: kwargs["operation"](),
+    )
+    user = _active_user("master_data.manage")
+    pending = gateway.prepare_tool(
+        user,
+        "master_data.create_record",
+        {"resource": "ponds", "token": "secret"},
+        conversation_id="c-trace",
+        request_id="r-trace",
+    )
+    gateway.confirm(user, pending["confirmation"]["token"], request_id="r-trace-confirm")
+
+    success = events[-1]
+    assert success["authenticated_user_id"] == user["id"]
+    assert success["intent"] == "master_data.create_record"
+    assert success["required_permission"] == "master_data.manage"
+    assert success["data_scope"] == user["data_scopes"]
+    assert success["confirmation_id"] == pending["confirmation"]["id"]
+    assert success["before"] == {"status": "active"}
+    assert success["after"] == {"status": "inactive"}
+    assert success["tool_arguments"]["token"] == "[REDACTED]"
 
 
 def test_agent_admin_write_is_delegable_for_authorized_super_admin():
@@ -540,3 +573,110 @@ def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
     assert other["message"].endswith("user-b:c-1")
     sidecar.close()
     assert all(item.closed for item in created)
+
+
+def test_sidecar_adds_payload_free_latency_diagnostics(monkeypatch) -> None:
+    class FakeHarness:
+        def __init__(self, **_kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def run(self, *_args, **_kwargs):
+            return {"kind": "assistant", "message": "ok"}
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-1"})
+    diagnostics = result["diagnostics"]
+    assert set(diagnostics) == {"request_received_ms", "harness_request_start_ms", "harness_response_ms", "total_ms"}
+    assert all(isinstance(value, (int, float)) and value >= 0 for value in diagnostics.values())
+
+
+def test_sidecar_rejects_missing_conversation_and_invalid_harness_result(monkeypatch) -> None:
+    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test"}))
+    with pytest.raises(AgentGatewayError) as missing:
+        sidecar.run("查询", context={})
+    assert missing.value.code == "VALIDATION_ERROR"
+
+    class InvalidHarness:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, *_args, **_kwargs):
+            return object()
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=InvalidHarness))
+    with pytest.raises(AgentGatewayError) as invalid:
+        sidecar.run("查询", context={"conversation_id": "invalid-result"})
+    assert invalid.value.code == "AGENT_PROTOCOL_ERROR"
+
+
+@pytest.mark.parametrize(
+    ("error_type", "expected"),
+    [(TimeoutError, "AGENT_TIMEOUT"), (ConnectionError, "AGENT_UNAVAILABLE"), (RuntimeError, "AGENT_UNAVAILABLE")],
+)
+def test_sidecar_maps_runtime_failures(monkeypatch, error_type, expected) -> None:
+    class FailingHarness:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, *_args, **_kwargs):
+            raise error_type("failure")
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FailingHarness))
+    with pytest.raises(AgentGatewayError) as error:
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "failure"})
+    assert error.value.code == expected
+
+
+def test_sidecar_maps_protocol_failures_and_final_response_object(monkeypatch) -> None:
+    class JsonRpcError(Exception):
+        pass
+
+    class ProtocolHarness:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, *_args, **_kwargs):
+            raise JsonRpcError("protocol failure")
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ProtocolHarness))
+    with pytest.raises(AgentGatewayError) as error:
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "protocol"})
+    assert error.value.code == "AGENT_PROTOCOL_ERROR"
+
+    class Response:
+        final_response = "完成"
+        session_id = "session-1"
+
+    class ResponseHarness(ProtocolHarness):
+        def run(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ResponseHarness))
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "response"})
+    assert result["message"] == "完成"
+    assert result["session_id"] == "session-1"
+
+
+def test_sidecar_bounds_uninspected_query_and_filters_runtime_environment(monkeypatch) -> None:
+    bounded = _bounded_query_prompt("今天还有哪些鱼塘没有巡检？")
+    assert "只调用一次 adp_query" in bounded
+    assert "page_size: 20" in bounded
+    assert _bounded_query_prompt("查询 3 号塘") == "查询 3 号塘"
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "configured-but-never-printed")
+    monkeypatch.setenv("MYSQL_PASSWORD", "must-not-pass")
+    environment = _runtime_environment(Settings.from_env({"APP_ENV": "test"}), {"gateway_url": "http://gateway", "context_token": "ctx"})
+    assert environment["DEEPSEEK_API_KEY"] == "configured-but-never-printed"
+    assert "MYSQL_PASSWORD" not in environment
+    assert environment["ADP_AGENT_GATEWAY_URL"] == "http://gateway"
+
+
+def test_query_guard_rejects_dynamic_identifiers() -> None:
+    assert select_from("ponds", columns="id,name", suffix=" WHERE status=%s") == "SELECT id,name FROM ponds WHERE status=%s"
+    with pytest.raises(ValueError):
+        sql_identifier("ponds;DROP TABLE users")

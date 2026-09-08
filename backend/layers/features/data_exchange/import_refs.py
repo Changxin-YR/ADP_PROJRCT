@@ -6,6 +6,8 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from backend.layers.common.governance.lifecycle import DomainError
+
 
 def _int(value: Any) -> int | None:
     if value in (None, ""):
@@ -58,8 +60,6 @@ def _fetch(cursor: Any, sql: str, params: tuple[Any, ...] = ()) -> dict[str, Any
 def _pond(cursor: Any, organization_id: int, pond_id: int | None) -> dict[str, Any]:
     row = _fetch(cursor, "SELECT organization_id,farm_id,area_id,status FROM ponds WHERE id=%s", (pond_id,)) if pond_id else None
     if row is None or int(row["organization_id"]) != organization_id:
-        from backend.layers.common.governance.lifecycle import DomainError
-
         raise DomainError("POND_NOT_FOUND", "塘口不存在或不属于当前企业", 400)
     if row.get("status") is not None and row.get("status") != "verified":
         raise DomainError("POND_NOT_VERIFIED", "业务只能引用已核验塘口", 409)
@@ -69,8 +69,6 @@ def _pond(cursor: Any, organization_id: int, pond_id: int | None) -> dict[str, A
 def _batch(cursor: Any, organization_id: int, batch_id: int | None) -> dict[str, Any]:
     row = _fetch(cursor, "SELECT id,organization_id,farm_id,area_id,pond_id,species,status FROM production_batches WHERE id=%s", (batch_id,)) if batch_id else None
     if row is None or int(row["organization_id"]) != organization_id:
-        from backend.layers.common.governance.lifecycle import DomainError
-
         raise DomainError("BATCH_NOT_FOUND", "批次不存在或不属于当前企业", 400)
     if row.get("status") is not None and row.get("status") != "verified":
         raise DomainError("BATCH_NOT_VERIFIED", "业务只能引用已核验批次", 409)
@@ -80,8 +78,6 @@ def _batch(cursor: Any, organization_id: int, batch_id: int | None) -> dict[str,
 def _warehouse(cursor: Any, organization_id: int, warehouse_id: int | None) -> dict[str, Any]:
     row = _fetch(cursor, "SELECT organization_id,farm_id,area_id FROM warehouses WHERE id=%s AND status='active'", (warehouse_id,)) if warehouse_id else None
     if row is None or int(row["organization_id"]) != organization_id:
-        from backend.layers.common.governance.lifecycle import DomainError
-
         raise DomainError("WAREHOUSE_NOT_FOUND", "仓库不存在、已停用或不属于当前企业", 400)
     return row
 
@@ -113,8 +109,6 @@ def _first_category(cursor: Any) -> int | None:
 
 def enforce_area_scope(user: dict[str, Any], area_id: int | None) -> None:
     """导入确认写入时，区域范围用户只能写入授权区域内的记录。"""
-    from backend.layers.common.governance.lifecycle import DomainError
-
     if area_id is None:
         return  # 组织级记录（如整场费用）不受区域写入范围约束
     from backend.layers.common.security.data_scope import require_active_scope, unrestricted
@@ -130,8 +124,6 @@ def enforce_area_scope(user: dict[str, Any], area_id: int | None) -> None:
 
 def scoped_area_defaults(cursor: Any, user: dict[str, Any], organization_id: int) -> dict[str, int]:
     """无区域列模板在单一区域账号下自动落入授权区域，避免生成不可见的组织级草稿。"""
-    from backend.layers.common.governance.lifecycle import DomainError
-
     from backend.layers.common.security.data_scope import require_active_scope, unrestricted
     scopes = require_active_scope(user)
     if unrestricted(user):

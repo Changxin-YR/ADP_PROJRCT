@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from typing import Any
 
 from backend.config.settings import Settings
@@ -72,6 +73,7 @@ class HarnessSidecar:
                         pass
 
     def run(self, prompt: str, *, context: dict[str, str]) -> dict[str, Any]:
+        request_started = time.perf_counter()
         safe_context = {
             key: str(value)
             for key, value in context.items()
@@ -97,7 +99,9 @@ class HarnessSidecar:
                 if harness is None:
                     harness = self._new_harness(runtime_env, safe_context)
                     self._harnesses[namespace] = harness
-                result = harness.run(prompt, session_id=session_id)
+                harness_started = time.perf_counter()
+                result = harness.run(_bounded_query_prompt(prompt), session_id=session_id)
+                harness_finished = time.perf_counter()
         except TimeoutError as exc:
             raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc
         except AgentGatewayError:
@@ -110,6 +114,17 @@ class HarnessSidecar:
                 raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手通信协议异常", 502) from exc
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
         if isinstance(result, dict):
+            # Keep diagnostics numeric and payload-free so live latency can be
+            # investigated without copying prompts, tool arguments, or keys.
+            result.setdefault(
+                "diagnostics",
+                {
+                    "request_received_ms": 0,
+                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
+                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
+                    "total_ms": round((harness_finished - request_started) * 1000, 1),
+                },
+            )
             return result
         final_response = getattr(result, "final_response", None)
         if isinstance(final_response, str):
@@ -117,6 +132,12 @@ class HarnessSidecar:
                 "kind": "assistant",
                 "message": final_response,
                 "session_id": str(getattr(result, "session_id", session_id)),
+                "diagnostics": {
+                    "request_received_ms": 0,
+                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
+                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
+                    "total_ms": round((harness_finished - request_started) * 1000, 1),
+                },
             }
         raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手返回格式无效", 502)
 
@@ -127,6 +148,21 @@ _ENV_ALLOWLIST = {
     "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "APPDATA", "LOCALAPPDATA",
     "HOME", "LANG", "LC_ALL", "TZ", "NODE_PATH",
 }
+
+
+def _bounded_query_prompt(prompt: str) -> str:
+    """Keep the common uninspected-pond query on one bounded read path."""
+    normalized = prompt.replace(" ", "")
+    if "未巡检" not in normalized and "没有巡检" not in normalized:
+        return prompt
+    return (
+        f"{prompt}\n\n"
+        "ADP 查询约束：这是一个只读的未巡检塘口问题。只调用一次 adp_query，"
+        "operation 使用 production.list_records，arguments 使用 "
+        "{resource: 'daily-operations', uninspected_on: 'today', page: 1, page_size: 20}。"
+        "不要调用工作台、管理员、仓库或其它查询工具，也不要重复调用；"
+        "根据这一次结果直接回答，若没有匹配记录就明确说明。"
+    )
 
 
 def _runtime_environment(settings: Settings, context: dict[str, str]) -> dict[str, str]:

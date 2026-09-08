@@ -17,6 +17,7 @@ from backend.layers.features.production.production_relations import validate_rel
 from backend.layers.features.production.production_scope import scope_defaults
 from backend.layers.features.production.production_filters import apply_record_filters
 from backend.layers.features.production.production_stock_locking import lock_batch_anchors
+from backend.layers.features.production.production_uninspected import list_uninspected_records
 DOC_TYPES = {
     "samplings": "sampling", "transfers": "transfer", "losses": "loss", "harvests": "harvest",
     "feed-plans": "feed_plan", "feed-tasks": "feed_task", "feed-logs": "feed_log",
@@ -27,7 +28,6 @@ class MySqlProductionStore:
     def __init__(self, settings: Any) -> None:
         self.settings = settings
         self.audit = AuditLogger()
-
     @staticmethod
     def _table(resource: str) -> tuple[str, str | None]:
         return ("production_batches", None) if resource == "batches" else ("production_documents", DOC_TYPES[resource])
@@ -46,8 +46,9 @@ class MySqlProductionStore:
     @staticmethod
     def _scope(user: dict[str, Any]) -> tuple[str, list[Any]]:
         return scope_predicate(user)
-
-    def list_records(self, resource: str, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, pond_id: Any = None, area_id: Any = None, **_: Any) -> dict[str, Any]:
+    def list_records(self, resource: str, *, user: dict[str, Any], page: int = 1, page_size: int = 20, status: str | None = None, search: str | None = None, pond_id: Any = None, area_id: Any = None, uninspected_on: Any = None, **_: Any) -> dict[str, Any]:
+        if resource == "daily-operations" and uninspected_on:
+            return list_uninspected_records(self.settings, user=user, page=page, page_size=page_size, search=search, pond_id=pond_id, area_id=area_id, uninspected_on=uninspected_on)
         table, doc_type = self._table(resource)
         clauses, values = (["document_type = %s"], [doc_type]) if doc_type else ([], [])
         scope, scope_values = self._scope(user)
@@ -90,7 +91,6 @@ class MySqlProductionStore:
         if "evidence_attachment_ids" in clean: clean["evidence_attachment_ids_json"] = json.dumps(clean.pop("evidence_attachment_ids"))
         return clean
     _validate_relations = staticmethod(validate_relations)
-
     def create_record(self, resource: str, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         table, doc_type = self._table(resource)
         with get_connection(self.settings) as connection, connection.cursor() as cursor:

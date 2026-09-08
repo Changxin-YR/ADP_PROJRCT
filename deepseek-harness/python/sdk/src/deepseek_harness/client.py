@@ -157,7 +157,9 @@ class HarnessClient:
             )
         except TimeoutError as error:
             self.close()
-            raise TimeoutError(f"{error}\nselected dsh profile {self.config.profile!r}") from error
+            diagnostics = self._runtime_diagnostics()
+            suffix = f"\n{diagnostics}" if diagnostics else ""
+            raise TimeoutError(f"{error}{suffix}\nselected dsh profile {self.config.profile!r}") from error
         except BaseException as error:
             self.close()
             diagnostics = self._runtime_diagnostics()
@@ -439,7 +441,6 @@ class HarnessClient:
         proc = self._proc
         if (
             proc is not None
-            and proc.poll() is not None
             and self._stderr_thread is not None
             and self._stderr_thread.is_alive()
             and threading.current_thread() is not self._stderr_thread

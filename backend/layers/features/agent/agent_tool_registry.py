@@ -58,14 +58,17 @@ _VERIFY_PATH_MARKERS = {
 def _domain(path: str) -> str:
     segments = path.strip("/").split("/")
     return segments[2] if len(segments) > 2 else ""
-def _schema_for(method: str) -> dict[str, Any]:
+def _schema_for(method: str, path: str = "") -> dict[str, Any]:
     if method == "GET":
-        return {
+        schema = {
             "page": {"type": "integer", "minimum": 1},
             "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
             "keyword": {"type": "string", "maxLength": 100},
             "status": {"type": "string"},
         }
+        if path == "/api/v1/production/{resource}":
+            schema["uninspected_on"] = {"type": "string", "description": "只读未巡检塘口查询日期，使用 today 或 YYYY-MM-DD"}
+        return schema
     return {
         "payload": {"type": "object", "required": True},
         "expected_version": {"type": "integer", "minimum": 1},
@@ -190,8 +193,6 @@ def _tool_name(operation_id: str, method: str, path: str) -> str:
         suffix = operation_id.removeprefix("admin_").split("_")[0]
         return f"admin.{suffix or 'operation'}"
     return f"api.{operation_id or method.lower()}"
-
-
 def _openapi_tools() -> list[AgentTool]:
     source = Path(__file__).resolve().parents[4] / "api-docs" / "openapi.json"
     if not source.exists():
@@ -216,7 +217,7 @@ def _openapi_tools() -> list[AgentTool]:
                     description=str(operation.get("summary") or "ADP 业务操作"),
                     method=method_upper,  # type: ignore[arg-type]
                     path_template=path,
-                    parameters=_schema_for(method_upper),
+                    parameters=_schema_for(method_upper, path),
                     required_permission=permission,
                     risk=_risk_for(method_upper, path),
                     required_role=_required_role_for(path),
@@ -227,8 +228,6 @@ def _openapi_tools() -> list[AgentTool]:
                 )
             )
     return tools
-
-
 def _unique_tool_name(tool: AgentTool, by_name: dict[str, AgentTool]) -> str:
     """Return a deterministic unique name without dropping duplicate aliases.
 
@@ -250,8 +249,6 @@ def _unique_tool_name(tool: AgentTool, by_name: dict[str, AgentTool]) -> str:
         candidate = f"{method_name}:{path_slug}:{suffix}"
         suffix += 1
     return candidate
-
-
 def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] | None = None) -> AgentToolRegistry:
     """Build a closed registry from the checked-in API contract.
 
@@ -270,8 +267,6 @@ def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] 
             tool = replace(tool, execute=executor_factory(tool))
         by_name[tool.name] = tool
     return AgentToolRegistry(tuple(by_name.values()))
-
-
 def _flask_path(rule: str) -> str:
     return re.sub(r"<(?:int|path):([^>]+)>|<([^>]+)>", lambda match: "{" + (match.group(1) or match.group(2)) + "}", rule)
 

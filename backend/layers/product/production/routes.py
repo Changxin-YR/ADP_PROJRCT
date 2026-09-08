@@ -45,7 +45,7 @@ def create_production_blueprint(settings: Settings, auth_store: Any, production_
     def records(resource: str) -> tuple[Response, int] | Response:
         try:
             page, page_size = pagination(code="PRODUCTION_PAGE_INVALID")
-            result = service.list_records(user(), resource, page=page, page_size=page_size, status=request.args.get("status") or None, search=request.args.get("search") or None, pond_id=request.args.get("pond_id") or None, area_id=request.args.get("area_id") or None)
+            result = service.list_records(user(), resource, page=page, page_size=page_size, status=request.args.get("status") or None, search=request.args.get("search") or None, pond_id=request.args.get("pond_id") or None, area_id=request.args.get("area_id") or None, uninspected_on=request.args.get("uninspected_on") or None)
             return jsonify(ok(result))
         except (AuthServiceError, DomainError) as exc:
             return error(exc)

@@ -5,6 +5,9 @@ from typing import Any
 from backend.app import create_app
 from backend.config.settings import Settings
 from backend.layers.common.security.session import hash_session_token
+from backend.layers.features.agent.agent_tool_registry import AgentTool
+from backend.layers.product.agent.routes import _dispatch_fixed_tool
+from flask import Flask
 from fake_auth_store import FakeAuthStore
 
 
@@ -61,6 +64,40 @@ def _logged_in_client(gateway: FakeAgentGateway) -> tuple[Any, FakeAuthStore, di
     )
     assert login.status_code == 200
     return client, store, {"csrf": _csrf(client), "user": user}
+
+
+def test_agent_get_dispatch_caps_model_page_size() -> None:
+    app = Flask(__name__)
+    captured: dict[str, Any] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def get_json(silent: bool = False) -> dict[str, Any]:
+            return {"data": {"items": []}}
+
+    class FakeClient:
+        @staticmethod
+        def open(*args: Any, **kwargs: Any) -> FakeResponse:
+            captured.update(kwargs)
+            return FakeResponse()
+
+    app.test_client = lambda: FakeClient()  # type: ignore[method-assign]
+    tool = AgentTool(
+        name="master_data.list_records",
+        description="list",
+        method="GET",
+        path_template="/api/v1/master-data/{resource}",
+        parameters={"page_size": {"type": "integer"}},
+        required_permission="master_data.view",
+        risk="read",
+    )
+    with app.test_request_context("/"):
+        result = _dispatch_fixed_tool(tool, {"resource": "ponds", "page_size": 100}, {"session_token": "session"})
+
+    assert result == {"items": []}
+    assert captured["query_string"]["page_size"] == 20
 
 
 def test_agent_turn_requires_login() -> None:

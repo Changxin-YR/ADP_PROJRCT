@@ -92,21 +92,44 @@ class AgentGatewayService:
         except Exception as exc:
             raise AgentGatewayError("DATA_SCOPE_REQUIRED", "当前账号没有有效数据范围，拒绝访问业务数据", 403) from exc
 
-    def _audit(self, user: dict[str, Any], tool: AgentTool, arguments: dict[str, Any], *, result: str, request_id: str, conversation_id: str | None = None, reason: str | None = None) -> None:
+    def _audit(
+        self,
+        user: dict[str, Any],
+        tool: AgentTool,
+        arguments: dict[str, Any],
+        *,
+        result: str,
+        request_id: str,
+        conversation_id: str | None = None,
+        reason: str | None = None,
+        confirmation_id: int | None = None,
+        before: Any = None,
+        after: Any = None,
+    ) -> None:
         if self.audit is None:
             return
         self.audit({
             "user_id": user.get("id"),
+            "authenticated_user_id": user.get("id"),
             "session_hash": user.get("_session_hash"),
+            "raw_instruction": arguments.get("raw_instruction"),
+            "intent": tool.name,
             "tool_name": tool.name,
             "method": tool.method,
             "path_template": tool.path_template,
             "arguments": _redact(arguments),
+            "tool_arguments": _redact(arguments),
+            "required_permission": tool.required_permission,
+            "data_scope": _redact(user.get("data_scopes") or []),
+            "confirmation_id": confirmation_id,
+            "before": _redact(before),
+            "after": _redact(after),
             "risk": tool.risk,
             "result": result,
             "request_id": request_id,
             "conversation_id": conversation_id,
             "reason": reason,
+            "error": reason if result == "failure" else None,
             "source": "agent",
         })
 
@@ -252,5 +275,17 @@ class AgentGatewayService:
             self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=pending.conversation_id, reason="业务执行失败")
             raise AgentGatewayError("BUSINESS_ERROR", "业务操作未完成，请在页面核对状态", 400) from exc
 
-        self._audit(user, tool, arguments, result="success", request_id=request_id, conversation_id=pending.conversation_id)
+        before = body.get("before") if isinstance(body, dict) else None
+        after = body.get("after") if isinstance(body, dict) else None
+        self._audit(
+            user,
+            tool,
+            arguments,
+            result="success",
+            request_id=request_id,
+            conversation_id=pending.conversation_id,
+            confirmation_id=pending.id,
+            before=before,
+            after=after,
+        )
         return {"kind": "success", "data": body, "status": status, "request_id": request_id}

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+import json
 from threading import Barrier
 from typing import Any
 
@@ -13,8 +14,12 @@ from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.agent.agent_confirmation_store import MySqlAgentConfirmationStore
 from backend.layers.features.agent.agent_contracts import AgentConfirmation
+from backend.layers.features.agent.agent_gateway_service import AgentGatewayService, AgentGatewayError
+from backend.layers.features.agent.agent_tool_registry import AgentTool, AgentToolRegistry
 from backend.layers.features.master_data.master_data_service import MasterDataService
 from backend.layers.features.master_data.master_data_store import MySqlMasterDataStore
+from backend.layers.features.production.production_service import ProductionService
+from backend.layers.features.production.production_store import MySqlProductionStore
 from backend.tests.mysql_test_database import disposable_database, settings_for
 from test_warehouse_mysql_integration import _seed
 
@@ -191,3 +196,209 @@ def test_agent_scope_rejects_foreign_pond_without_database_change(monkeypatch: p
         with get_connection(settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT name FROM ponds WHERE id=%s", (ids["pond_id"],))
             assert cursor.fetchone()["name"] == "一号塘"
+
+
+def test_confirmation_business_mutation_and_audit_are_exactly_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A real MySQL confirmation claim gates one business write under contention."""
+    with disposable_database("adp_agent_confirmation_effect", through=31) as database:
+        settings = settings_for(database)
+        _env_for(settings, monkeypatch)
+        ids = _seed(settings)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("UPDATE ponds SET status='draft' WHERE id=%s", (ids["pond_id"],))
+        actor = _actor(1, area_id=ids["area_id"])
+        actor["_session_hash"] = "session-hash"
+        actor["_session_token"] = "session-token"
+        service = MasterDataService(MySqlMasterDataStore(settings))
+        audit = AuditLogger()
+
+        def write_audit(event: dict[str, Any]) -> None:
+            with get_connection(settings) as connection:
+                audit.write(
+                    connection,
+                    user_id=int(event["user_id"]),
+                    action="agent_tool",
+                    object_type="agent_tool",
+                    object_id=ids["pond_id"],
+                    result=str(event.get("result") or "failure"),
+                    ip_address=None,
+                    request_id=str(event.get("request_id") or ""),
+                    module_code="agent",
+                    action_code=str(event.get("tool_name") or "agent"),
+                    reason=event.get("reason"),
+                    before=event.get("before"),
+                    after=event.get("after"),
+                    detail_json=json.dumps(event, ensure_ascii=False, default=str),
+                )
+
+        def execute(arguments: dict[str, Any], _context: dict[str, Any]) -> dict[str, Any]:
+            with get_connection(settings) as connection, connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM ponds WHERE id=%s", (ids["pond_id"],))
+                before = dict(cursor.fetchone())
+            after = service.update(actor, "ponds", ids["pond_id"], arguments["payload"])
+            return {"before": before, "after": after}
+
+        tool = AgentTool(
+            name="master_data.update_record",
+            description="更新主数据",
+            method="PATCH",
+            path_template="/api/v1/master-data/{resource}/{record_id}",
+            parameters={"payload": {"type": "object", "required": True}},
+            required_permission="master_data.manage",
+            risk="write",
+            execute=execute,
+            permission_namespace="master_data",
+            permission_action="manage",
+            resource_argument="resource",
+        )
+        gateway = AgentGatewayService(
+            settings,
+            registry=AgentToolRegistry((tool,)),
+            confirmations=MySqlAgentConfirmationStore(settings),
+            audit=write_audit,
+        )
+        pending = gateway.prepare_tool(
+            actor,
+            tool.name,
+            {
+                "resource": "ponds",
+                "record_id": ids["pond_id"],
+                "payload": {"expected_version": 1, "name": "并发确认后塘"},
+                "raw_instruction": "确认修改塘口名称",
+            },
+            conversation_id="confirmation-effect",
+            request_id="confirmation-effect-prepare",
+        )
+        token = pending["confirmation"]["token"]
+        found = gateway.confirmations.find(token=token, user_id=1, session_hash="session-hash")
+        assert found is not None
+        assert found.status == "pending"
+        assert found.expires_at > datetime.now(timezone.utc).replace(tzinfo=None)
+        barrier = Barrier(20)
+
+        def confirm_once() -> tuple[str, str]:
+            barrier.wait()
+            try:
+                result = gateway.confirm(actor, token, request_id="confirmation-effect-confirm")
+                return "success", result["kind"]
+            except AgentGatewayError as error:
+                return "error", error.code
+
+        with ThreadPoolExecutor(max_workers=20) as pool:
+            outcomes = list(pool.map(lambda _: confirm_once(), range(20)))
+
+        assert sum(kind == "success" for kind, _ in outcomes) == 1
+        assert all(kind == "success" or code == "CONFIRMATION_INVALID" for kind, code in outcomes)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT name FROM ponds WHERE id=%s", (ids["pond_id"],))
+            assert cursor.fetchone()["name"] == "并发确认后塘"
+            cursor.execute("SELECT status FROM agent_confirmations WHERE id=%s", (pending["confirmation"]["id"],))
+            assert cursor.fetchone()["status"] == "confirmed"
+            cursor.execute("SELECT COUNT(*) AS total FROM audit_logs WHERE request_id=%s AND result='success'", ("confirmation-effect-confirm",))
+            assert cursor.fetchone()["total"] == 1
+
+
+@pytest.mark.parametrize(
+    ("resource", "payload"),
+    [
+        ("samplings", {"code": "EQ-SP", "name": "等价抽样", "pond_id": "pond_id", "batch_id": "batch_id", "quantity": 12, "weight_kg": 3}),
+        ("feed-plans", {"code": "EQ-FP", "name": "等价投喂计划", "pond_id": "pond_id", "batch_id": "batch_id", "material_id": "material_id", "quantity": 8, "planned_at": "2026-09-08T08:00:00"}),
+        ("daily-operations", {"code": "EQ-OP", "name": "等价巡塘", "pond_id": "pond_id", "operation_type": "patrol", "payload": {"water_quality": "正常", "fish_activity": "活跃"}}),
+    ],
+)
+def test_production_manual_agent_mysql_snapshots_are_equivalent(
+    resource: str,
+    payload: dict[str, Any],
+) -> None:
+    def run(settings: Any, mode: str) -> dict[str, Any]:
+        ids = _seed(settings)
+        actor = {
+            "id": 1,
+            "status": "active",
+            "permissions": ["production.view", "production.manage"],
+            "roles": [],
+            "data_scopes": [],
+        }
+        resolved = {key: ids[value] if isinstance(value, str) and value in ids else value for key, value in payload.items()}
+        service = ProductionService(MySqlProductionStore(settings))
+        if mode == "manual":
+            return service.create(actor, resource, resolved)
+        tool = AgentTool(
+            name=f"production.create_{resource.replace('-', '_')}",
+            description=f"创建{resource}",
+            method="POST",
+            path_template=f"/api/v1/production/{resource}",
+            parameters={"payload": {"type": "object", "required": True}},
+            required_permission="production.manage",
+            risk="write",
+            execute=lambda arguments, _context: service.create(actor, resource, arguments["payload"]),
+        )
+        gateway = AgentGatewayService(
+            settings,
+            registry=AgentToolRegistry((tool,)),
+            confirmations=MySqlAgentConfirmationStore(settings),
+        )
+        pending = gateway.prepare_tool(
+            actor,
+            tool.name,
+            {"resource": resource, "payload": resolved, "raw_instruction": f"创建{resource}"},
+            conversation_id=f"equivalence-{resource}",
+            request_id=f"equivalence-{resource}-request",
+        )
+        return gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"equivalence-{resource}-confirm")
+
+    from backend.tests.helpers.db_snapshot import compare_snapshots, snapshot_tables
+
+    with disposable_database(f"adp_equiv_manual_{resource.replace('-', '_')}", through=31) as database:
+        manual_settings = settings_for(database)
+        manual = run(manual_settings, "manual")
+        assert manual["code"] == payload["code"]
+        manual_snapshot = snapshot_tables(manual_settings, ["production_batches", "production_documents", "batch_stock_records"])
+
+    with disposable_database(f"adp_equiv_agent_{resource.replace('-', '_')}", through=31) as database:
+        agent_settings = settings_for(database)
+        agent = run(agent_settings, "agent")
+        assert agent["kind"] == "success"
+        agent_snapshot = snapshot_tables(agent_settings, ["production_batches", "production_documents", "batch_stock_records"])
+
+        assert compare_snapshots(
+            manual_snapshot,
+            agent_snapshot,
+            ignore_fields={
+                "production_batches": {"id", "created_at", "updated_at", "created_by", "updated_by"},
+                "production_documents": {"id", "created_at", "updated_at", "created_by", "updated_by"},
+                "batch_stock_records": {"id", "created_at", "posted_by", "happened_at"},
+            },
+            business_keys={
+                "production_batches": ("code",),
+                "production_documents": ("document_type", "code"),
+                "batch_stock_records": ("source_type", "source_id", "line_no"),
+            },
+        )
+
+
+def test_uninspected_daily_operations_query_is_date_filtered_and_scoped() -> None:
+    with disposable_database("adp_uninspected_query", through=31) as database:
+        settings = settings_for(database)
+        ids = _seed(settings)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,pond_status,status,created_by) "
+                "VALUES (%s,%s,%s,'P2','二号塘','farming','verified',1)",
+                (ids["organization_id"], ids["farm_id"], ids["area_id"]),
+            )
+            second_pond_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO production_documents "
+                "(organization_id,farm_id,area_id,document_type,code,name,pond_id,happened_at,status,created_by,verified_by,verified_at) "
+                "VALUES (%s,%s,%s,'daily_operation','TODAY-OP','今日巡检',%s,%s,'verified',1,2,NOW())",
+                (ids["organization_id"], ids["farm_id"], ids["area_id"], ids["pond_id"], date.today()),
+            )
+        store = MySqlProductionStore(settings)
+        actor = {"id": 1, "status": "active", "permissions": ["production.view"], "data_scopes": []}
+        result = store.list_records("daily-operations", user=actor, uninspected_on="today")
+        returned_ids = {int(row["id"]) for row in result["items"]}
+        assert ids["pond_id"] not in returned_ids
+        assert second_pond_id in returned_ids
+        with pytest.raises(DomainError, match="PRODUCTION_DATE_INVALID"):
+            store.list_records("daily-operations", user=actor, uninspected_on="not-a-date")
