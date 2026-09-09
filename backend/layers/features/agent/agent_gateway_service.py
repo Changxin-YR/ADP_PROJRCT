@@ -23,7 +23,10 @@ class AgentGatewayError(ValueError):
 
 AuditWriter = Callable[[dict[str, Any]], None]
 
-_SENSITIVE_KEYS = {"password", "password_hash", "token", "cookie", "authorization", "attachment"}
+_SENSITIVE_KEYS = {
+    "password", "password_hash", "token", "cookie", "authorization", "attachment",
+    "session_hash", "session_token", "api_key", "secret", "credential", "csrf",
+}
 
 
 def _redact(value: Any) -> Any:
@@ -111,7 +114,7 @@ class AgentGatewayService:
         self.audit({
             "user_id": user.get("id"),
             "authenticated_user_id": user.get("id"),
-            "session_hash": user.get("_session_hash"),
+            "session_hash": "[REDACTED]" if user.get("_session_hash") else None,
             "raw_instruction": arguments.get("raw_instruction"),
             "intent": tool.name,
             "tool_name": tool.name,
@@ -269,10 +272,12 @@ class AgentGatewayService:
                     200,
                 ),
             )
-        except AgentGatewayError:
-            raise
         except Exception as exc:
-            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=pending.conversation_id, reason="业务执行失败")
+            self.confirmations.mark_failed(pending.id, user_id=int(user["id"]))
+            reason = exc.code if isinstance(exc, AgentGatewayError) else "业务执行失败"
+            self._audit(user, tool, arguments, result="failure", request_id=request_id, conversation_id=pending.conversation_id, confirmation_id=pending.id, reason=reason)
+            if isinstance(exc, AgentGatewayError):
+                raise
             raise AgentGatewayError("BUSINESS_ERROR", "业务操作未完成，请在页面核对状态", 400) from exc
 
         before = body.get("before") if isinstance(body, dict) else None

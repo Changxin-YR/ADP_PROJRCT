@@ -81,6 +81,12 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
                 cursor.execute("UPDATE agent_confirmations SET status='cancelled' WHERE id=%s AND user_id=%s AND status='pending'", (confirmation_id, user_id))
                 return cursor.rowcount == 1
 
+    def mark_failed(self, confirmation_id: int, *, user_id: int) -> bool:
+        with self._connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("UPDATE agent_confirmations SET status='failed' WHERE id=%s AND user_id=%s AND status='confirmed'", (confirmation_id, user_id))
+                return cursor.rowcount == 1
+
     def mark_expired(self, *, now: datetime | None = None) -> int:
         with self._connection() as connection:
             with connection.cursor() as cursor:

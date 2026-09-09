@@ -109,7 +109,7 @@ def _agent_write(
 
 
 def test_agent_idor_rejects_foreign_area_without_mutation() -> None:
-    with disposable_database("adp_round4_idor", through=31) as database:
+    with disposable_database("adp_round4_idor", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         service = MasterDataService(MySqlMasterDataStore(settings))
@@ -151,7 +151,7 @@ def test_agent_idor_rejects_foreign_area_without_mutation() -> None:
 
 
 def test_agent_confirmation_concurrency_posts_inventory_and_cost_once() -> None:
-    with disposable_database("adp_round4_confirmation", through=31) as database:
+    with disposable_database("adp_round4_confirmation", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         with get_connection(settings) as connection, connection.cursor() as cursor:
@@ -217,7 +217,7 @@ def _workbook() -> bytes:
 
 
 def test_agent_request_id_idempotency_covers_payment_receipt_inventory_and_import(tmp_path: Path) -> None:
-    with disposable_database("adp_round4_idempotency", through=31) as database:
+    with disposable_database("adp_round4_idempotency", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         purchase = PurchaseService(MySqlPurchaseStore(settings))
@@ -249,6 +249,8 @@ def test_agent_request_id_idempotency_covers_payment_receipt_inventory_and_impor
         successful_payments = [value for kind, value in payment_results if kind == "ok"]
         assert payment_calls == [1] and successful_payments
         payment = successful_payments[0][0]
+        # Deterministic timeout model: the first committed response is discarded
+        # before the client receives it; the same request id must replay it.
         replay, _ = execute_idempotent(settings, user_id=1, action_code="agent:payment.create", key="round4-payment-key", payload=payment_payload, operation=payment_operation)
         assert payment["id"] == replay["id"]
 
@@ -321,6 +323,15 @@ def test_agent_request_id_idempotency_covers_payment_receipt_inventory_and_impor
             assert cursor.fetchone()["status"] == "verified"
             cursor.execute("SELECT COUNT(*) AS total FROM inventory_ledger WHERE source_type='receipt' AND source_id=%s", (inventory_receipt["id"],))
             assert cursor.fetchone()["total"] == 1
+        inventory_replay, _ = execute_idempotent(
+            settings,
+            user_id=1,
+            action_code="agent:inventory.mutate",
+            key="round4-inventory-key",
+            payload={"quantity": 1},
+            operation=inventory_operation,
+        )
+        assert inventory_replay["id"] == inventory_receipt["id"]
 
         exchange = DataExchangeService(MySqlDataExchangeStore(settings), tmp_path)
         user = _actor(1, ["data_exchange.view", "data_exchange.import", "data_exchange.export", "production.view"])
@@ -360,11 +371,13 @@ def test_agent_request_id_idempotency_covers_payment_receipt_inventory_and_impor
             assert cursor.fetchone()["total"] == 1
             cursor.execute("SELECT COUNT(*) AS total FROM data_import_items WHERE import_batch_id=%s", (imported["id"],))
             assert cursor.fetchone()["total"] == 1
+            cursor.execute("SELECT COUNT(*) AS total FROM idempotency_keys WHERE user_id=1 AND action_code IN ('agent:payment.create','agent:receipt.create','agent:inventory.mutate','agent:data-import.confirm') AND status='completed'")
+            assert cursor.fetchone()["total"] == 4
 
 
 def test_agent_confirmation_payment_effects_are_exactly_once() -> None:
     """A confirmed payment may be claimed by many callers, but posts once."""
-    with disposable_database("adp_round4_payment_confirmation", through=31) as database:
+    with disposable_database("adp_round4_payment_confirmation", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         purchase = PurchaseService(MySqlPurchaseStore(settings))
@@ -425,7 +438,7 @@ def test_agent_confirmation_payment_effects_are_exactly_once() -> None:
 
 
 def test_agent_audit_trace_reconstructs_success_and_failure() -> None:
-    with disposable_database("adp_round4_audit_trace", through=31) as database:
+    with disposable_database("adp_round4_audit_trace", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         actor = _actor(1, ["master_data.view", "master_data.manage"], area_id=ids["area_id"])

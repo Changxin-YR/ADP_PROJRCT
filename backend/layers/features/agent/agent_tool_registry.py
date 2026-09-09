@@ -105,6 +105,10 @@ def _risk_for(method: str, path: str) -> Risk:
     # because those endpoints create or replace the identity the agent inherits.
     if _domain(path) == "auth" and method != "GET":
         return "human_only"
+    # File uploads are multipart-only; the Agent gateway intentionally accepts
+    # JSON and must not advertise a non-executable binary write tool.
+    if method == "POST" and path == "/api/v1/data-exchange/attachments":
+        return "human_only"
     if method == "GET":
         return "read"
     return "write"

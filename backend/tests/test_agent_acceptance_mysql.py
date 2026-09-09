@@ -20,6 +20,8 @@ from backend.layers.features.master_data.master_data_service import MasterDataSe
 from backend.layers.features.master_data.master_data_store import MySqlMasterDataStore
 from backend.layers.features.production.production_service import ProductionService
 from backend.layers.features.production.production_store import MySqlProductionStore
+from backend.layers.features.warehouse.warehouse_service import WarehouseService
+from backend.layers.features.warehouse.warehouse_store import MySqlWarehouseStore
 from backend.tests.mysql_test_database import disposable_database, settings_for
 from test_warehouse_mysql_integration import _seed
 
@@ -45,7 +47,7 @@ def _actor(user_id: int, area_id: int | None = None) -> dict[str, Any]:
 
 
 def test_mysql_confirmation_claim_is_exactly_once_under_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
-    with disposable_database("adp_agent_confirmation", through=31) as database:
+    with disposable_database("adp_agent_confirmation", through=32) as database:
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         with get_connection(settings) as connection, connection.cursor() as cursor:
@@ -87,7 +89,7 @@ def test_mysql_confirmation_claim_is_exactly_once_under_concurrency(monkeypatch:
 
 
 def test_agent_request_id_is_exactly_once_under_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:
-    with disposable_database("adp_agent_idempotency", through=31) as database:
+    with disposable_database("adp_agent_idempotency", through=32) as database:
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         with get_connection(settings) as connection, connection.cursor() as cursor:
@@ -121,7 +123,7 @@ def test_agent_request_id_is_exactly_once_under_concurrency(monkeypatch: pytest.
 
 
 def test_agent_audit_persists_before_after_and_failure_without_side_effect(monkeypatch: pytest.MonkeyPatch) -> None:
-    with disposable_database("adp_agent_audit", through=31) as database:
+    with disposable_database("adp_agent_audit", through=32) as database:
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         with get_connection(settings) as connection, connection.cursor() as cursor:
@@ -160,7 +162,7 @@ def _run_pond_create(settings: Any, mode: str) -> dict[str, Any]:
 
 
 def test_manual_and_agent_mysql_snapshots_are_business_equivalent() -> None:
-    with disposable_database("adp_manual_equivalence", through=31) as manual_db:
+    with disposable_database("adp_manual_equivalence", through=32) as manual_db:
         manual_settings = settings_for(manual_db)
         manual = _run_pond_create(manual_settings, "manual")
         assert manual["code"] == "P-EQUIV"
@@ -168,7 +170,7 @@ def test_manual_and_agent_mysql_snapshots_are_business_equivalent() -> None:
 
         manual_snapshot = snapshot_tables(manual_settings, ["areas", "ponds"])
 
-    with disposable_database("adp_agent_equivalence", through=31) as agent_db:
+    with disposable_database("adp_agent_equivalence", through=32) as agent_db:
         agent_settings = settings_for(agent_db)
         agent = _run_pond_create(agent_settings, "agent")
         assert agent["kind"] == "success"
@@ -185,7 +187,7 @@ def test_manual_and_agent_mysql_snapshots_are_business_equivalent() -> None:
 
 
 def test_agent_scope_rejects_foreign_pond_without_database_change(monkeypatch: pytest.MonkeyPatch) -> None:
-    with disposable_database("adp_agent_idor", through=31) as database:
+    with disposable_database("adp_agent_idor", through=32) as database:
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         ids = _seed(settings)
@@ -200,7 +202,7 @@ def test_agent_scope_rejects_foreign_pond_without_database_change(monkeypatch: p
 
 def test_confirmation_business_mutation_and_audit_are_exactly_once(monkeypatch: pytest.MonkeyPatch) -> None:
     """A real MySQL confirmation claim gates one business write under contention."""
-    with disposable_database("adp_agent_confirmation_effect", through=31) as database:
+    with disposable_database("adp_agent_confirmation_effect", through=32) as database:
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         ids = _seed(settings)
@@ -298,11 +300,168 @@ def test_confirmation_business_mutation_and_audit_are_exactly_once(monkeypatch: 
             assert cursor.fetchone()["total"] == 1
 
 
+def test_confirmation_claim_then_real_business_failure_is_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    with disposable_database("adp_agent_confirmation_failure", through=32) as database:
+        settings = settings_for(database)
+        _env_for(settings, monkeypatch)
+        ids = _seed(settings)
+        actor = _actor(1, area_id=ids["area_id"])
+        service = MasterDataService(MySqlMasterDataStore(settings))
+        audit = AuditLogger()
+
+        def write_audit(event: dict[str, Any]) -> None:
+            with get_connection(settings) as connection:
+                audit.write(
+                    connection,
+                    user_id=int(event["user_id"]),
+                    action="agent_tool",
+                    object_type=str(event.get("tool_name") or "agent_tool"),
+                    object_id=ids["pond_id"],
+                    result=str(event.get("result") or "failure"),
+                    ip_address=None,
+                    request_id=str(event.get("request_id") or ""),
+                    module_code="agent",
+                    action_code=str(event.get("tool_name") or "agent_tool"),
+                    reason=event.get("reason"),
+                    before=event.get("before"),
+                    after=event.get("after"),
+                    detail_json=json.dumps(event, ensure_ascii=False, default=str),
+                )
+
+        tool = AgentTool(
+            name="master_data.update_record",
+            description="更新塘口",
+            method="PATCH",
+            path_template="/api/v1/master-data/{resource}/{record_id}",
+            parameters={"payload": {"type": "object", "required": True}},
+            required_permission="master_data.manage",
+            risk="write",
+            execute=lambda arguments, _context: service.update(actor, "ponds", ids["pond_id"], arguments["payload"]),
+            permission_namespace="master_data",
+            permission_action="manage",
+            resource_argument="resource",
+        )
+        gateway = AgentGatewayService(
+            settings,
+            registry=AgentToolRegistry((tool,)),
+            confirmations=MySqlAgentConfirmationStore(settings),
+            audit=write_audit,
+        )
+        pending = gateway.prepare_tool(
+            actor,
+            tool.name,
+            {"resource": "ponds", "record_id": ids["pond_id"], "payload": {"expected_version": 999, "name": "不应写入"}, "raw_instruction": "修改塘口"},
+            conversation_id="confirmation-failure",
+            request_id="confirmation-failure-prepare",
+        )
+        with pytest.raises(AgentGatewayError) as error:
+            gateway.confirm(actor, pending["confirmation"]["token"], request_id="confirmation-failure-confirm")
+        assert error.value.code == "BUSINESS_ERROR"
+
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT status FROM agent_confirmations WHERE id=%s", (pending["confirmation"]["id"],))
+            assert cursor.fetchone()["status"] == "failed"
+            cursor.execute("SELECT name FROM ponds WHERE id=%s", (ids["pond_id"],))
+            assert cursor.fetchone()["name"] == "一号塘"
+            cursor.execute("SELECT status FROM idempotency_keys WHERE user_id=1 AND action_code=%s", (f"agent:{tool.name}",))
+            assert cursor.fetchone()["status"] == "failed"
+            cursor.execute("SELECT result,reason FROM audit_logs WHERE request_id='confirmation-failure-confirm'")
+            audit_row = cursor.fetchone()
+            assert audit_row == {"result": "failure", "reason": "业务执行失败"}
+
+        with pytest.raises(AgentGatewayError) as replay_error:
+            gateway.confirm(actor, pending["confirmation"]["token"], request_id="confirmation-failure-replay")
+        assert replay_error.value.code == "CONFIRMATION_INVALID"
+
+
+def test_manual_and_agent_attachment_metadata_snapshots_are_equivalent() -> None:
+    from backend.layers.features.agent.agent_tool_registry import build_registry
+
+    upload = next(
+        item
+        for item in build_registry().tools
+        if item.method == "POST" and item.path_template == "/api/v1/data-exchange/attachments"
+    )
+    assert upload.risk == "human_only"
+    # NOT_APPLICABLE: multipart/form-data has no JSON Agent trigger. Metadata
+    # read/download remains covered by the REST IDOR matrix.
+
+
+def test_manual_and_agent_inventory_snapshots_are_equivalent() -> None:
+    def run(settings: Any, mode: str) -> None:
+        ids = _seed(settings)
+        actor = _actor(1)
+        actor["permissions"] = ["warehouse.view", "warehouse.manage"]
+        verifier = _actor(2)
+        verifier["permissions"] = ["warehouse.view", "warehouse.verify"]
+        service = WarehouseService(MySqlWarehouseStore(settings))
+        created = service.create(
+            actor,
+            "receipts",
+            {"code": "EQ-INV", "name": "等价入库", "warehouse_id": ids["warehouse_1"], "material_id": ids["material_id"], "quantity": 4, "unit_cost": 5, "lot_no": "EQ-INV-LOT", "expiry_date": "2027-01-01"},
+        )
+        submitted = service.submit(actor, "receipts", created["id"], {"expected_version": created["version"]})
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE attachments SET entity_type='warehouse:receipts',entity_id=%s WHERE id=%s",
+                (created["id"], ids["attachment_id"]),
+            )
+        verification_payload = {"expected_version": submitted["version"], "evidence_attachment_ids": [ids["attachment_id"]]}
+        if mode == "manual":
+            service.verify(verifier, "receipts", created["id"], verification_payload)
+            return
+        tool = AgentTool(
+            name="warehouse.verify_receipt",
+            description="核验入库",
+            method="POST",
+            path_template="/api/v1/warehouse/receipts/{record_id}/verify",
+            parameters={"payload": {"type": "object", "required": True}},
+            required_permission="warehouse.verify",
+            risk="write",
+            execute=lambda arguments, _context: service.verify(verifier, "receipts", created["id"], arguments["payload"]),
+        )
+        gateway = AgentGatewayService(
+            settings,
+            registry=AgentToolRegistry((tool,)),
+            confirmations=MySqlAgentConfirmationStore(settings),
+        )
+        pending = gateway.prepare_tool(verifier, tool.name, {"record_id": created["id"], "payload": verification_payload, "raw_instruction": "核验入库"}, conversation_id="inventory-equivalence", request_id="inventory-equivalence-prepare")
+        result = gateway.confirm(verifier, pending["confirmation"]["token"], request_id="inventory-equivalence-confirm")
+        assert result["kind"] == "success"
+
+    from backend.tests.helpers.db_snapshot import compare_snapshots, snapshot_tables
+    tables = ["warehouse_documents", "inventory_ledger", "cost_entries"]
+    with disposable_database("adp_equiv_inventory_manual", through=32) as database:
+        manual_settings = settings_for(database)
+        run(manual_settings, "manual")
+        manual_snapshot = snapshot_tables(manual_settings, tables)
+    with disposable_database("adp_equiv_inventory_agent", through=32) as database:
+        agent_settings = settings_for(database)
+        run(agent_settings, "agent")
+        agent_snapshot = snapshot_tables(agent_settings, tables)
+        assert compare_snapshots(
+            manual_snapshot,
+            agent_snapshot,
+            ignore_fields={
+                "warehouse_documents": {"id", "created_at", "updated_at", "created_by", "updated_by", "verified_by", "verified_at", "row_version"},
+                "inventory_ledger": {"id", "created_at", "happened_at", "posted_by"},
+                "cost_entries": {"id", "created_at", "updated_at", "created_by", "updated_by", "confirmed_by", "confirmed_at"},
+            },
+            business_keys={
+                "warehouse_documents": ("document_type", "code"),
+                "inventory_ledger": ("source_type", "source_id", "line_no"),
+                "cost_entries": ("source_type", "source_ref"),
+            },
+        )
+
+
 @pytest.mark.parametrize(
     ("resource", "payload"),
     [
+        ("batches", {"code": "EQ-BATCH", "name": "等价批次", "pond_id": "pond_id", "species": "草鱼", "initial_quantity": 100, "initial_weight_kg": 20, "stocked_at": "2026-09-08T08:00:00"}),
         ("samplings", {"code": "EQ-SP", "name": "等价抽样", "pond_id": "pond_id", "batch_id": "batch_id", "quantity": 12, "weight_kg": 3}),
         ("feed-plans", {"code": "EQ-FP", "name": "等价投喂计划", "pond_id": "pond_id", "batch_id": "batch_id", "material_id": "material_id", "quantity": 8, "planned_at": "2026-09-08T08:00:00"}),
+        ("feed-logs", {"code": "EQ-FL", "name": "等价投喂记录", "pond_id": "pond_id", "batch_id": "batch_id", "material_id": "material_id", "quantity": 2, "happened_at": "2026-09-08T08:00:00"}),
         ("daily-operations", {"code": "EQ-OP", "name": "等价巡塘", "pond_id": "pond_id", "operation_type": "patrol", "payload": {"water_quality": "正常", "fish_activity": "活跃"}}),
     ],
 )
@@ -349,13 +508,13 @@ def test_production_manual_agent_mysql_snapshots_are_equivalent(
 
     from backend.tests.helpers.db_snapshot import compare_snapshots, snapshot_tables
 
-    with disposable_database(f"adp_equiv_manual_{resource.replace('-', '_')}", through=31) as database:
+    with disposable_database(f"adp_equiv_manual_{resource.replace('-', '_')}", through=32) as database:
         manual_settings = settings_for(database)
         manual = run(manual_settings, "manual")
         assert manual["code"] == payload["code"]
         manual_snapshot = snapshot_tables(manual_settings, ["production_batches", "production_documents", "batch_stock_records"])
 
-    with disposable_database(f"adp_equiv_agent_{resource.replace('-', '_')}", through=31) as database:
+    with disposable_database(f"adp_equiv_agent_{resource.replace('-', '_')}", through=32) as database:
         agent_settings = settings_for(database)
         agent = run(agent_settings, "agent")
         assert agent["kind"] == "success"
@@ -378,7 +537,7 @@ def test_production_manual_agent_mysql_snapshots_are_equivalent(
 
 
 def test_uninspected_daily_operations_query_is_date_filtered_and_scoped() -> None:
-    with disposable_database("adp_uninspected_query", through=31) as database:
+    with disposable_database("adp_uninspected_query", through=32) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         with get_connection(settings) as connection, connection.cursor() as cursor:

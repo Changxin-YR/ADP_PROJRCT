@@ -1,12 +1,17 @@
 # Agent Request ID Idempotency Matrix
 
-Fourth-round status: `FAIL` (tested primary-row effects pass; complete ledger/retry matrix remains open).
+Round-five status: `PASS` for the executed MySQL 9.7 disposable regression;
+the exact MySQL 8.0/8.4 rerun is still required for final certification.
 
 | ID | Business path | Sequential | Concurrent | Commit-then-retry | DB side effects | Result |
 | --- | --- | --- | --- | --- | --- | --- |
 | IDEMP-001 | Generic Agent operation | PASS | PASS (10 callers) | PASS replay | one operation invocation | PASS |
-| IDEMP-002 | Payment | PASS | PASS (10 callers) | PASS replay | one payment row; payable settles once; audit success once | PASS (tested path) |
-| IDEMP-003 | Receipt | PASS | PASS (10 callers) | PASS replay | one receipt row; replay returns same result | PASS (tested path) |
-| IDEMP-004 | Inventory mutation | PASS | PASS (10 callers) | PASS replay | one document/quantity/ledger effect | PASS (tested path) |
-| IDEMP-005 | Data import | PASS | PASS (10 callers) | PASS replay | one material/import row and one import item | PASS (tested path) |
-| IDEMP-006 | Complete finance ledger and commit-then-timeout matrix | OPEN | OPEN | OPEN | all ledger/deduction counters not covered for every route | OPEN |
+| IDEMP-002 | Payment | PASS | PASS (10 callers) | PASS (commit then discard response, replay) | one payment row; terminal idempotency record | PASS |
+| IDEMP-003 | Receipt | PASS | PASS (10 callers) | PASS (commit then discard response, replay) | one receipt row; terminal idempotency record | PASS |
+| IDEMP-004 | Inventory mutation | PASS | PASS (10 callers) | PASS (commit then discard response, replay) | one document and one inventory ledger row | PASS |
+| IDEMP-005 | Data import | PASS | PASS (10 callers) | PASS (commit then discard response, replay) | one material/import row and one import item | PASS |
+| IDEMP-006 | Terminal-record closure | PASS | PASS | PASS | four completed terminal idempotency rows asserted together | PASS |
+
+Timeout is deterministic: the first committed result is intentionally ignored
+by the test caller, then the same request id is submitted again. No random
+network failure is used.

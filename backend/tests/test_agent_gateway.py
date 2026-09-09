@@ -22,6 +22,7 @@ class _MemoryConfirmationStore:
     def __init__(self):
         self.rows = {}
         self.next_id = 1
+        self.failed_ids = []
 
     def create(self, confirmation, token):
         row = AgentConfirmation(
@@ -73,6 +74,28 @@ class _MemoryConfirmationStore:
 
     def mark_expired(self, *, now=None):
         return 0
+
+    def mark_failed(self, confirmation_id, *, user_id):
+        for token, row in self.rows.items():
+            if row.id == confirmation_id and row.user_id == user_id and row.status == "confirmed":
+                failed = AgentConfirmation(
+                    row.id,
+                    row.idempotency_key,
+                    row.token_hash,
+                    row.user_id,
+                    row.session_hash,
+                    row.conversation_id,
+                    row.request_id,
+                    row.tool_name,
+                    row.payload,
+                    "failed",
+                    row.expires_at,
+                    row.used_at,
+                )
+                self.rows[token] = failed
+                self.failed_ids.append(confirmation_id)
+                return True
+        return False
 
 
 def _gateway(executor=None):
@@ -145,6 +168,41 @@ def test_agent_confirmation_is_single_use_and_rechecks_identity():
         gateway.confirm(user, token, request_id="r-3")
 
 
+def test_agent_confirmation_business_failure_is_terminal_and_audited():
+    events = []
+
+    def fail(_args, _context):
+        raise ValueError("库存不足")
+
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=build_registry(lambda tool: fail if tool.name == "master_data.create_record" else None),
+        confirmations=_MemoryConfirmationStore(),
+        audit=events.append,
+        idempotent=lambda _settings, **kwargs: kwargs["operation"](),
+    )
+    user = _active_user("master_data.manage")
+    pending = gateway.prepare_tool(
+        user,
+        "master_data.create_record",
+        {"resource": "ponds", "raw_instruction": "创建塘口"},
+        conversation_id="c-failure",
+        request_id="r-failure",
+    )
+
+    with pytest.raises(AgentGatewayError) as error:
+        gateway.confirm(user, pending["confirmation"]["token"], request_id="r-failure-confirm")
+
+    assert error.value.code == "BUSINESS_ERROR"
+    store = gateway.confirmations
+    assert store.rows[pending["confirmation"]["token"]].status == "failed"
+    assert store.failed_ids == [pending["confirmation"]["id"]]
+    with pytest.raises(AgentGatewayError) as replay_error:
+        gateway.confirm(user, pending["confirmation"]["token"], request_id="r-failure-replay")
+    assert replay_error.value.code == "CONFIRMATION_INVALID"
+    assert events[-1]["result"] == "failure"
+
+
 def test_agent_audit_event_contains_authorization_and_business_trace_fields():
     events = []
     registry = build_registry(lambda _tool: lambda _args, _context: {"before": {"status": "active"}, "after": {"status": "inactive"}})
@@ -174,6 +232,41 @@ def test_agent_audit_event_contains_authorization_and_business_trace_fields():
     assert success["before"] == {"status": "active"}
     assert success["after"] == {"status": "inactive"}
     assert success["tool_arguments"]["token"] == "[REDACTED]"
+
+
+def test_agent_audit_redacts_all_credential_fields():
+    events = []
+    registry = build_registry(lambda _tool: lambda _args, _context: {"ok": True})
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=registry,
+        confirmations=_MemoryConfirmationStore(),
+        audit=events.append,
+        idempotent=lambda _settings, **kwargs: kwargs["operation"](),
+    )
+    user = _active_user("master_data.manage")
+    user["_session_hash"] = "session-hash-secret"
+    pending = gateway.prepare_tool(
+        user,
+        "master_data.create_record",
+        {
+            "resource": "ponds",
+            "password": "password-secret",
+            "authorization": "Bearer secret-token",
+            "api_key": "deepseek-secret",
+            "session_token": "session-secret",
+        },
+        conversation_id="c-redact",
+        request_id="r-redact",
+    )
+    gateway.confirm(user, pending["confirmation"]["token"], request_id="r-redact-confirm")
+
+    trace = events[-1]
+    assert trace["session_hash"] == "[REDACTED]"
+    assert trace["tool_arguments"]["password"] == "[REDACTED]"
+    assert trace["tool_arguments"]["authorization"] == "[REDACTED]"
+    assert trace["tool_arguments"]["api_key"] == "[REDACTED]"
+    assert trace["tool_arguments"]["session_token"] == "[REDACTED]"
 
 
 def test_agent_admin_write_is_delegable_for_authorized_super_admin():
@@ -336,6 +429,9 @@ def test_agent_confirmation_migration_declares_atomic_claim_contract() -> None:
     assert "status enum('pending','confirmed','cancelled','expired')" in sql
     assert "unique" in sql
     assert "default 'pending'" in sql
+
+    failure_sql = (Path(__file__).parents[2] / "database/migrations/032_agent_confirmation_failures.sql").read_text().lower()
+    assert "modify status enum('pending','confirmed','failed','cancelled','expired')" in failure_sql
 
 
 def _confirmation(status="pending", expires_at=None):

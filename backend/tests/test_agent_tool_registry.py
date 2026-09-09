@@ -18,6 +18,9 @@ def test_registry_marks_read_write_and_identity_only_operations() -> None:
     ]
     assert auth_writes
     assert all(tool.risk == "human_only" for tool in auth_writes)
+    attachment_upload = registry.find_operation("POST", "/api/v1/data-exchange/attachments")
+    assert attachment_upload is not None
+    assert attachment_upload.risk == "human_only"
 
 
 def test_admin_tools_keep_super_admin_role_constraint_and_skip_business_scope() -> None:

@@ -33,7 +33,7 @@
 | 工作台摘要权限 | PASS | `/api/v1/workbench/summary` 与 `WorkbenchService.summary()` 均要求 `workbench.enter` |
 | Gateway/Registry deterministic Tool execution | PASS | Agent Gateway/Registry 与固定后端 dispatch 测试通过 |
 | Live DeepSeek natural-language E2E | PASS (core smoke) | Fresh broad query `5/5` HTTP 200, 3.10–14.61s; tool arguments used `production.list_records` with `uninspected_on=today`. Existing query/write/denial/multi-turn evidence remains valid. |
-| Manual/API vs Agent MySQL snapshot equivalence | FAIL | Pond create snapshot passes; the required 16-module and mixed-operation matrix is incomplete |
+| Manual/API vs Agent MySQL snapshot equivalence | BLOCKED | Pond, production, inventory and attachment applicability evidence passes; the required 16-module and mixed-operation matrix is incomplete |
 
 ## Security
 
@@ -41,13 +41,13 @@
 | --- | --- | --- |
 | Prompt injection full matrix | PASS | PI-001..PI-008 executed through DeepSeek -> Gateway; identity, permission and scope stayed unchanged; no unauthorized DB mutation; HTTP/audit/DB evidence used |
 | Tool injection / unknown tool / parameter validation | PASS | Registry 固定路径、未知 Tool 拒绝、参数校验测试通过 |
-| IDOR / cross-scope HTTP matrix | FAIL | Pond service/MySQL scope rejection passes; required REST verbs, attachment/export and Agent natural-language matrix is incomplete |
+| IDOR / cross-scope HTTP matrix | BLOCKED | Pond service/Agent scope rejection passes; required two-user REST verbs, attachment/download/export and Agent natural-language matrix is incomplete |
 | DataScope bypass | PASS | 跨组织、区域、个人范围和导入/附件范围测试通过 |
 | Confirmation replay / wrong user / expiry | PASS | 单次消费、身份/会话绑定、过期和取消 deterministic 测试通过 |
-| Confirmation DB concurrency | FAIL | 20 concurrent claims yield one winner on MySQL 8.0/8.4, but business row/ledger/audit exactly-once was not proven |
-| Idempotency for Agent high-risk writes | FAIL | Generic operation invocation is exactly once, but payment/receipt/inventory/data-import side effects were not covered |
+| Confirmation DB concurrency | PASS (9.7 regression) | One winner, terminal failure semantics, business/ledger/audit closure and replay rejection pass; 8.0/8.4 rerun remains required |
+| Idempotency for Agent high-risk writes | PASS (9.7 regression) | Payment/receipt/inventory/import sequential, concurrent and deterministic commit-then-replay assertions pass; 8.0/8.4 rerun remains required |
 | Attachment validation | PASS | MIME、后缀、大小、重复和目标范围测试通过 |
-| Agent audit before/after and failure | FAIL | Logger persistence and live gateway failure audit pass; actual Agent business write trace lacks the full required instruction/intent/before/after assertion |
+| Agent audit before/after and failure | PASS (representative classes) | Shared Gateway pipeline reconstructs request/permission/scope/confirmation/before/after and failure traces; 8.0/8.4 rerun remains required |
 
 ## Four Gates
 

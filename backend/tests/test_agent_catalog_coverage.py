@@ -43,4 +43,7 @@ def test_only_identity_session_lifecycle_remains_human_only() -> None:
     )
     human_only = build_agent_catalog(app)["human_only_operations"]
     assert human_only
-    assert all(item["path"].startswith("/api/v1/auth") for item in human_only)
+    paths = {item["path"] for item in human_only}
+    assert paths
+    assert all(path.startswith("/api/v1/auth") or path == "/api/v1/data-exchange/attachments" for path in paths)
+    assert "/api/v1/data-exchange/attachments" in paths
