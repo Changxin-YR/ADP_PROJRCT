@@ -11,6 +11,7 @@ interface Message { id: number; role: AgentMessageRole; text: string; result?: A
 
 const router = useRouter()
 const session = createSessionStore()
+const assistantName = '塘小助'
 const open = ref(false)
 const input = ref('')
 const busy = ref(false)
@@ -23,7 +24,7 @@ const inputElement = ref<HTMLTextAreaElement>()
 let messageId = 0
 
 const available = computed(() => session.user.value?.status === 'active')
-const panelLabel = computed(() => open.value ? '关闭智能助手' : '打开智能助手')
+const panelLabel = computed(() => open.value ? `关闭${assistantName}` : `打开${assistantName}`)
 
 function textOf(value: unknown): string {
   if (typeof value === 'string') return value
@@ -51,7 +52,7 @@ function applyResult(result: AgentTurnResult): void {
   } else if (result.kind === 'human_only') {
     append('assistant', result.message || '该操作需要人工在管理页面完成', result)
   } else if (result.kind === 'assistant') {
-    append('assistant', result.message || '智能助手已返回结果', result)
+    append('assistant', result.message || `${assistantName}已返回结果`, result)
   } else {
     append('assistant', textOf(result.data), result)
   }
@@ -69,7 +70,7 @@ async function submit(): Promise<void> {
     conversationId.value ||= result.conversation_id || result.confirmation?.conversation_id || result.session_id
     applyResult(result)
   } catch (value) {
-    if (!handleAuthError(value)) error.value = errorText(value, '智能助手暂时不可用，请稍后重试')
+    if (!handleAuthError(value)) error.value = errorText(value, `${assistantName}暂时不可用，请稍后重试`)
   } finally { busy.value = false; await nextTick(); inputElement.value?.focus() }
 }
 
@@ -111,13 +112,13 @@ function toggle(): void {
   <div v-if="available" class="agent-widget">
     <button ref="launcherElement" class="agent-launcher" type="button" :aria-label="panelLabel" :aria-expanded="open" @click="toggle">
       <AppIcon :name="open ? 'close' : 'target'" :size="18" />
-      <span>智能助手</span>
+      <span>{{ assistantName }}</span>
     </button>
 
-    <section v-if="open" class="agent-panel" role="dialog" aria-modal="false" aria-label="智能助手" @keydown.esc="toggle">
+    <section v-if="open" class="agent-panel" role="dialog" aria-modal="false" :aria-label="assistantName" @keydown.esc="toggle">
       <header class="agent-panel__header">
-        <div><strong>智能助手</strong><small>当前账号权限内的 ADP 操作</small></div>
-        <button class="agent-panel__close" type="button" aria-label="关闭智能助手" @click="toggle"><AppIcon name="close" :size="17" /></button>
+        <div><strong>{{ assistantName }}</strong><small>当前账号权限内的 ADP 操作</small></div>
+        <button class="agent-panel__close" type="button" :aria-label="`关闭${assistantName}`" @click="toggle"><AppIcon name="close" :size="17" /></button>
       </header>
       <div class="agent-panel__messages" aria-live="polite">
         <p v-if="!messages.length" class="agent-panel__empty">请输入查询或业务指令</p>
@@ -137,7 +138,7 @@ function toggle(): void {
         <p v-if="error" class="agent-panel__error" role="alert">{{ error }}</p>
       </div>
       <form class="agent-panel__composer" @submit.prevent="submit">
-        <textarea ref="inputElement" v-model="input" rows="2" aria-label="智能助手指令" placeholder="例如：查询我有权限查看的鱼塘" :disabled="busy" @keydown.enter.exact.prevent="submit" />
+        <textarea ref="inputElement" v-model="input" rows="2" :aria-label="`${assistantName}指令`" placeholder="例如：查询我有权限查看的鱼塘" :disabled="busy" @keydown.enter.exact.prevent="submit" />
         <button type="submit" aria-label="发送指令" :disabled="busy || !input.trim()"><AppIcon name="exchange" :size="17" /><span>发送</span></button>
       </form>
     </section>
