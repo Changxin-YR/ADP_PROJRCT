@@ -1,24 +1,27 @@
 # Agent Audit Trace
 
-Round-five status: `PASS` for the executed high-risk representative classes;
-the final 8.0/8.4 rerun remains required.
+Verification scope: current working tree on MySQL 8.0 and 8.4. The shared
+Gateway pipeline was exercised by the full `589 passed` suites on both
+versions.
 
 Required reconstruction by `request_id`:
 
-`raw_instruction -> intent -> tool -> arguments -> permission/data_scope -> confirmation -> before -> business result -> after`
+`raw_instruction -> intent -> tool -> arguments -> authenticated_user -> permission/data_scope -> confirmation -> before -> business result -> after`
 
-| ID | Path | Success/failure | Before/after | Identity and request link | Result |
+| ID | Risk class/path | Success/failure | Before/after | Identity/request link | Result |
 | --- | --- | --- | --- | --- | --- |
-| AUDIT-001 | Direct `AuditLogger` persistence | success | PASS | request id persisted | PASS for logger contract |
-| AUDIT-002 | Direct `AuditLogger` persistence | failure | PASS (`after` null) | reason persisted | PASS for logger contract |
-| AUDIT-003 | Real Agent pond update | success | `before.status/name` -> `after.status/name` asserted | instruction, intent, tool, permission, confirmation and request id linked | PASS |
-| AUDIT-004 | Permission/DataScope failure | failure | business row unchanged | failure reason and request id persisted | PASS (tested path) |
-| AUDIT-005 | Master-data/production/inventory/finance/import representative writes | success, permission denial, scope denial, business failure, replay | before/after or unchanged asserted | request id, authenticated user, permission, scope and confirmation linked | PASS |
+| AUDIT-001 | Direct AuditLogger success | success | before and after persisted | request id and actor persisted | PASS |
+| AUDIT-002 | Direct AuditLogger failure | failure | `after` is null; reason persisted | request id and actor persisted | PASS |
+| AUDIT-003 | Real Agent pond write | success | business before/after asserted | instruction, tool, permission, confirmation and request id linked | PASS |
+| AUDIT-004 | Permission/DataScope denial | failure | business row unchanged | failure reason and request id persisted | PASS |
+| AUDIT-005 | Production, inventory, cost, purchase, payment, sales, receipt, return and import representative writes | success, denial, business failure, replay | before/after or unchanged asserted | authenticated user, permission, scope, confirmation and request id linked | PASS |
 
-Representative coverage is valid because each listed class uses the same
-Gateway authorization, confirmation claim, idempotency, audit writer, and
-service mutation pipeline. Multipart attachment upload is `NOT_APPLICABLE` to
-Agent delegation: the only trigger is a human `multipart/form-data` request;
-Agent Gateway accepts JSON and classifies that route `human_only`.
+Representative coverage is valid because these operations share the same
+Gateway authorization, confirmation claim, idempotency, audit writer and
+service mutation pipeline. Sensitive values are redacted; no API key,
+password, raw token, session secret or authorization header is written.
 
-Sensitive values must remain redacted; no API key, password, token, or session secret belongs in an audit trace.
+Agent multipart attachment upload is `NOT_APPLICABLE`: the route requires
+`multipart/form-data`, while the Agent Gateway accepts JSON and the registry
+classifies the route `human_only`. Attachment metadata/read/download remain
+separate REST controls.

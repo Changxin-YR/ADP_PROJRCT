@@ -1,73 +1,68 @@
-# ADP_PROJRCT 第四轮验收矩阵
+# ADP Final Acceptance Matrix
 
-审查日期：2026-09-09
-本地提交：以本轮验收提交为准
-测试数据库：Docker disposable MySQL 8.0.46（33080）与 MySQL 8.4（33084）
+Date: 2026-09-09
+Verification tree: current working tree based on `4222e4b` plus the listed
+acceptance tests and reports.
 
-状态只使用 `PASS`、`FAIL`、`BLOCKED`、`NOT_APPLICABLE`。`BLOCKED` 不得提升为 `PASS`，除非重新执行对应门禁并取得证据。
+## Backend / Gate 1
 
-## Backend
-
-| 项目 | 结果 | 证据 |
+| Item | Result | Fresh evidence |
 | --- | --- | --- |
-| Unit + MySQL 8.0 | PASS | Fresh full run on disposable port 33080: `569 passed`, no skipped tests |
-| Unit + MySQL 8.4 | PASS | Fresh full run on disposable port 33084: `569 passed`, no skipped tests |
-| Test collection parity | PASS | Fresh `pytest --collect-only -q backend/tests`: both sides collect `569` identical node ids; no difference |
-| Coverage >= 85% | PASS | Fresh full run: `85.04370673538477%` (`19,791` statements, `2,960` missing, `96` excluded) |
-| 无数据库时的预期 skip | PASS | Disposable MySQL runs explicitly enable the real database adapter; no intentional skip is used as a pass signal |
-| Schema/Migration/Seed | PASS | 双版本全量测试均完成隔离库创建、迁移、种子和销毁 |
+| MySQL 8.0 | PASS | `589 passed`, 0 failed, 0 skipped on disposable `33080` |
+| MySQL 8.4 | PASS | `589 passed`, 0 failed, 0 skipped on disposable `33084` |
+| Fresh migration bootstrap | PASS | Empty disposable databases migrated through 032 and seeded in both runs |
+| Collection parity | PASS | Both versions collected `589` tests with identical node IDs |
+| Coverage | PASS | Fresh 8.4 run: `86.05%`, 20,311 statements, `589 passed` |
+| Fresh final acceptance/equivalence subset | PASS | The current tree's 28 acceptance/equivalence tests passed on both `33080` and `33084`; 0 failed, 0 skipped |
 
 ## Frontend
 
-| 项目 | 结果 | 证据 |
+| Item | Result | Evidence |
 | --- | --- | --- |
 | Unit | PASS | `117 passed` |
 | Production build | PASS | `vue-tsc --noEmit && vite build` exit 0 |
-| Playwright E2E | PASS | Fresh split run: regular suite `16 passed` plus W4 suite `18 passed` (`34/34`) |
+| Playwright E2E | PASS | `34 passed` (16 regular + 18 W4) |
 
-## Agent
+## Agent / Gate 2
 
-| 项目 | 结果 | 证据 |
+| Item | Result | Fresh evidence |
 | --- | --- | --- |
-| Route -> Service permission parity | PASS | `171/171` 路由有唯一 Tool；`test_agent_permission_matrix.py` 通过 |
-| 工作台摘要权限 | PASS | `/api/v1/workbench/summary` 与 `WorkbenchService.summary()` 均要求 `workbench.enter` |
-| Gateway/Registry deterministic Tool execution | PASS | Agent Gateway/Registry 与固定后端 dispatch 测试通过 |
-| Live DeepSeek natural-language E2E | PASS (core smoke) | Fresh broad query `5/5` HTTP 200, 3.10–14.61s; tool arguments used `production.list_records` with `uninspected_on=today`. Existing query/write/denial/multi-turn evidence remains valid. |
-| Manual/API vs Agent MySQL snapshot equivalence | BLOCKED | Pond, production, inventory and attachment applicability evidence passes; the required 16-module and mixed-operation matrix is incomplete |
+| Permission parity | PASS | Existing registry parity test remains `171/171` |
+| Deterministic execution | PASS | Full backend suite and Agent Gateway tests pass on both MySQL versions |
+| Live DeepSeek query | PASS | Bundled runtime, authenticated query, HTTP 200 and assistant response |
+| Live permission denial | PASS | Bundled runtime, low-permission user, backend denial attempts and no write observed |
+| Live confirmed write | OPEN | Current live prompts did not produce a confirmation token; deterministic confirmation tests PASS |
+| Multi-turn / broad query | OPEN | Historical evidence exists; current bundled smoke was not closed for all required turns |
 
-## Security
+## Security / Gate 3
 
-| 项目 | 结果 | 证据 |
+| Item | Result | Evidence |
 | --- | --- | --- |
-| Prompt injection full matrix | PASS | PI-001..PI-008 executed through DeepSeek -> Gateway; identity, permission and scope stayed unchanged; no unauthorized DB mutation; HTTP/audit/DB evidence used |
-| Tool injection / unknown tool / parameter validation | PASS | Registry 固定路径、未知 Tool 拒绝、参数校验测试通过 |
-| IDOR / cross-scope HTTP matrix | BLOCKED | Pond service/Agent scope rejection passes; required two-user REST verbs, attachment/download/export and Agent natural-language matrix is incomplete |
-| DataScope bypass | PASS | 跨组织、区域、个人范围和导入/附件范围测试通过 |
-| Confirmation replay / wrong user / expiry | PASS | 单次消费、身份/会话绑定、过期和取消 deterministic 测试通过 |
-| Confirmation DB concurrency | PASS (9.7 regression) | One winner, terminal failure semantics, business/ledger/audit closure and replay rejection pass; 8.0/8.4 rerun remains required |
-| Idempotency for Agent high-risk writes | PASS (9.7 regression) | Payment/receipt/inventory/import sequential, concurrent and deterministic commit-then-replay assertions pass; 8.0/8.4 rerun remains required |
-| Attachment validation | PASS | MIME、后缀、大小、重复和目标范围测试通过 |
-| Agent audit before/after and failure | PASS (representative classes) | Shared Gateway pipeline reconstructs request/permission/scope/confirmation/before/after and failure traces; 8.0/8.4 rerun remains required |
+| Prompt Injection | PASS (historical live PI-001..PI-008) | No identity, scope or DB bypass in recorded chain |
+| Tool Injection | PASS | Registry unknown-tool and parameter validation tests |
+| DataScope | PASS | Cross-organization, area, personal, import and attachment scope tests |
+| Confirmation | PASS | CONF-001..004 pass on both MySQL versions |
+| Idempotency | PASS | Payment, receipt, inventory and import sequential/concurrent/timeout replay pass on both versions |
+| Audit | PASS | Representative success, denial, failure and replay trace classes pass on both versions |
+| IDOR | OPEN | Pond/attachment/export two-user REST evidence PASS; full resource/action and Agent natural-language matrix remains unexecuted |
+| Overall | BLOCKED | IDOR and current live confirmed-write evidence gaps remain |
 
-## Four Gates
+## Business Equivalence / Gate 4
 
-| 门禁 | 结果 | 原因 |
-| --- | --- | --- |
-| Gate 1 Management | PASS | Backend 569/569 on MySQL 8.0 and 8.4, coverage 85.04370673538477%, frontend unit/build/E2E pass |
-| Gate 2 Agent | PASS (core smoke) | LIVE-006 broad query is now fresh `5/5` under the 75s timeout; full gate still depends on the explicitly listed acceptance gaps |
-| Gate 3 Authorization & Security | FAIL | PI-001..PI-008, Tool Injection and DataScope pass; full IDOR, confirmation side effects, financial/inventory idempotency and audit closure remain incomplete |
-| Gate 4 Business Equivalence | FAIL | pond snapshot PASS；完整 16 模块业务等价矩阵未完成 |
+See `MANUAL_AGENT_EQUIVALENCE.md`. All applicable module scenarios and the
+three mixed workflows are PASS; Health/Device and multipart Agent import/upload
+are formally `NOT_APPLICABLE` with written trigger evidence.
 
-## Bugs / Gaps
+| Gate | Result |
+| --- | --- |
+| Gate 1 Management | PASS |
+| Gate 2 Agent | BLOCKED by live-write/multi-turn evidence |
+| Gate 3 Security | BLOCKED by IDOR evidence |
+| Gate 4 Business Equivalence | PASS |
 
-| 级别 | 项目 | 状态 |
-| --- | --- | --- |
-| P0 | 当前已发现业务代码故障 | 0 |
-| P1 | 人工/Agent 全业务 MySQL 等价性 | OPEN（pond 场景 PASS） |
-| P1 | 完整 Agent 安全攻击矩阵与确认并发 | PI-001..PI-008 live PASS; IDOR/confirmation side-effect/idempotency/audit matrices incomplete |
-| P1 | Live DeepSeek provider E2E | FIXED; broad query now returns in 3.10–14.61s across five real calls |
-| P1 | Coverage threshold | PASS at `85.04370673538477%`; below the preferred `86%` buffer but above the delivery gate |
+## Acceptance Gaps
 
-## Final Rating
+1. Complete two-user REST/action/foreign-key IDOR matrix and Agent natural-language IDOR.
+2. Current-head live DeepSeek confirmed-write and required multi-turn/broad-query smoke closure.
 
-`C`：Gate 1 已通过，LIVE-006 已修复并完成 5/5 真实回归；Gate 3 的完整双用户安全证据和 Gate 4 的 16 模块/混合业务等价矩阵仍未完成。
+Final grade is `C` until both evidence gaps are executed and pass.

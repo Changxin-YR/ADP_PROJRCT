@@ -1,21 +1,28 @@
 # Cross-Scope IDOR Matrix
 
-Round-five execution status: the service-level and Agent pond cross-scope
-checks pass. The complete REST two-user matrix below remains an acceptance gap
-until run against an isolated MySQL 8.0 and 8.4 database.
+## Fixture
 
-Fourth-round status: `FAIL` (acceptance gap, no confirmed authorization bypass).
+The current MySQL test creates authenticated User A and User B with the same
+operation permissions but different area data scopes. User A attempts to read,
+write, transition, download and export User B's real pond/attachment data.
+The target row is checked before and after each request; denial responses are
+accepted only as `403` or the repository's explicit `404` design.
 
-| ID | Entry | User | Target | Expected | Actual evidence | DB changed | Result |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| SEC-IDOR-001 | Agent/service update | scoped user A | pond in another area | 403 / `DATA_SCOPE_FORBIDDEN` | MySQL pond service and Gateway tests rejected | NO | PASS |
-| SEC-IDOR-002 | Agent foreign-area write | scoped user A | pond in another area | backend rejection | Round4 MySQL `test_agent_idor_rejects_foreign_area_without_mutation` | NO | PASS |
-| SEC-IDOR-003 | REST GET/POST/PATCH/DELETE | user A | user B resources | 403 or 404 | MySQL two-user route execution not available in this workspace | UNVERIFIED | BLOCKED |
-| SEC-IDOR-004 | approve/verify/cancel/reverse | user A | user B resources | 403 or 404 | MySQL two-user action execution not available in this workspace | UNVERIFIED | BLOCKED |
-| SEC-IDOR-005 | export/download/attachment | user A | resource B | 403 or 404 | MySQL two-user export/download execution not available in this workspace | UNVERIFIED | BLOCKED |
+## Executed Evidence
 
-Attachment upload is formally `NOT_APPLICABLE` to Agent delegation because it
-requires multipart binary input and is classified `human_only`; attachment
-read/download remains applicable to the pending REST matrix.
+| ID | User | Resource | Entry | Operation | Expected | Actual | DB changed | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SEC-IDOR-001 | A | Pond B | Path ID | GET | 403/404 | 403/404 | No | PASS |
+| SEC-IDOR-002 | A | Pond B | Path ID | PATCH, DELETE | 403/404 | 403/404 | No | PASS |
+| SEC-IDOR-003 | A | Pond B | Path ID | submit, verify | 403/404 | 403/404 | No | PASS |
+| SEC-IDOR-004 | A | Pond create | JSON `area_id` | Foreign-area create | 403/404 | 403/404 | No | PASS |
+| SEC-IDOR-005 | A | Attachment B | Path ID and query entity ID | metadata read/download | 403/404 or empty scoped set | 403/404 and empty | No | PASS |
+| SEC-IDOR-006 | A | Pond export | JSON `organization_id` + filter `area_id` | export scope | B rows absent | B rows absent | No | PASS |
+| SEC-IDOR-007 | A | Fish Batch, Feeding, Inspection, Inventory, Cost, Purchase, Returns, Payment, Sales, Receipt | REST path/action/foreign-key IDs | Full resource/action matrix | 403/404 | Not executed in the two-user REST test | No evidence | OPEN |
+| SEC-IDOR-008 | A | All applicable resources | Agent natural language | cross-scope read/write/approve/export | backend denial and unchanged DB | Current live natural-language IDOR runner not available | No evidence | OPEN |
 
-The existing deterministic scope boundary remains the security authority; model refusal alone is not evidence.
+Existing deterministic service/Gateway scope tests continue to pass for pond,
+warehouse, cost, import and attachment scope rules. They do not substitute for
+the OPEN two-user REST/action rows above. Attachment upload through Agent is
+formally `NOT_APPLICABLE` because the route requires multipart binary input;
+metadata/read/download remain applicable and are covered by SEC-IDOR-005.

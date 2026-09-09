@@ -7,6 +7,8 @@ from threading import Barrier
 from typing import Any
 
 import pytest
+from openpyxl import load_workbook
+from werkzeug.security import generate_password_hash
 
 from backend.layers.common.audit.audit_logger import AuditLogger
 from backend.layers.common.db.connection import get_connection
@@ -24,6 +26,8 @@ from backend.layers.features.warehouse.warehouse_service import WarehouseService
 from backend.layers.features.warehouse.warehouse_store import MySqlWarehouseStore
 from backend.tests.mysql_test_database import disposable_database, settings_for
 from test_warehouse_mysql_integration import _seed
+from backend.app import create_app
+from backend.config.settings import Settings
 
 
 def _env_for(settings: Any, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -44,6 +48,138 @@ def _actor(user_id: int, area_id: int | None = None) -> dict[str, Any]:
         "data_scopes": scopes,
         "_scope_enforced": area_id is not None,
     }
+
+
+def _rest_settings(settings: Any, attachment_root: str) -> Settings:
+    return Settings.from_env({
+        "APP_ENV": "test",
+        "FLASK_SECRET_KEY": "idor-flask",
+        "CSRF_SECRET_KEY": "idor-csrf",
+        "MYSQL_HOST": settings.mysql_host,
+        "MYSQL_PORT": str(settings.mysql_port),
+        "MYSQL_DATABASE": settings.mysql_database,
+        "MYSQL_USER": settings.mysql_user,
+        "MYSQL_PASSWORD": settings.mysql_password,
+        "SESSION_COOKIE_SECURE": "false",
+        "ATTACHMENT_ROOT": attachment_root,
+    })
+
+
+def _rest_login(client: Any, login_name: str) -> None:
+    csrf = client.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"identifier": login_name, "password": "Correct9!"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert response.status_code == 200
+
+
+def _rest_csrf(client: Any) -> dict[str, str]:
+    return {"X-CSRF-Token": client.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]}
+
+
+def test_mysql_two_user_rest_idor_matrix(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+    """Same permissions, different areas: REST IDs never cross the scope boundary."""
+    with disposable_database("adp_two_user_idor", through=32) as database:
+        settings = settings_for(database)
+        _env_for(settings, monkeypatch)
+        ids = _seed(settings)
+        password_hash = generate_password_hash("Correct9!", method="scrypt")
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT organization_id,farm_id FROM areas WHERE id=%s", (ids["area_id"],))
+            tenant = cursor.fetchone()
+            cursor.execute(
+                "INSERT INTO areas (organization_id,farm_id,code,name,status,created_by) VALUES (%s,%s,'B','B区','verified',1)",
+                (tenant["organization_id"], tenant["farm_id"]),
+            )
+            area_b = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO users (phone,login_name,name,password_hash,status) VALUES "
+                "('13980000101','idor-a','IDOR A',%s,'active'),('13980000102','idor-b','IDOR B',%s,'active')",
+                (password_hash, password_hash),
+            )
+            cursor.execute("SELECT id,login_name FROM users WHERE login_name IN ('idor-a','idor-b')")
+            user_ids = {str(row["login_name"]): int(row["id"]) for row in cursor.fetchall()}
+            user_a, user_b = user_ids["idor-a"], user_ids["idor-b"]
+            cursor.execute("INSERT INTO roles (code,name,status) VALUES ('idor-certifier','IDOR certifier','active')")
+            role_id = int(cursor.lastrowid)
+            cursor.execute(
+                "INSERT INTO role_permissions (role_id,permission_id) "
+                "SELECT %s,id FROM permissions WHERE code IN "
+                "('master_data.view','master_data.manage','master_data.verify','data_exchange.export','attachment.manage')",
+                (role_id,),
+            )
+            cursor.executemany("INSERT INTO user_roles (user_id,role_id) VALUES (%s,%s)", [(user_a, role_id), (user_b, role_id)])
+            cursor.execute("SELECT id FROM data_scopes WHERE area_id=%s AND code LIKE 'A%%' LIMIT 1", (ids["area_id"],))
+            scope_a_row = cursor.fetchone()
+            if scope_a_row is None:
+                cursor.execute("INSERT INTO data_scopes (code,name,scope_type,organization_id,farm_id,area_id,status) VALUES ('A-test-all','A区全部数据','area',%s,%s,%s,'active')", (tenant["organization_id"], tenant["farm_id"], ids["area_id"]))
+                scope_a = int(cursor.lastrowid)
+            else:
+                scope_a = int(scope_a_row["id"])
+            cursor.execute("SELECT id FROM data_scopes WHERE area_id=%s LIMIT 1", (area_b,))
+            scope_b_row = cursor.fetchone()
+            if scope_b_row is None:
+                cursor.execute("INSERT INTO data_scopes (code,name,scope_type,organization_id,farm_id,area_id,status) VALUES ('B-all','B区全部数据','area',%s,%s,%s,'active')", (tenant["organization_id"], tenant["farm_id"], area_b))
+                scope_b = int(cursor.lastrowid)
+            else:
+                scope_b = int(scope_b_row["id"])
+            cursor.executemany("INSERT INTO user_data_scopes (user_id,data_scope_id) VALUES (%s,%s)", [(user_a, scope_a), (user_b, scope_b)])
+            cursor.execute(
+                "INSERT INTO ponds (organization_id,farm_id,area_id,code,name,pond_status,status,created_by) VALUES (%s,%s,%s,'P-B','B区塘','farming','verified',%s)",
+                (tenant["organization_id"], tenant["farm_id"], area_b, user_b),
+            )
+            pond_b = int(cursor.lastrowid)
+            storage_name = "c" * 32
+            cursor.execute(
+                "INSERT INTO attachments (organization_id,entity_type,entity_id,sha256,storage_name,original_name,media_type,size_bytes,uploaded_by) VALUES (%s,'master:ponds',%s,%s,%s,'b.pdf','application/pdf',4,%s)",
+                (tenant["organization_id"], pond_b, "d" * 64, storage_name, user_b),
+            )
+            attachment_b = int(cursor.lastrowid)
+            cursor.execute("SELECT name,status,row_version FROM ponds WHERE id=%s", (pond_b,))
+            before = dict(cursor.fetchone())
+        (tmp_path / storage_name).write_bytes(b"%PDF")
+
+        app = create_app(_rest_settings(settings, str(tmp_path)))
+        client_a = app.test_client()
+        client_b = app.test_client()
+        _rest_login(client_a, "idor-a")
+        _rest_login(client_b, "idor-b")
+        assert client_b.get(f"/api/v1/master-data/ponds/{pond_b}").status_code == 200
+        csrf = _rest_csrf(client_a)
+        denied: list[tuple[str, int]] = []
+        for method, path, payload in (
+            ("get", f"/api/v1/master-data/ponds/{pond_b}", None),
+            ("patch", f"/api/v1/master-data/ponds/{pond_b}", {"expected_version": 1, "name": "越权"}),
+            ("delete", f"/api/v1/master-data/ponds/{pond_b}", None),
+            ("post", f"/api/v1/master-data/ponds/{pond_b}/submit", {"expected_version": 1}),
+            ("post", f"/api/v1/master-data/ponds/{pond_b}/verify", {"expected_version": 1}),
+            ("post", "/api/v1/master-data/ponds", {"code": "P-A-FOREIGN", "name": "外部区域引用", "area_id": area_b}),
+        ):
+            response = getattr(client_a, method)(path, json=payload, headers=csrf)
+            assert response.status_code in {403, 404}, (method, path, response.get_json())
+            denied.append((path, response.status_code))
+
+        download = client_a.get(f"/api/v1/data-exchange/attachments/{attachment_b}/download")
+        assert download.status_code in {403, 404}
+        listed = client_a.get("/api/v1/data-exchange/attachments", query_string={"entity_type": "master:ponds", "entity_id": pond_b})
+        assert listed.status_code == 200
+        assert listed.get_json()["data"]["items"] == []
+        exported = client_a.post(
+            "/api/v1/data-exchange/exports",
+            json={"organization_id": int(tenant["organization_id"]), "resource": "ponds", "format": "xlsx", "filters": {"area_id": area_b}},
+            headers=csrf,
+        )
+        assert exported.status_code == 200
+        workbook = load_workbook(filename=__import__("io").BytesIO(exported.data), read_only=True)
+        values = [cell for row in workbook.active.iter_rows(values_only=True) for cell in row]
+        assert "B区塘" not in values and "P-B" not in values
+
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT name,status,row_version FROM ponds WHERE id=%s", (pond_b,))
+            assert dict(cursor.fetchone()) == before
+        assert len(denied) == 6
 
 
 def test_mysql_confirmation_claim_is_exactly_once_under_concurrency(monkeypatch: pytest.MonkeyPatch) -> None:

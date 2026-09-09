@@ -1,24 +1,37 @@
 # Agent Security Matrix
 
-## Deterministic and MySQL Evidence
+## Current MySQL Evidence
 
-| ID | Attack / control | User | Expected | Backend result | DB changed | Result |
-| --- | --- | --- | --- | --- | --- | --- |
-| SEC-CONF-001 | 20 concurrent claims of one confirmation | scoped active user | one claim | one `confirmed`, all other claims rejected | one confirmation state change | PASS |
-| SEC-CONF-002 | 20 concurrent payment confirmations | verifier | one business effect | payment verified and payable settled once | one success audit | PASS |
-| SEC-CONF-003 | 20 concurrent warehouse confirmations | verifier | one business effect | inventory ledger/document effect once | one success audit | PASS |
-| SEC-IDEMP-001 | same Agent request id, 10 concurrent calls | active user | one side effect | one operation invocation; replay/in-progress outcomes | one idempotency row, `completed` | PASS |
-| SEC-IDEMP-002 | payment/receipt/inventory/import request id, 10 concurrent calls plus replay | active user | one side effect per business path | primary row and replay identity asserted | primary business rows each count one | PASS (tested paths) |
-| SEC-IDOR-001 | update pond outside user area scope | scoped user A | 403 / `DATA_SCOPE_FORBIDDEN` | rejected by `MasterDataService` | unchanged | PASS |
-| SEC-AUDIT-001 | successful Agent business change | active user | before/after trace | audit row persisted | no extra mutation | PASS |
-| SEC-AUDIT-002 | failed scoped Agent change | scoped user | failure reason recorded | `DATA_SCOPE_FORBIDDEN` reason persisted | unchanged | PASS |
+The final backend suite completed on both disposable MySQL versions with
+`589 passed` and zero skipped tests.
 
-The deterministic malicious-tool boundary remains enforced by the existing registry/gateway permission and scope tests. Live natural-language injection requires a configured provider credential.
+| ID | Control | MySQL 8.0 | MySQL 8.4 | Result |
+| --- | --- | --- | --- | --- |
+| SEC-CONF-001 | 20 concurrent confirmation claims | PASS | PASS | PASS |
+| SEC-CONF-002 | Payment confirmation exactly once | PASS | PASS | PASS |
+| SEC-CONF-003 | Warehouse confirmation exactly once | PASS | PASS | PASS |
+| SEC-CONF-004 | Claim then real business failure terminal semantics | PASS | PASS | PASS |
+| SEC-IDEMP-001 | Generic request-id sequential/concurrent/timeout replay | PASS | PASS | PASS |
+| SEC-IDEMP-002 | Payment/Receipt/Inventory/Import request-id replay | PASS | PASS | PASS |
+| SEC-IDOR-001 | Same-permission cross-area Pond REST/action/foreign-area body | PASS | PASS | PASS |
+| SEC-IDOR-002 | Attachment metadata/download and export scope | PASS | PASS | PASS |
+| SEC-AUDIT-001 | Success before/after trace | PASS | PASS | PASS |
+| SEC-AUDIT-002 | Permission/DataScope failure trace | PASS | PASS | PASS |
 
-## Live Prompt Injection Evidence
+## Live Prompt Injection
 
-PI-001 through PI-008 were executed with `test-breed-worker` through the real DeepSeek Harness. Session identity stayed unchanged (`user_id=3`), unauthorized operations returned backend `403`/`404`/`400`, failure audits were written, and no unauthorized business mutation was observed. Result: `PASS`.
+PI-001 through PI-008 remain historical real DeepSeek evidence: identity,
+RBAC, DataScope and DB/audit checks passed. A current bundled-runtime query
+smoke returned HTTP 200, and a current low-permission denial smoke returned
+without a business mutation.
 
-## Certification Limits
+## Remaining Limits
 
-The table proves its named controls only. It does not complete the required two-user REST verb matrix, claim-then-business-failure semantics, full finance-ledger idempotency matrix, or every high-risk route's instruction/intent/before/after trace. Those final security gates remain `FAIL` until exercised.
+The executed two-user REST test is representative, not the complete matrix
+required for every applicable Fish Batch, Feeding, Inspection, Inventory, Cost,
+Purchase, Return, Payment, Sales and Receipt action. Agent natural-language
+IDOR and current live confirmed-write/multi-turn evidence are still OPEN. These
+are acceptance gaps; no implementation P0/P1 defect was observed.
+
+Agent multipart attachment upload is `NOT_APPLICABLE`: no JSON/binary Agent
+trigger exists and the registry marks the multipart route `human_only`.
