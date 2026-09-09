@@ -13,7 +13,7 @@ closed. No implementation P0 or P1 defect is open.
 
 ## Git / Backend Evidence
 
-* Branch: `main`; baseline commit: `4222e4b` (acceptance tests/docs pending commit).
+* Branch: `main`; final delivery commit is reported in the Git section of this handoff.
 * MySQL 8.0: `589 passed`, `0 failed`, `0 skipped`.
 * MySQL 8.4: `589 passed`, `0 failed`, `0 skipped`.
 * Collection parity: `589` identical node IDs.

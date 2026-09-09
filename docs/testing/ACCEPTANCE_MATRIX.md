@@ -1,7 +1,7 @@
 # ADP Final Acceptance Matrix
 
 Date: 2026-09-09
-Verification tree: current working tree based on `4222e4b` plus the listed
+Verification tree: final delivery commit reported in the handoff plus the listed
 acceptance tests and reports.
 
 ## Backend / Gate 1
