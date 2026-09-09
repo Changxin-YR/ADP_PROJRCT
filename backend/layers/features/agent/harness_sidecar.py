@@ -9,7 +9,7 @@ from typing import Any
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
-from backend.layers.features.agent.agent_tool_registry import build_registry
+from backend.layers.features.agent.agent_tool_registry import build_agent_tool_catalog
 
 
 class HarnessSidecar:
@@ -45,7 +45,7 @@ class HarnessSidecar:
                     env={
                         "ADP_AGENT_GATEWAY_URL": safe_context.get("gateway_url", ""),
                         "ADP_AGENT_CONTEXT_TOKEN": safe_context.get("context_token", ""),
-                        "ADP_AGENT_TOOL_CATALOG": ", ".join(sorted(tool.name for tool in build_registry().tools)),
+                        "ADP_AGENT_TOOL_CATALOG": build_agent_tool_catalog(),
                     },
                 )
                 enter = getattr(harness, "__enter__", None)

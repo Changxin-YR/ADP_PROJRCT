@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from backend.layers.features.agent.agent_tool_registry import _openapi_tools, build_registry, permission_options
+import json
+
+from backend.layers.features.agent.agent_tool_registry import _openapi_tools, build_agent_tool_catalog, build_registry, permission_options
 
 
 def test_registry_marks_read_write_and_identity_only_operations() -> None:
@@ -77,6 +79,16 @@ def test_registry_contains_all_business_domains() -> None:
     names = {tool.name for tool in build_registry().tools}
     for prefix in {"master_data", "production", "warehouse", "purchase", "sales", "cost", "data_exchange", "workbench"}:
         assert any(name.startswith(prefix + ".") for name in names)
+
+
+def test_agent_tool_catalog_includes_operation_contract_for_the_model() -> None:
+    catalog = json.loads(build_agent_tool_catalog())
+
+    record = next(item for item in catalog if item["n"] == "master_data.create_record")
+    assert record["m"] == "POST"
+    assert record["p"] == "/api/v1/master-data/{resource}"
+    assert record["d"]
+    assert record["a"] == ["payload!", "expected_version"]
 
 
 def test_specialized_tools_use_the_same_permissions_as_their_services() -> None:

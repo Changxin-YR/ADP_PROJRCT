@@ -271,6 +271,31 @@ def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] 
             tool = replace(tool, execute=executor_factory(tool))
         by_name[tool.name] = tool
     return AgentToolRegistry(tuple(by_name.values()))
+
+
+def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
+    """Serialize the fixed operation contract for the model tool description.
+
+    Compact keys keep the environment value below Windows' process
+    environment limit while retaining the fields needed for tool selection.
+    A trailing ``!`` marks a required parameter.
+    """
+    registry = registry or build_registry()
+    catalog = [
+        {
+            "n": tool.name,
+            "d": tool.description,
+            "m": tool.method,
+            "p": tool.path_template,
+            "r": tool.risk,
+            "a": [
+                f"{name}!" if isinstance(schema, dict) and schema.get("required") else name
+                for name, schema in tool.parameters.items()
+            ],
+        }
+        for tool in sorted(registry.tools, key=lambda item: item.name)
+    ]
+    return json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
 def _flask_path(rule: str) -> str:
     return re.sub(r"<(?:int|path):([^>]+)>|<([^>]+)>", lambda match: "{" + (match.group(1) or match.group(2)) + "}", rule)
 

@@ -39,6 +39,28 @@ describe('ADP agent tools', () => {
     expect(JSON.parse(called?.body ?? '{}').operation).toBe('master_data.create_record')
   })
 
+  it('describes registered operations with their parameters', () => {
+    const ctx = context()
+    apply(ctx, {
+      gatewayUrl: 'http://127.0.0.1/api/v1/agent',
+      contextToken: 'short-lived',
+      operationCatalog: JSON.stringify([{
+        n: 'master_data.create_record',
+        d: '创建主数据',
+        m: 'POST',
+        p: '/api/v1/master-data/{resource}',
+        r: 'write',
+        a: ['payload!'],
+      }]),
+    })
+
+    const operation = ctx.registered[1]
+    const description = operation.parameters.properties.operation.description
+    expect(description).toContain('master_data.create_record')
+    expect(description).toContain('/api/v1/master-data/{resource}')
+    expect(description).toContain('payload')
+  })
+
   it('declares a profile bundle patch for runtime installation', async () => {
     const manifest = await import('node:fs/promises').then(({ readFile }) => readFile(new URL('../package.json', import.meta.url), 'utf8'))
     expect(JSON.parse(manifest).dsh.bundle.patch).toBe('./cordis.patch.yml')

@@ -22,6 +22,31 @@ function endpoint(config: AdpAgentToolsConfig, path: '/query' | '/prepare'): str
   return `${base.toString().replace(/\/+$/, '')}${path}`
 }
 
+function describeOperations(catalog: string | undefined): string {
+  if (!catalog?.trim()) return '必须使用已登记的 ADP 工具名。'
+  try {
+    const operations = JSON.parse(catalog) as Array<{
+      n?: string
+      d?: string
+      m?: string
+      p?: string
+      r?: string
+      a?: string[]
+    }>
+    if (!Array.isArray(operations)) throw new Error('catalog must be an array')
+    const lines = operations.map((operation) => [
+      operation.n,
+      operation.d,
+      `${operation.m ?? ''} ${operation.p ?? ''}`.trim(),
+      operation.r ? `risk=${operation.r}` : '',
+      operation.a ? `parameters=${operation.a.join(',')}` : '',
+    ].filter(Boolean).join(' | '))
+    return `必须从已登记的 ADP 工具名中选择，并按对应参数调用：\n${lines.join('\n')}`
+  } catch {
+    return '必须从已登记的 ADP 工具名中选择。'
+  }
+}
+
 async function callGateway(
   config: AdpAgentToolsConfig,
   path: '/query' | '/prepare',
@@ -48,10 +73,7 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
     delete process.env.ADP_AGENT_GATEWAY_URL
     delete process.env.ADP_AGENT_CONTEXT_TOKEN
   }
-  const catalog = config.operationCatalog?.trim()
-  const operationDescription = catalog
-    ? `必须从已登记的 ADP 工具名中选择：${catalog}`
-    : '必须使用已登记的 ADP 工具名。'
+  const operationDescription = describeOperations(config.operationCatalog)
   ctx.tools.register(defineTool({
     name: 'adp_query',
     description: '查询当前登录用户有权查看的 ADP 数据。',
