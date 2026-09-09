@@ -73,12 +73,18 @@ def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: di
     path_params = set(_PATH_PARAMETER.findall(path))
     for name in path_params:
         value = arguments.get(name, payload.get(name))
+        if value is None and name == "resource":
+            value = arguments.get("resource_type", payload.get("resource_type"))
         if value is None:
             raise AgentGatewayError("VALIDATION_ERROR", f"缺少路径参数 {name}", 400)
+        if name == "resource" and value == "feeding":
+            value = "feed-logs"
         path = path.replace("{" + name + "}", quote(str(value), safe=""))
     body = dict(payload)
     for name in path_params:
         body.pop(name, None)
+        if name == "resource":
+            body.pop("resource_type", None)
     if tool.method == "GET":
         # Agent reads are deliberately bounded. The model can paginate, but a
         # single turn must not receive an unbounded business-object payload.

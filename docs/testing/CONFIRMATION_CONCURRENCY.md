@@ -2,7 +2,7 @@
 
 Verification scope: current working tree, migration 032, disposable MySQL 8.0
 (`33080`) and MySQL 8.4 (`33084`). The full backend suites on both versions
-completed with `589 passed` and no skipped tests.
+completed with `593 passed` and no skipped tests.
 
 | ID | Scenario | 8.0 | 8.4 | Assertions | Result |
 | --- | --- | --- | --- | --- | --- |

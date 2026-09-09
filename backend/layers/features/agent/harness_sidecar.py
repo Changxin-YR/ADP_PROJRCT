@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from typing import Any
@@ -113,6 +114,20 @@ class HarnessSidecar:
             if any(marker in name for marker in ("protocol", "jsonrpc", "transport")):
                 raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手通信协议异常", 502) from exc
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
+        confirmation = _confirmation_from_result(result)
+        if confirmation is not None:
+            return {
+                "kind": "confirmation_required",
+                "confirmation": confirmation,
+                "message": str(getattr(result, "final_response", "") or ""),
+                "session_id": str(getattr(result, "session_id", session_id)),
+                "diagnostics": {
+                    "request_received_ms": 0,
+                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
+                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
+                    "total_ms": round((harness_finished - request_started) * 1000, 1),
+                },
+            }
         if isinstance(result, dict):
             # Keep diagnostics numeric and payload-free so live latency can be
             # investigated without copying prompts, tool arguments, or keys.
@@ -142,6 +157,34 @@ class HarnessSidecar:
         raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手返回格式无效", 502)
 
 
+def _confirmation_from_result(result: Any) -> dict[str, Any] | None:
+    """Expose a pending mutation returned by the ADP tool to the HTTP client."""
+    events = getattr(result, "events", None)
+    if not isinstance(events, list):
+        return None
+    for event in reversed(events):
+        if not isinstance(event, dict) or event.get("type") != "tool/result":
+            continue
+        data = event.get("data")
+        message = data.get("message") if isinstance(data, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if not isinstance(content, list):
+            continue
+        blocks = [item for block in content for item in (block.get("content") if isinstance(block, dict) and isinstance(block.get("content"), list) else [block])]
+        for block in reversed(blocks):
+            text = block.get("text") if isinstance(block, dict) else None
+            if not isinstance(text, str):
+                continue
+            try:
+                payload = json.loads(text)
+            except (TypeError, ValueError):
+                continue
+            confirmation = payload.get("confirmation") if isinstance(payload, dict) else None
+            if payload.get("kind") == "confirmation_required" and isinstance(confirmation, dict) and confirmation.get("token"):
+                return confirmation
+    return None
+
+
 _HARNESS_ENV_LOCK = threading.Lock()
 _ENV_ALLOWLIST = {
     "PATH", "PATHEXT", "COMSPEC", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
@@ -153,6 +196,35 @@ _ENV_ALLOWLIST = {
 def _bounded_query_prompt(prompt: str) -> str:
     """Keep the common uninspected-pond query on one bounded read path."""
     normalized = prompt.replace(" ", "")
+    write_match = re.search(
+        r"喂养.*?pond_id\s*=\s*(\d+).*?batch_id\s*=\s*(\d+).*?material_id\s*=\s*(\d+).*?数量\s*(\d+(?:\.\d+)?)\s*kg",
+        normalized,
+        re.IGNORECASE,
+    )
+    if write_match:
+        pond_id, batch_id, material_id, quantity = write_match.groups()
+        code_match = re.search(r"(?:code|单号)\s*[=:：]?\s*([A-Za-z0-9._-]+)", normalized, re.IGNORECASE)
+        name_match = re.search(r"(?:name|名称)\s*[=:：为]\s*([^，。；;]+)", normalized, re.IGNORECASE)
+        arguments = {
+            "resource": "feeding",
+            "payload": {
+                **({"code": code_match.group(1)} if code_match else {}),
+                **({"name": name_match.group(1)} if name_match else {}),
+                "pond_id": int(pond_id),
+                "batch_id": int(batch_id),
+                "material_id": int(material_id),
+                "quantity": float(quantity) if "." in quantity else int(quantity),
+                "happened_at": time.strftime("%Y-%m-%d"),
+            },
+        }
+        return (
+            f"{prompt}\n\n"
+            "ADP 写入约束：字段已完整。不要调用 adp_query、工作台、认证、管理或其它工具；"
+            "只调用一次 adp_mutation，operation 必须使用 "
+            "api.production_create_post_api_v1_production_resource，arguments 使用 "
+            f"{json.dumps(arguments, ensure_ascii=False, separators=(',', ':'))}。"
+            "只准备确认，不要调用确认接口；得到 confirmation_required 后立即停止。"
+        )
     if "未巡检" not in normalized and "没有巡检" not in normalized:
         return prompt
     return (

@@ -139,6 +139,7 @@ def test_mysql_two_user_rest_idor_matrix(monkeypatch: pytest.MonkeyPatch, tmp_pa
             attachment_b = int(cursor.lastrowid)
             cursor.execute("SELECT name,status,row_version FROM ponds WHERE id=%s", (pond_b,))
             before = dict(cursor.fetchone())
+        tmp_path.mkdir(parents=True, exist_ok=True)
         (tmp_path / storage_name).write_bytes(b"%PDF")
 
         app = create_app(_rest_settings(settings, str(tmp_path)))

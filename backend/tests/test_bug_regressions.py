@@ -13,12 +13,26 @@ from backend.layers.features.warehouse.warehouse_ledger_store import WarehouseLe
 from backend.layers.features.warehouse.warehouse_service import WarehouseService
 from backend.layers.features.warehouse.warehouse_store import MySqlWarehouseStore
 from backend.layers.features.warehouse.warehouse_master_store import WarehouseMasterStoreMixin
+from backend.layers.features.returns.return_store import MySqlReturnStore
 from backend.layers.features.data_exchange.template_catalog import get_template
 from backend.layers.features.data_exchange.importers_finance import import_payment, import_purchase_order, import_sales_order
 from backend.layers.common.security.session import request_session_token
 from backend.layers.common.http.request_helpers import require_csrf
 from test_master_data_api import FakeMasterStore
 from test_production_flow import FakeProductionStore, user
+
+
+@pytest.mark.parametrize("kind", ("purchase", "sales"))
+def test_supplier_and_customer_returns_share_cross_scope_guard(kind: str) -> None:
+    user_a = {
+        "id": 1,
+        "roles": [{"code": "operator"}],
+        "data_scopes": [{"scope_type": "area", "area_id": 10}],
+        "_scope_enforced": True,
+    }
+    row = {"organization_id": 1, "farm_id": 1, "area_id": 11, "created_by": 2}
+    with pytest.raises(DomainError, match="DATA_SCOPE_FORBIDDEN"):
+        MySqlReturnStore._require_scope(user_a, row)
 
 
 def test_feed_plan_rejects_zero_quantity() -> None:

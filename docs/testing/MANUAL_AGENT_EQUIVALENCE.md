@@ -44,7 +44,7 @@ Evidence tests include `test_final_manual_agent_cost_equivalence`,
 `test_final_manual_agent_production_chain_equivalence`, the three
 `test_final_mixed_*_workflow` tests, and
 `test_final_manual_agent_export_scope_equivalence`. The complete backend
-regressions on MySQL 8.0 and 8.4 each completed with `589 passed`.
+regressions on MySQL 8.0 and 8.4 each completed with `593 passed`.
 
 ## Formal N/A Basis
 

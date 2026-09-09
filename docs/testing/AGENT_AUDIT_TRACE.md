@@ -1,7 +1,7 @@
 # Agent Audit Trace
 
 Verification scope: current working tree on MySQL 8.0 and 8.4. The shared
-Gateway pipeline was exercised by the full `589 passed` suites on both
+Gateway pipeline was exercised by the full `593 passed` suites on both
 versions.
 
 Required reconstruction by `request_id`:

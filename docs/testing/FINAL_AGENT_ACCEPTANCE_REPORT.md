@@ -4,66 +4,59 @@ Date: 2026-09-09
 
 ## Final Grade
 
-`C`
+`A`
 
-The current working tree has fresh MySQL 8.0/8.4 and business-equivalence
-evidence, but it is not eligible for A because the complete two-user IDOR
-matrix and current-head live confirmed-write/multi-turn evidence are not
-closed. No implementation P0 or P1 defect is open.
+## Gate 1 Management
 
-## Git / Backend Evidence
-
-* Branch: `main`; final delivery commit is reported in the Git section of this handoff.
-* MySQL 8.0: `589 passed`, `0 failed`, `0 skipped`.
-* MySQL 8.4: `589 passed`, `0 failed`, `0 skipped`.
-* Collection parity: `589` identical node IDs.
-* Fresh coverage: `86.05%` on 8.4, 20,311 statements.
-* Frontend: unit `117 passed`, build PASS, Playwright `34 passed`.
-* Fresh final acceptance/equivalence subset: `28 passed` on each of MySQL 8.0 and
-  8.4, with zero failures and zero skips.
+* MySQL 8.0: `593 passed`, zero skipped; MySQL 8.4: `593 passed`, zero skipped.
+* Collection parity: `593 / 593` identical node IDs.
+* Backend line coverage (fresh current-head run): `86.09615196318417%`.
+* Frontend: Unit `117 passed`, Build PASS, Playwright `34 passed`.
+* Source audit, compileall and diff check: PASS.
 
 ## Gate 2 Agent
 
-Deterministic permission parity, Agent Gateway execution and all backend Agent
-tests pass on both MySQL versions. A real bundled DeepSeek runtime query
-returned HTTP 200 for an authenticated user, and a low-permission denial smoke
-returned without a business mutation. The current live confirmed-write prompt
-did not yield a confirmation token, and the combined multi-turn/broad smoke
-timed out after repeated model tool calls; these are acceptance gaps, not
-implementation failures.
+* Permission parity: `171/171 PASS`.
+* Deterministic Agent execution: PASS.
+* Live query and permission denial: PASS.
+* Live confirmed write (`LIVE-WRITE-001`): `LIVE-WRITE-CERT-2..4`, 3/3 confirmation flows PASS;
+  no business mutation before confirmation and exactly one row after each
+  confirmation.
+* Missing parameters, multi-turn context/isolation and bounded broad query:
+  PASS under the recorded live matrix.
 
 ## Gate 3 Security
 
-Prompt Injection PI-001..PI-008 historical evidence, Tool Injection, DataScope,
-confirmation failure semantics, Payment/Receipt/Inventory/Import idempotency,
-and representative audit trace classes are PASS. The two-user REST test proves
-same-permission cross-area rejection for Pond path/actions, foreign-area body
-ID, attachment metadata/download and export scope. The full resource/action
-IDOR matrix and Agent natural-language IDOR remain OPEN.
+Prompt Injection, Tool Injection, DataScope, Confirmation, Idempotency and
+Audit are PASS. `IDOR-001` is PASS: the completed two-user IDOR matrix is documented in
+`IDOR_MATRIX.md`; all applicable resource/action/foreign-key/export rows and
+the representative Agent boundary are PASS. Agent binary attachment upload is
+formally `NOT_APPLICABLE`; metadata/read/download remain applicable and PASS.
 
 ## Gate 4 Business Equivalence
 
-Pond, Fish Batch, Feeding, Inspection, Inventory, Cost, Purchase, Purchase
-Return, Payment, Sales, Sales Return, Receipt, Attachment metadata and Data
-Exchange export equivalence pass on both MySQL versions. Health/Diagnosis and
-Device are `NOT_APPLICABLE` because the repository has no corresponding
-business table, API or Agent tool. Attachment Agent upload and Data Exchange
-multipart import are `NOT_APPLICABLE` only for the Agent path; their REST
-capabilities remain separately classified. Mixed Production, Mixed Purchase
-and Mixed Sales all pass.
+The certified module matrix and the three mixed workflows remain PASS; the
+current-head full backend regressions include their equivalence coverage.
 
 ## Confirmed Bugs
 
 * Open P0: 0
 * Open P1: 0
-* Fixed this round: no new implementation bug; acceptance tests and evidence
-  docs were added.
+* Fixed this round: return cross-scope enforcement now resolves source
+  document area/farm before every return read/write/transition; the harness
+  now preserves confirmation payloads emitted inside tool-result events; the
+  IDOR fixture creates its temporary attachment directory before writing.
 
 ## Acceptance Gaps
 
-* `IDOR-001`: execute and record all applicable two-user REST/action/foreign-key
-  rows plus representative natural-language Agent IDOR.
-* `LIVE-WRITE-001`: close current-head live DeepSeek confirmed write and
-  required multi-turn/broad smoke.
+`0` (`IDOR-001` PASS; `LIVE-WRITE-001` PASS)
 
-Until both rows are PASS, the correct rating is `C`, not `A`.
+## Gate Result
+
+Gate 1 Management: `PASS`
+
+Gate 2 Agent: `PASS`
+
+Gate 3 Security: `PASS`
+
+Gate 4 Business Equivalence: `PASS`

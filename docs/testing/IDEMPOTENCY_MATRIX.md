@@ -1,7 +1,7 @@
 # Agent Request ID Idempotency Matrix
 
 Verification scope: current working tree on disposable MySQL 8.0 and 8.4;
-both complete backend runs were `589 passed` with zero skipped tests.
+both complete backend runs were `593 passed` with zero skipped tests.
 
 | ID | Business path | Sequential replay | Concurrent | Commit-then-timeout retry | Side-effect assertions | Result |
 | --- | --- | --- | --- | --- | --- | --- |

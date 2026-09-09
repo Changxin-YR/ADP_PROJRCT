@@ -80,6 +80,7 @@ def test_agent_get_dispatch_caps_model_page_size() -> None:
     class FakeClient:
         @staticmethod
         def open(*args: Any, **kwargs: Any) -> FakeResponse:
+            captured["args"] = args
             captured.update(kwargs)
             return FakeResponse()
 
@@ -98,6 +99,46 @@ def test_agent_get_dispatch_caps_model_page_size() -> None:
 
     assert result == {"items": []}
     assert captured["query_string"]["page_size"] == 20
+
+
+def test_agent_dispatch_accepts_model_resource_type_alias_for_fixed_resource_path() -> None:
+    app = Flask(__name__)
+    captured: dict[str, Any] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def get_json(silent: bool = False) -> dict[str, Any]:
+            return {"data": {"record": {"id": 7}}}
+
+    class FakeClient:
+        @staticmethod
+        def open(*args: Any, **kwargs: Any) -> FakeResponse:
+            captured["args"] = args
+            captured.update(kwargs)
+            return FakeResponse()
+
+    app.test_client = lambda: FakeClient()  # type: ignore[method-assign]
+    tool = AgentTool(
+        name="production.create_record",
+        description="create",
+        method="POST",
+        path_template="/api/v1/production/{resource}",
+        parameters={"payload": {"type": "object", "required": True}},
+        required_permission="production.manage",
+        risk="write",
+    )
+    with app.test_request_context("/"):
+        result = _dispatch_fixed_tool(
+            tool,
+            {"resource_type": "feeding", "payload": {"pond_id": 1, "quantity": 20}},
+            {"session_token": "session"},
+        )
+
+    assert result == {"record": {"id": 7}}
+    assert captured["args"][0] == "/api/v1/production/feed-logs"
+    assert captured["json"] == {"pond_id": 1, "quantity": 20}
 
 
 def test_agent_turn_requires_login() -> None:

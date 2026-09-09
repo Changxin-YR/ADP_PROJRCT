@@ -759,10 +759,56 @@ def test_sidecar_maps_protocol_failures_and_final_response_object(monkeypatch) -
     assert result["session_id"] == "session-1"
 
 
+def test_sidecar_preserves_confirmation_from_tool_result_event(monkeypatch) -> None:
+    class Response:
+        session_id = "session-1"
+        final_response = "等待确认"
+        events = [
+            {
+                "type": "tool/result",
+                "data": {
+                    "message": {
+                        "content": [
+                            {
+                                "type": "tool-result",
+                                "content": [
+                                    {
+                                        "type": "text",
+                                        "text": '{"kind":"confirmation_required","confirmation":{"id":7,"token":"opaque-token","tool_name":"api.production_create_post_api_v1_production_resource"}}',
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                },
+            }
+        ]
+
+    class ConfirmationHarness:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, *_args, **_kwargs):
+            return Response()
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ConfirmationHarness))
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("新增喂养", context={"conversation_id": "confirmation"})
+    assert result["kind"] == "confirmation_required"
+    assert result["confirmation"]["id"] == 7
+    assert result["confirmation"]["token"] == "opaque-token"
+
+
 def test_sidecar_bounds_uninspected_query_and_filters_runtime_environment(monkeypatch) -> None:
     bounded = _bounded_query_prompt("今天还有哪些鱼塘没有巡检？")
     assert "只调用一次 adp_query" in bounded
     assert "page_size: 20" in bounded
+    write_bounded = _bounded_query_prompt(
+        "请直接准备写入一条喂养记录：code=LIVE-TEST-1，名称=最终认证喂养，pond_id=1，batch_id=1，material_id=1，数量20kg，发生日期今天。"
+    )
+    assert "只调用一次 adp_mutation" in write_bounded
+    assert "api.production_create_post_api_v1_production_resource" in write_bounded
+    assert '"code":"LIVE-TEST-1"' in write_bounded
+    assert '"name":"最终认证喂养"' in write_bounded
     assert _bounded_query_prompt("查询 3 号塘") == "查询 3 号塘"
     monkeypatch.setenv("DEEPSEEK_API_KEY", "configured-but-never-printed")
     monkeypatch.setenv("MYSQL_PASSWORD", "must-not-pass")
