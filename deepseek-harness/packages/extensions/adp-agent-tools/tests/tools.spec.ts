@@ -44,14 +44,17 @@ describe('ADP agent tools', () => {
     apply(ctx, {
       gatewayUrl: 'http://127.0.0.1/api/v1/agent',
       contextToken: 'short-lived',
-      operationCatalog: JSON.stringify([{
-        n: 'master_data.create_record',
-        d: '创建主数据',
-        m: 'POST',
-        p: '/api/v1/master-data/{resource}',
-        r: 'write',
-        a: ['payload!'],
-      }]),
+      operationCatalog: JSON.stringify({
+        legend: 'n=name; d=description; m=HTTP method; p=path; r=risk; a=parameters; ! means required',
+        operations: [{
+          n: 'master_data.create_record',
+          d: '创建主数据',
+          m: 'POST',
+          p: '/api/v1/master-data/{resource}',
+          r: 'write',
+          a: ['payload!'],
+        }],
+      }),
     })
 
     const operation = ctx.registered[1]

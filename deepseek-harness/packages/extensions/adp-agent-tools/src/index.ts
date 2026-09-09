@@ -25,14 +25,22 @@ function endpoint(config: AdpAgentToolsConfig, path: '/query' | '/prepare'): str
 function describeOperations(catalog: string | undefined): string {
   if (!catalog?.trim()) return '必须使用已登记的 ADP 工具名。'
   try {
-    const operations = JSON.parse(catalog) as Array<{
+    const parsed = JSON.parse(catalog) as Array<{
       n?: string
       d?: string
       m?: string
       p?: string
       r?: string
       a?: string[]
-    }>
+    }> | { operations?: Array<{
+      n?: string
+      d?: string
+      m?: string
+      p?: string
+      r?: string
+      a?: string[]
+    }> }
+    const operations = Array.isArray(parsed) ? parsed : parsed.operations
     if (!Array.isArray(operations)) throw new Error('catalog must be an array')
     const lines = operations.map((operation) => [
       operation.n,

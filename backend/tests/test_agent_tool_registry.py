@@ -82,8 +82,10 @@ def test_registry_contains_all_business_domains() -> None:
 
 
 def test_agent_tool_catalog_includes_operation_contract_for_the_model() -> None:
-    catalog = json.loads(build_agent_tool_catalog())
+    payload = json.loads(build_agent_tool_catalog())
+    catalog = payload["operations"]
 
+    assert "n=name" in payload["legend"]
     record = next(item for item in catalog if item["n"] == "master_data.create_record")
     assert record["m"] == "POST"
     assert record["p"] == "/api/v1/master-data/{resource}"

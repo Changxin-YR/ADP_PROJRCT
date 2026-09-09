@@ -281,7 +281,7 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
     A trailing ``!`` marks a required parameter.
     """
     registry = registry or build_registry()
-    catalog = [
+    operations = [
         {
             "n": tool.name,
             "d": tool.description,
@@ -295,7 +295,14 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
         }
         for tool in sorted(registry.tools, key=lambda item: item.name)
     ]
-    return json.dumps(catalog, ensure_ascii=False, separators=(",", ":"))
+    return json.dumps(
+        {
+            "legend": "n=name; d=description; m=HTTP method; p=path; r=risk; a=parameters; ! means required",
+            "operations": operations,
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
 def _flask_path(rule: str) -> str:
     return re.sub(r"<(?:int|path):([^>]+)>|<([^>]+)>", lambda match: "{" + (match.group(1) or match.group(2)) + "}", rule)
 
