@@ -665,7 +665,8 @@ def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
 
     assert len(created) == 2
     assert first["message"].endswith("user-a:c-1")
-    assert second["message"].startswith("第二轮")
+    assert "第二轮" in second["message"]  # 轮次前缀会包一层身份/行为契约，用户原话在第 5 段
+    assert "【用户请求】" in second["message"]
     assert other["message"].endswith("user-b:c-1")
     sidecar.close()
     assert all(item.closed for item in created)
@@ -800,12 +801,13 @@ def test_sidecar_preserves_confirmation_from_tool_result_event(monkeypatch) -> N
 
 def test_sidecar_bounds_uninspected_query_and_filters_runtime_environment(monkeypatch) -> None:
     bounded = _bounded_query_prompt("今天还有哪些鱼塘没有巡检？")
-    assert "只调用一次 adp_query" in bounded
+    assert "一次只读查询" in bounded  # 现在是"提示"而不是"只准调用一次"
+    assert "production.list_records" in bounded
     assert "page_size: 20" in bounded
     write_bounded = _bounded_query_prompt(
         "请直接准备写入一条喂养记录：code=LIVE-TEST-1，名称=最终认证喂养，pond_id=1，batch_id=1，material_id=1，数量20kg，发生日期今天。"
     )
-    assert "只调用一次 adp_mutation" in write_bounded
+    assert "adp_mutation" in write_bounded
     assert "api.production_create_post_api_v1_production_resource" in write_bounded
     assert '"code":"LIVE-TEST-1"' in write_bounded
     assert '"name":"最终认证喂养"' in write_bounded

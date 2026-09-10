@@ -10,6 +10,7 @@ from typing import Any
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
 from backend.layers.features.agent.agent_prompt import ensure_instructions, render_prompt
+from backend.layers.features.agent.harness_cache import DEFAULT_LIMIT, HarnessCache
 from backend.layers.features.agent.agent_tool_registry import build_agent_tool_catalog
 
 
@@ -18,7 +19,7 @@ class HarnessSidecar:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self._harnesses: dict[str, Any] = {}
+        self._cache = HarnessCache(DEFAULT_LIMIT)
         self._lock = threading.RLock()
 
     def _new_harness(self, runtime_env: dict[str, str], safe_context: dict[str, str]) -> Any:
@@ -61,28 +62,18 @@ class HarnessSidecar:
     def close(self) -> None:
         """Stop cached runtimes; useful for orderly application shutdown."""
         with self._lock:
-            harnesses, self._harnesses = self._harnesses, {}
-        for harness in harnesses.values():
-            close = getattr(harness, "__exit__", None)
-            if callable(close):
-                try:
-                    close(None, None, None)
-                except Exception:
-                    pass
-            else:
-                close = getattr(harness, "close", None)
-                if callable(close):
-                    try:
-                        close()
-                    except Exception:
-                        pass
+            self._cache.clear()
+
+    def _drop(self, namespace: str) -> None:
+        with self._lock:
+            self._cache.drop(namespace)
 
     def run(self, prompt: str, *, context: dict[str, str]) -> dict[str, Any]:
         request_started = time.perf_counter()
         safe_context = {
             key: str(value)
             for key, value in context.items()
-            if key in {"conversation_id", "request_id", "gateway_url", "context_token", "user_namespace", "user_brief"}
+            if key in {"conversation_id", "request_id", "gateway_url", "context_token", "user_namespace", "user_brief", "page_context", "history_text"}
             and value is not None
         }
         if not safe_context.get("conversation_id"):
@@ -100,12 +91,19 @@ class HarnessSidecar:
         namespace = safe_context.get("user_namespace", "").strip() or "__default__"
         try:
             with self._lock:
-                harness = self._harnesses.get(namespace)
+                harness = self._cache.get(namespace)
                 if harness is None:
                     harness = self._new_harness(runtime_env, safe_context)
-                    self._harnesses[namespace] = harness
+                    self._cache.put(namespace, harness)
+                else:
+                    self._cache.touch(namespace)
                 harness_started = time.perf_counter()
-                prompt_text = render_prompt(_bounded_query_prompt(prompt), safe_context.get("user_brief", ""))
+                prompt_text = render_prompt(
+                    _bounded_query_prompt(prompt),
+                    safe_context.get("user_brief", ""),
+                    safe_context.get("page_context", ""),
+                    safe_context.get("history_text", ""),
+                )
                 result = harness.run(prompt_text, session_id=session_id)
                 harness_finished = time.perf_counter()
         except TimeoutError as exc:
@@ -116,6 +114,7 @@ class HarnessSidecar:
             name = type(exc).__name__.lower()
             if "timeout" in name:
                 raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc
+            self._drop(namespace)  # 坏掉/卡住的子进程不复用，下一轮自动换新的
             if any(marker in name for marker in ("protocol", "jsonrpc", "transport")):
                 raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手通信协议异常", 502) from exc
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
@@ -154,6 +153,7 @@ class HarnessSidecar:
             return result
         if final_response:
             return {"kind": "assistant", "message": final_response, "session_id": session, "diagnostics": diagnostics()}
+        self._drop(namespace)
         raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手返回格式无效", 502)
 
 
@@ -218,7 +218,7 @@ _ENV_ALLOWLIST = {
 
 
 def _bounded_query_prompt(prompt: str) -> str:
-    """Keep the common uninspected-pond query on one bounded read path."""
+    """Add domain hints for two frequent intents without restricting the model."""
     normalized = prompt.replace(" ", "")
     write_match = re.search(
         r"喂养.*?pond_id\s*=\s*(\d+).*?batch_id\s*=\s*(\d+).*?material_id\s*=\s*(\d+).*?数量\s*(\d+(?:\.\d+)?)\s*kg",
@@ -243,21 +243,18 @@ def _bounded_query_prompt(prompt: str) -> str:
         }
         return (
             f"{prompt}\n\n"
-            "ADP 写入约束：字段已完整。不要调用 adp_query、工作台、认证、管理或其它工具；"
-            "只调用一次 adp_mutation，operation 必须使用 "
-            "api.production_create_post_api_v1_production_resource，arguments 使用 "
-            f"{json.dumps(arguments, ensure_ascii=False, separators=(',', ':'))}。"
-            "只准备确认，不要调用确认接口；得到 confirmation_required 后立即停止。"
+            "ADP 提示：这条指令的字段已经齐全，可以直接用 adp_mutation 准备写入；"
+            "operation 建议使用 api.production_create_post_api_v1_production_resource，"
+            f"arguments 可用 {json.dumps(arguments, ensure_ascii=False, separators=(',', ':'))}。"
+            "若字段或口径不放心，也可以先用 adp_query 核对或 adp_ask_user 与用户确认。"
         )
     if "未巡检" not in normalized and "没有巡检" not in normalized:
         return prompt
     return (
         f"{prompt}\n\n"
-        "ADP 查询约束：这是一个只读的未巡检塘口问题。只调用一次 adp_query，"
-        "operation 使用 production.list_records，arguments 使用 "
-        "{resource: 'daily-operations', uninspected_on: 'today', page: 1, page_size: 20}。"
-        "不要调用工作台、管理员、仓库或其它查询工具，也不要重复调用；"
-        "根据这一次结果直接回答，若没有匹配记录就明确说明。"
+        "ADP 提示：这类问题通常一次只读查询就够——operation 用 production.list_records，"
+        "arguments 用 {resource: 'daily-operations', uninspected_on: 'today', page: 1, page_size: 20}。"
+        "若结果为空或口径不符，可以换 resource 再查一次，或直接问用户。"
     )
 
 

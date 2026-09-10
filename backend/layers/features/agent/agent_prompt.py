@@ -19,13 +19,13 @@ _MAX_LISTED = 80
 BEHAVIOUR_RULES = """【行为约定】
 1. 你只能使用 adp_query（只读查询）、adp_mutation（准备写操作）、adp_ask_user（向用户提问）三个工具，不要臆造工具、接口或参数。
 2. 查询一律走 adp_query；任何写入都先用 adp_mutation 准备，由用户在界面上点击确认后才会真正执行，你不得声称已经完成写入。
-3. 只能执行"当前登录用户"权限码覆盖的操作。权限不足时直接说明缺少哪项权限，不要重试、不要改用其它接口绕过。
-4. 缺少必要信息时（例如缺塘口/批次/物料/数量/日期，或同一关键词命中多个对象，或口径不清），必须调用 adp_ask_user 提出一个具体问题，并给出 2-4 个可点击选项；禁止猜测参数。
-5. 工具返回错误时，如实转述错误码与错误原文，禁止编造"服务未连接""域名配置问题""认证服务故障"等未经证实的原因，也不要建议联系管理员，除非错误信息本身这样说明。
-6. 回答使用简体中文：先给结论，再给关键数据（列表/表格），必要时在末尾给出下一步建议。
-7. 数字必须与工具返回一致：不确定就不要报数量（宁可不写"共 N 项"），禁止把数错的总数当成结论。
-8. 单轮对话最多调用 6 次工具（含 adp_ask_user）；到达上限时先给出已有结论，再询问用户是否继续。
-9. 需要用户补充信息时，必须直接调用 adp_ask_user；禁止只在文字里写"让我向用户提问""请提供…"却不调用工具——那样界面不会弹出输入框。同样禁止在文字里描述"我打算调用某个工具"，要么调用工具，要么直接给出最终答复。"""
+3. 只读数据可以分页：arguments 支持 page / page_size（单页上限 50）。需要更多数据时连续翻页，并在结果里说明"这是第 N 页，还有更多"。
+4. 权限与登录者完全一致：只执行"当前登录用户"权限码覆盖的操作。权限不足时直接说明缺少哪项权限，不要反复重试、不要改用其它接口绕过。
+5. 缺少必要信息时（例如缺塘口/批次/物料/数量/日期，或同一关键词命中多个对象，或口径不清），必须调用 adp_ask_user 提出一个具体问题，并给出 2-4 个可点击选项；禁止猜测参数。
+6. 工具返回错误时，如实转述错误码与错误原文，禁止编造"服务未连接""域名配置问题""认证服务故障"等未经证实的原因，也不要建议联系管理员，除非错误信息本身这样说明。
+7. 操作名（operation）必须取自工具说明里的清单；资源名（resource 等参数）拿不准时先用一次只读调用试探（例如主数据常用 ponds / ponds-groups / farms / areas / materials），遇到 RESOURCE_NOT_FOUND 就换一个名字或直接问用户，不要连续重试同一个错名。
+8. 回答使用简体中文：先结论，再关键数据（列表/表格），必要时给下一步建议；数字必须与工具返回一致（不确定就不要报总数）；单轮最多 12 次工具调用，到上限先给已有结论并询问是否继续。
+9. 需要用户补充信息时，必须直接调用 adp_ask_user；禁止只在文字里写"让我向用户提问""请提供…"却不调用工具——那样界面不会弹出输入框。同样禁止在文字里描述"我打算调用某个工具"。"""
 
 AGENT_INSTRUCTIONS = """# ADP 塘小助 · 智能体行为契约
 
@@ -42,10 +42,17 @@ AGENT_INSTRUCTIONS = """# ADP 塘小助 · 智能体行为契约
 7. 单轮最多调用 6 次工具；到达上限先给已有结论，再问用户是否继续。
 8. 数字必须与工具返回一致；不确定就不要报总数。
 
-## 常见任务
-- 「查询我的权限 / 我是谁」：调用 adp_query，operation 使用 api.auth_me_get_api_v1_auth_me，直接列出角色、数据范围与权限码。
-- 「未巡检塘口 / 今天要巡检什么」：调用 adp_query，operation 使用 production.list_records，arguments 使用 {resource: 'daily-operations', uninspected_on: 'today', page: 1, page_size: 20}。
-- 写入类指令（投喂、用药、出入库、采购、销售、成本）：先补齐字段，再 adp_mutation 准备，等待用户确认。
+## 常见任务（operation + arguments 起点，可按需加 page / page_size，单页 ≤50）
+- 权限/身份：「查询我的权限」→ api.auth_me_get_api_v1_auth_me，{}。
+- 主数据：塘口 → master_data.list_records，{resource: 'ponds'}；农场/片区/物料/业务伙伴同理换 resource。
+- 生产记录：投喂 → production.list_records，{resource: 'feed-logs'}；用药 → 'medications'；日常操作/巡塘 → 'daily-operations'；出塘 → 'harvests'；批次 → 'batches'。
+- 未巡检塘口：production.list_records，{resource: 'daily-operations', uninspected_on: 'today', page: 1, page_size: 20}。
+- 仓储：库存/出入库/调拨/预警 → warehouse.list_records，{resource: 'issues'|'receipts'|'transfers'|'alerts'}。
+- 采购/销售：purchase.list_orders、sales.list_orders。
+- 成本费用：cost.list_entries。
+- 待办/通知：workbench.list_work_items。
+- 写入类（投喂、用药、出入库、采购、销售、成本）：先补齐字段，再 adp_mutation 准备，等待用户确认。
+- 用户问「这个塘口 / 当前页面 / 它」时，优先用【当前页面】与【最近对话】里的信息消歧；仍不确定就 adp_ask_user。
 """
 
 
@@ -82,12 +89,47 @@ def build_user_brief(user: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_prompt(prompt: str, user_brief: str) -> str:
-    """Attach identity + behaviour contract to the user's turn."""
+MAX_HISTORY_TURNS = 8
+MAX_HISTORY_CHARS = 2000
+
+
+def turn_prompt_context(payload: dict[str, Any] | None) -> dict[str, str]:
+    """Turn optional client context (current page, recent turns) into prompt text."""
+    data = payload if isinstance(payload, dict) else {}
+    page = str(data.get("context_path") or "").strip()[:200]
+    lines: list[str] = []
+    raw_history = data.get("history")
+    if isinstance(raw_history, list):
+        for item in raw_history[-MAX_HISTORY_TURNS:]:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text") or "").strip().replace("\n", " ")[:300]
+            if not text:
+                continue
+            who = "用户" if str(item.get("role")) == "user" else "助手"
+            lines.append(f"{who}：{text}")
+    context: dict[str, str] = {}
+    if page:
+        context["page_context"] = page
+    if lines:
+        joined = "\n".join(lines)
+        context["history_text"] = joined[-MAX_HISTORY_CHARS:]
+    return context
+
+
+def render_prompt(prompt: str, user_brief: str, page_context: str = "", history_text: str = "") -> str:
+    """Attach identity, optional page/history context and the behaviour contract."""
+    blocks: list[str] = []
     brief = (user_brief or "").strip()
-    if not brief:
-        return prompt
-    return f"{brief}\n\n{BEHAVIOUR_RULES}\n\n【用户请求】\n{prompt}"
+    if brief:
+        blocks.append(brief)
+    if (page_context or "").strip():
+        blocks.append(f"【当前页面】{page_context.strip()}")
+    if (history_text or "").strip():
+        blocks.append("【最近对话（由客户端携带，仅供参考）】\n" + history_text.strip())
+    blocks.append(BEHAVIOUR_RULES)
+    blocks.append(f"【用户请求】\n{prompt}")
+    return "\n\n".join(blocks)
 
 
 def ensure_instructions(dsh_home: str | Path) -> bool:

@@ -66,7 +66,7 @@ def _logged_in_client(gateway: FakeAgentGateway) -> tuple[Any, FakeAuthStore, di
     return client, store, {"csrf": _csrf(client), "user": user}
 
 
-def test_agent_get_dispatch_caps_model_page_size() -> None:
+def test_agent_get_dispatch_caps_model_page_size_at_fifty() -> None:
     app = Flask(__name__)
     captured: dict[str, Any] = {}
 
@@ -95,10 +95,10 @@ def test_agent_get_dispatch_caps_model_page_size() -> None:
         risk="read",
     )
     with app.test_request_context("/"):
-        result = _dispatch_fixed_tool(tool, {"resource": "ponds", "page_size": 100}, {"session_token": "session"})
+        result = _dispatch_fixed_tool(tool, {"resource": "ponds", "page_size": 999}, {"session_token": "session"})
 
     assert result == {"items": []}
-    assert captured["query_string"]["page_size"] == 20
+    assert captured["query_string"]["page_size"] == 50
 
 
 def test_agent_dispatch_accepts_model_resource_type_alias_for_fixed_resource_path() -> None:

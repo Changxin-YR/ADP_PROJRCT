@@ -21,7 +21,7 @@ from backend.layers.features.auth.auth_service import AuthService
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
 from backend.layers.features.agent.agent_confirmation_store import MySqlAgentConfirmationStore
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
-from backend.layers.features.agent.agent_prompt import build_user_brief
+from backend.layers.features.agent.agent_prompt import build_user_brief, turn_prompt_context
 from backend.layers.features.agent.agent_tool_registry import AgentTool, build_registry
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
 from backend.layers.common.db.connection import _request_state
@@ -102,7 +102,7 @@ def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: di
         # Agent reads are deliberately bounded. The model can paginate, but a
         # single turn must not receive an unbounded business-object payload.
         try:
-            body["page_size"] = min(20, max(1, int(body.get("page_size", 20))))
+            body["page_size"] = min(50, max(1, int(body.get("page_size", 20))))
         except (TypeError, ValueError):
             raise AgentGatewayError("VALIDATION_ERROR", "page_size 必须是正整数", 400)
     query = body if tool.method == "GET" else {}
@@ -214,6 +214,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                         # can never share model history.
                         "user_namespace": hash_session_token(session_token)[:16],
                         "user_brief": build_user_brief(user),  # 让模型自己回答"我有哪些权限"
+                        **turn_prompt_context(payload),  # 当前页面 + 最近对话（客户端携带）
                     },
                 )
             else:

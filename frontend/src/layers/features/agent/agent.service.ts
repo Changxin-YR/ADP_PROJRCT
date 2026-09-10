@@ -1,10 +1,19 @@
 import { createApiClient } from '../../common/api/client'
-import type { AgentTurnResult } from './agent.models'
+import type { AgentTurnContext, AgentTurnResult } from './agent.models'
 
 const api = createApiClient()
 
-export function sendAgentTurn(message: string, conversationId?: string): Promise<AgentTurnResult> {
-  return api.post<AgentTurnResult>('/api/v1/agent/turn', { message, conversation_id: conversationId })
+export function sendAgentTurn(
+  message: string,
+  conversationId?: string,
+  context: AgentTurnContext = {},
+): Promise<AgentTurnResult> {
+  return api.post<AgentTurnResult>('/api/v1/agent/turn', {
+    message,
+    conversation_id: conversationId,
+    context_path: context.contextPath,
+    history: context.history,
+  })
 }
 
 export function confirmAgent(token: string): Promise<AgentTurnResult> {

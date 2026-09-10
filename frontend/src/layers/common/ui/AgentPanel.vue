@@ -82,7 +82,11 @@ async function submitText(text: string): Promise<void> {
   append('user', message)
   busy.value = true
   try {
-    const result = await sendAgentTurn(message, conversationId.value)
+    const history = messages.value.slice(-8).map((item) => ({ role: item.role, text: item.text }))
+    const result = await sendAgentTurn(message, conversationId.value, {
+      contextPath: router.currentRoute.value.fullPath,
+      history,
+    })
     conversationId.value ||= result.conversation_id || result.confirmation?.conversation_id || result.session_id
     applyResult(result)
   } catch (value) {

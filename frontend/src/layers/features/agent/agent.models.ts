@@ -12,6 +12,16 @@ export interface AgentConfirmation {
   request_id: string
 }
 
+export interface AgentTurnHistoryItem {
+  role: AgentMessageRole
+  text: string
+}
+
+export interface AgentTurnContext {
+  contextPath?: string
+  history?: AgentTurnHistoryItem[]
+}
+
 export interface AgentClarification {
   question: string
   options?: string[]
