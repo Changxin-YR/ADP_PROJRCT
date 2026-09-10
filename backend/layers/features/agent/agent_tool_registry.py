@@ -1,14 +1,51 @@
+"""Agent 工具注册表：把签入的 OpenAPI 契约固化成模型可调用的封闭工具集。
+
+策略细节（权限、风险、数据范围、参数 schema）在 ``agent_tool_policy`` 中，
+本模块只负责解析契约、命名与注册，避免单文件继续膨胀。
+
+安全边界：路径与 HTTP 方法全部来自生成的 OpenAPI 文档，客户端输入无法在运行时
+新增 URL、SQL 表达式或工具。
+"""
+
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Literal
-from backend.layers.features.agent.agent_permission_mapping import specialized_permission
-Risk = Literal["read", "write", "human_only"]
-Method = Literal["GET", "POST", "PUT", "PATCH", "DELETE"]
+from typing import Any, Callable
+
+from backend.layers.features.agent.agent_tool_policy import (
+    Method,
+    Risk,
+    permission_action,
+    permission_for,
+    permission_namespace_for,
+    permission_options,
+    required_role_for,
+    requires_data_scope,
+    resource_argument_for,
+    risk_for,
+    schema_for,
+)
+
+# 以下名字通过本模块对外暴露（其他模块与测试直接从本模块导入），
+# 因此这里显式再导出，保持既有导入路径不变。
+__all__ = [
+    "AgentTool",
+    "AgentToolRegistry",
+    "Method",
+    "Risk",
+    "ToolExecutor",
+    "build_agent_catalog",
+    "build_agent_tool_catalog",
+    "build_registry",
+    "permission_options",
+]
+
 ToolExecutor = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
+
+
 @dataclass(frozen=True)
 class AgentTool:
     name: str
@@ -24,6 +61,8 @@ class AgentTool:
     permission_action: str | None = None
     resource_argument: str | None = None
     requires_data_scope: bool = True
+
+
 class AgentToolRegistry:
     def __init__(self, tools: tuple[AgentTool, ...]) -> None:
         self.tools = tools
@@ -33,131 +72,20 @@ class AgentToolRegistry:
             raise ValueError("duplicate agent tool names are not allowed")
         if len(self._by_operation) != len(tools):
             raise ValueError("duplicate agent tool operations are not allowed")
+
     def get(self, name: str) -> AgentTool:
         return self._by_name[name]
+
     def require(self, name: str) -> AgentTool:
         try:
             return self._by_name[name]
         except KeyError as exc:
             raise KeyError(f"unknown agent tool: {name}") from exc
+
     def find_operation(self, method: str, path_template: str) -> AgentTool | None:
         return self._by_operation.get((method.upper(), path_template))
-_DOMAIN_PERMISSIONS = {
-    "cost": "cost",
-    "data-exchange": "data_exchange",
-    "master-data": "master_data",
-    "production": "production",
-    "purchase": "purchase",
-    "sales": "sales",
-    "warehouse": "warehouse",
-    "workbench": "work_item",
-}
-_VERIFY_PATH_MARKERS = {
-    "approve", "reject", "verify", "dispatch", "receive", "cancel",
-}
-def _domain(path: str) -> str:
-    segments = path.strip("/").split("/")
-    return segments[2] if len(segments) > 2 else ""
-def _schema_for(method: str, path: str = "") -> dict[str, Any]:
-    if method == "GET":
-        schema = {
-            "page": {"type": "integer", "minimum": 1},
-            "page_size": {"type": "integer", "minimum": 1, "maximum": 100},
-            "keyword": {"type": "string", "maxLength": 100},
-            "status": {"type": "string"},
-        }
-        if path == "/api/v1/production/{resource}":
-            schema["uninspected_on"] = {"type": "string", "description": "只读未巡检塘口查询日期，使用 today 或 YYYY-MM-DD"}
-        return schema
-    return {
-        "payload": {"type": "object", "required": True},
-        "expected_version": {"type": "integer", "minimum": 1},
-    }
-def _permission_action(path: str, method: str) -> str:
-    if method == "GET":
-        return "view"
-    last_segments = {segment for segment in path.strip("/").split("/") if not segment.startswith("{")}
-    if last_segments & _VERIFY_PATH_MARKERS:
-        return "verify"
-    return "manage"
-def _permission_for(path: str, method: str) -> str | None:
-    if path == "/api/v1/workbench/summary": return "workbench.enter"
-    domain = _domain(path)
-    if domain in {"work-items", "notifications"}:
-        return "work_item.view" if method == "GET" else "work_item.manage"
-    if domain == "admin":
-        if "/roles" in path:
-            return "auth.role.manage"
-        if "/applications" in path:
-            return "auth.review"
-        if "/audit-logs" in path:
-            return "audit.view"
-        return "auth.user.manage"
-    specialized = specialized_permission(path, method, domain)
-    if specialized is not None:
-        return specialized
-    prefix = _DOMAIN_PERMISSIONS.get(domain)
-    if prefix is None:
-        return None
-    return f"{prefix}.{_permission_action(path, method)}"
-def _risk_for(method: str, path: str) -> Risk:
-    # Authentication/session lifecycle must remain outside the delegated agent
-    # because those endpoints create or replace the identity the agent inherits.
-    if _domain(path) == "auth" and method != "GET":
-        return "human_only"
-    # File uploads are multipart-only; the Agent gateway intentionally accepts
-    # JSON and must not advertise a non-executable binary write tool.
-    if method == "POST" and path == "/api/v1/data-exchange/attachments":
-        return "human_only"
-    if method == "GET":
-        return "read"
-    return "write"
-def _required_role_for(path: str) -> str | None:
-    return "super_admin" if _domain(path) == "admin" else None
-def _permission_namespace_for(path: str) -> str | None:
-    domain = _domain(path)
-    return _DOMAIN_PERMISSIONS.get(domain)
-def _resource_argument_for(path: str) -> str | None:
-    if "{resource}" in path and _domain(path) in {"master-data", "production", "warehouse"}:
-        return "resource"
-    return None
-def _requires_data_scope(path: str) -> bool:
-    return _domain(path) not in {"admin", "auth", "health"}
-def permission_options(tool: AgentTool, arguments: dict[str, Any]) -> tuple[str, ...]:
-    """Return every permission that may authorize this concrete operation.
 
-    This mirrors business-service alternatives for generic resource routes.
-    The business endpoint remains the final authorization authority.
-    """
-    options: list[str] = []
-    if tool.required_permission:
-        options.append(tool.required_permission)
 
-    if tool.permission_namespace and tool.permission_action and tool.resource_argument:
-        payload = arguments.get("payload") if isinstance(arguments.get("payload"), dict) else {}
-        resource = arguments.get(tool.resource_argument, payload.get(tool.resource_argument))
-        if isinstance(resource, str) and resource.strip():
-            resource_code = resource.strip().replace("-", "_")
-            if tool.permission_namespace in {"master_data", "production"}:
-                options.append(f"{tool.permission_namespace}.{resource_code}.{tool.permission_action}")
-            if tool.permission_namespace == "warehouse" and resource.strip() == "issue-requests":
-                options.append(f"production.{tool.permission_action}")
-
-    # Return services accept both their fine-grained permission and the legacy
-    # domain-wide permission; keep the agent pre-check equivalent to the API.
-    if "/purchase/returns" in tool.path_template:
-        if tool.required_permission == "purchase.return.manage":
-            options.append("purchase.manage")
-        elif tool.required_permission == "purchase.return.verify":
-            options.append("purchase.verify")
-    if "/sales/returns" in tool.path_template:
-        if tool.required_permission == "sales.return.manage":
-            options.append("sales.manage")
-        elif tool.required_permission == "sales.return.verify":
-            options.append("sales.verify")
-
-    # Preserve order for predictable diagnostics while removing duplicates.
-    return tuple(dict.fromkeys(options))
 def _tool_name(operation_id: str, method: str, path: str) -> str:
     if operation_id.startswith("master_data_list_records_"):
         return "master_data.list_records"
@@ -197,6 +125,8 @@ def _tool_name(operation_id: str, method: str, path: str) -> str:
         suffix = operation_id.removeprefix("admin_").split("_")[0]
         return f"admin.{suffix or 'operation'}"
     return f"api.{operation_id or method.lower()}"
+
+
 def _openapi_tools() -> list[AgentTool]:
     source = Path(__file__).resolve().parents[4] / "api-docs" / "openapi.json"
     if not source.exists():
@@ -212,26 +142,26 @@ def _openapi_tools() -> list[AgentTool]:
                 continue
             operation_id = str(operation.get("operationId") or "")
             name = _tool_name(operation_id, method_upper, path)
-            permission = _permission_for(path, method_upper)
-            namespace = _permission_namespace_for(path)
-            action = _permission_action(path, method_upper) if namespace else None
+            namespace = permission_namespace_for(path)
             tools.append(
                 AgentTool(
                     name=name,
                     description=str(operation.get("summary") or "ADP 业务操作"),
                     method=method_upper,  # type: ignore[arg-type]
                     path_template=path,
-                    parameters=_schema_for(method_upper, path),
-                    required_permission=permission,
-                    risk=_risk_for(method_upper, path),
-                    required_role=_required_role_for(path),
+                    parameters=schema_for(method_upper, path),
+                    required_permission=permission_for(path, method_upper),
+                    risk=risk_for(method_upper, path),
+                    required_role=required_role_for(path),
                     permission_namespace=namespace,
-                    permission_action=action,
-                    resource_argument=_resource_argument_for(path),
-                    requires_data_scope=_requires_data_scope(path),
+                    permission_action=permission_action(path, method_upper) if namespace else None,
+                    resource_argument=resource_argument_for(path),
+                    requires_data_scope=requires_data_scope(path),
                 )
             )
     return tools
+
+
 def _unique_tool_name(tool: AgentTool, by_name: dict[str, AgentTool]) -> str:
     """Return a deterministic unique name without dropping duplicate aliases.
 
@@ -253,6 +183,8 @@ def _unique_tool_name(tool: AgentTool, by_name: dict[str, AgentTool]) -> str:
         candidate = f"{method_name}:{path_slug}:{suffix}"
         suffix += 1
     return candidate
+
+
 def build_registry(executor_factory: Callable[[AgentTool], ToolExecutor | None] | None = None) -> AgentToolRegistry:
     """Build a closed registry from the checked-in API contract.
 
@@ -303,6 +235,8 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
         ensure_ascii=False,
         separators=(",", ":"),
     )
+
+
 def _flask_path(rule: str) -> str:
     return re.sub(r"<(?:int|path):([^>]+)>|<([^>]+)>", lambda match: "{" + (match.group(1) or match.group(2)) + "}", rule)
 
