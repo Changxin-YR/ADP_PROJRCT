@@ -5,7 +5,7 @@ import AppIcon from './AppIcon.vue'
 import { createSessionStore } from '../session/session.store'
 import { ApiError, errorText } from '../api/errors'
 import { cancelAgentConfirmation, confirmAgent, sendAgentTurn } from '../../features/agent/agent.service'
-import type { AgentConfirmation, AgentMessageRole, AgentTurnResult } from '../../features/agent/agent.models'
+import type { AgentClarification, AgentConfirmation, AgentMessageRole, AgentTurnResult } from '../../features/agent/agent.models'
 
 interface Message { id: number; role: AgentMessageRole; text: string; result?: AgentTurnResult }
 
@@ -18,6 +18,8 @@ const busy = ref(false)
 const error = ref('')
 const conversationId = ref<string>()
 const confirmation = ref<AgentConfirmation>()
+const clarification = ref<AgentClarification>()
+const answerText = ref('')
 const messages = ref<Message[]>([])
 const launcherElement = ref<HTMLButtonElement>()
 const inputElement = ref<HTMLTextAreaElement>()
@@ -51,6 +53,9 @@ function applyResult(result: AgentTurnResult): void {
     append('assistant', result.confirmation.summary, result)
   } else if (result.kind === 'human_only') {
     append('assistant', result.message || '该操作需要人工在管理页面完成', result)
+  } else if (result.kind === 'clarification' && result.clarification) {
+    clarification.value = result.clarification
+    if (result.message) append('assistant', result.message, result)
   } else if (result.kind === 'assistant') {
     append('assistant', result.message || `${assistantName}已返回结果`, result)
   } else {
@@ -58,10 +63,11 @@ function applyResult(result: AgentTurnResult): void {
   }
 }
 
-async function submit(): Promise<void> {
-  const message = input.value.trim()
+async function submitText(text: string): Promise<void> {
+  const message = text.trim()
   if (!message || busy.value || !available.value) return
-  input.value = ''
+  clarification.value = undefined
+  answerText.value = ''
   error.value = ''
   append('user', message)
   busy.value = true
@@ -72,6 +78,27 @@ async function submit(): Promise<void> {
   } catch (value) {
     if (!handleAuthError(value)) error.value = errorText(value, `${assistantName}暂时不可用，请稍后重试`)
   } finally { busy.value = false; await nextTick(); inputElement.value?.focus() }
+}
+
+async function submit(): Promise<void> {
+  const message = input.value.trim()
+  if (!message || busy.value || !available.value) return
+  input.value = ''
+  await submitText(message)
+}
+
+async function clickOption(option: string): Promise<void> {
+  clarification.value = undefined
+  answerText.value = ''
+  await submitText(option)
+}
+
+async function submitAnswer(): Promise<void> {
+  const answer = answerText.value.trim()
+  if (!answer) return
+  clarification.value = undefined
+  answerText.value = ''
+  await submitText(answer)
 }
 
 async function confirm(): Promise<void> {
@@ -134,6 +161,30 @@ function toggle(): void {
             <button type="button" data-testid="agent-cancel" :disabled="busy" @click="cancel">取消</button>
             <button type="button" data-testid="agent-confirm" :disabled="busy" @click="confirm">确认执行</button>
           </div>
+        </div>
+        <div v-if="clarification" class="agent-clarification" data-testid="agent-clarification">
+          <strong>{{ clarification.question }}</strong>
+          <div v-if="clarification.options?.length" class="agent-clarification__options">
+            <button
+              v-for="option in clarification.options"
+              :key="option"
+              type="button"
+              :disabled="busy"
+              data-testid="agent-clarification-option"
+              @click="clickOption(option)"
+            >{{ option }}</button>
+          </div>
+          <form v-if="clarification.allow_free_text !== false" class="agent-clarification__answer" @submit.prevent="submitAnswer">
+            <input
+              v-model="answerText"
+              type="text"
+              :disabled="busy"
+              placeholder="请输入补充说明或选择上面的选项"
+              data-testid="agent-clarification-input"
+              aria-label="补充说明"
+            />
+            <button type="submit" :disabled="busy || !answerText.trim()">提交</button>
+          </form>
         </div>
         <p v-if="error" class="agent-panel__error" role="alert">{{ error }}</p>
       </div>

@@ -17,6 +17,7 @@ RULES = {
 HANDWRITTEN_SUFFIXES = {".py", ".ts", ".vue", ".sql"}
 IGNORED_DIRS = {
     ".git",
+    ".local",
     ".pytest_cache",
     ".venv",
     "__pycache__",

@@ -22,24 +22,20 @@ function endpoint(config: AdpAgentToolsConfig, path: '/query' | '/prepare'): str
   return `${base.toString().replace(/\/+$/, '')}${path}`
 }
 
+interface CatalogOperation {
+  n?: string
+  d?: string
+  m?: string
+  p?: string
+  r?: string
+  q?: string
+  a?: string[]
+}
+
 function describeOperations(catalog: string | undefined): string {
   if (!catalog?.trim()) return '必须使用已登记的 ADP 工具名。'
   try {
-    const parsed = JSON.parse(catalog) as Array<{
-      n?: string
-      d?: string
-      m?: string
-      p?: string
-      r?: string
-      a?: string[]
-    }> | { operations?: Array<{
-      n?: string
-      d?: string
-      m?: string
-      p?: string
-      r?: string
-      a?: string[]
-    }> }
+    const parsed = JSON.parse(catalog) as CatalogOperation[] | { operations?: CatalogOperation[] }
     const operations = Array.isArray(parsed) ? parsed : parsed.operations
     if (!Array.isArray(operations)) throw new Error('catalog must be an array')
     const lines = operations.map((operation) => [
@@ -47,9 +43,10 @@ function describeOperations(catalog: string | undefined): string {
       operation.d,
       `${operation.m ?? ''} ${operation.p ?? ''}`.trim(),
       operation.r ? `risk=${operation.r}` : '',
+      operation.q ? `perm=${operation.q}` : '',
       operation.a ? `parameters=${operation.a.join(',')}` : '',
     ].filter(Boolean).join(' | '))
-    return `必须从已登记的 ADP 工具名中选择，并按对应参数调用：\n${lines.join('\n')}`
+    return `必须从已登记的 ADP 工具名中选择，并按对应参数调用（perm= 是该操作需要的权限码）：\n${lines.join('\n')}`
   } catch {
     return '必须从已登记的 ADP 工具名中选择。'
   }
@@ -71,7 +68,13 @@ async function callGateway(
     signal,
   })
   const body = await response.json().catch(() => null) as Record<string, unknown> | null
-  if (!response.ok) throw new Error(String(body?.message || 'ADP Gateway 请求失败'))
+  if (!response.ok) {
+    // Keep the gateway error code: the model must quote the real failure instead
+    // of inventing a plausible-sounding cause.
+    const code = String(body?.code || 'ADP_GATEWAY_ERROR')
+    const message = String(body?.message || 'ADP Gateway 请求失败')
+    throw new Error(`${code}: ${message}`)
+  }
   return (body?.data ?? body) as JsonValue
 }
 
@@ -84,7 +87,7 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
   const operationDescription = describeOperations(config.operationCatalog)
   ctx.tools.register(defineTool({
     name: 'adp_query',
-    description: '查询当前登录用户有权查看的 ADP 数据。',
+    description: '查询当前登录用户有权查看的 ADP 数据。每次调用只传一个 operation 与它的对象参数。',
     parameters: {
       operation: { type: 'string', required: true, description: operationDescription },
       arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
@@ -98,9 +101,42 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
     },
   }))
 
+  const askUserDescription = '信息不足、存在歧义或需要用户在多步操作中做决定时，向用户提出一个具体问题并等待回答。调用后必须停止本轮输出，不要猜测参数，也不要用普通文字代替提问。'
+
+  // The panel renders this payload as a question box with clickable options, so
+  // the agent asks instead of guessing (and never invents a system failure).
+  ctx.tools.register(defineTool({
+    name: 'adp_ask_user',
+    description: askUserDescription,
+    parameters: {
+      question: { type: 'string', required: true, description: '用简体中文提出的一个明确问题，说明缺少什么信息或需要用户在什么之间做选择。' },
+      options: { type: 'json', description: '2-4 个可点击的候选答案或下一步操作（字符串数组），可为空数组。' },
+      allow_free_text: { type: 'boolean', description: '是否允许用户自由输入，默认 true。' },
+    },
+    output: {
+      schema: { type: 'json' },
+      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+    },
+    async execute(args) {
+      const payload = args as { question?: unknown; options?: unknown; allow_free_text?: unknown }
+      const question = String(payload?.question ?? '').trim()
+      if (!question) throw new Error('question 不能为空')
+      const options = Array.isArray(payload?.options)
+        ? payload.options.map((item) => String(item)).filter((item) => item.trim()).slice(0, 5)
+        : []
+      return {
+        kind: 'clarification',
+        question,
+        options,
+        allow_free_text: payload?.allow_free_text !== false,
+        note: '已向用户提问，请立即停止本轮输出，等待用户回答。',
+      } as unknown as JsonValue
+    },
+  }))
+
   ctx.tools.register(defineTool({
     name: 'adp_mutation',
-    description: '准备一个需要登录者确认的 ADP 业务写操作。',
+    description: '准备一个需要登录者确认的 ADP 业务写操作。得到 confirmation_required 后立即停止，等待用户点击确认。',
     parameters: {
       operation: { type: 'string', required: true, description: operationDescription },
       arguments: { type: 'json', required: true, description: '该工具的对象参数。' },

@@ -3,6 +3,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 import json
 import re
+from threading import Lock
 from urllib.parse import parse_qs, urlparse
 
 try:
@@ -40,6 +41,44 @@ def ok(data, message="ok"):
 
 def not_found():
     return {"code": "NOT_FOUND", "message": "stub route", "request_id": "stub", "data": None}
+
+
+# 塘小助面板 e2e 回归用的进程内状态：跨请求保留，供 /api/v1/agent/_probe 断言
+AGENT_LOCK = Lock()
+AGENT_STATE = {"messages": [], "turns": 0, "conversation_ids": [], "conversations": set(), "generated": 0}
+
+
+def agent_probe():
+    with AGENT_LOCK:
+        return {"messages": list(AGENT_STATE["messages"]), "turns": AGENT_STATE["turns"],
+                "conversation_ids": list(AGENT_STATE["conversation_ids"])}
+
+
+def agent_turn(payload):
+    message = str(payload.get("message") or "")
+    with AGENT_LOCK:
+        conversation_id = payload.get("conversation_id")
+        if not conversation_id:
+            AGENT_STATE["generated"] += 1
+            conversation_id = f"c-e2e-{AGENT_STATE['generated']}"
+        first_turn = conversation_id not in AGENT_STATE["conversations"]
+        AGENT_STATE["conversations"].add(conversation_id)
+        AGENT_STATE["messages"].append(message)
+        AGENT_STATE["conversation_ids"].append(conversation_id)
+        AGENT_STATE["turns"] += 1
+    if "投喂" in message:
+        confirmation = {"id": 2, "token": "once", "tool_name": "production.create_record",
+                        "summary": "投喂 20kg", "arguments": {"pond_id": 1, "quantity": 20},
+                        "risk": "该操作会修改业务数据", "expires_at": "2099-01-01T00:00:00",
+                        "conversation_id": conversation_id, "request_id": "r-confirm"}
+        return {"kind": "confirmation_required", "confirmation": confirmation,
+                "conversation_id": conversation_id, "request_id": "r-confirm"}
+    if first_turn:
+        return {"kind": "clarification", "message": "需要先确认塘口。",
+                "clarification": {"question": "要查询哪个塘口？", "options": ["1 号塘", "2 号塘"], "allow_free_text": True},
+                "conversation_id": conversation_id, "request_id": "r-clarify"}
+    return {"kind": "assistant", "message": "好的，正在查询 1 号塘。",
+            "conversation_id": conversation_id, "request_id": "r-answer"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -130,6 +169,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(ok({"items": WORK_ITEMS_STUB, "page": 1, "page_size": 100, "total": 2, "has_next": False}))
         if path == "/api/v1/notifications":
             return self._send(ok({"items": NOTIFICATIONS_STUB, "page": 1, "page_size": 100, "total": 1, "has_next": False}))
+        if path == "/api/v1/agent/_probe":
+            return self._send(ok(agent_probe()))
         if path == "/api/v1/master-data/ponds":
             return self._send(ok({"items": PONDS, "page": 1, "page_size": 20, "total": 1, "has_next": False}))
         if re.fullmatch(r"/api/v1/master-data/ponds/\d+", path):
@@ -183,6 +224,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(ok(None))
         if re.fullmatch(r"/api/v1/admin/applications/\d+/(approve|reject)", path):
             return self._send(ok({"application": {**APPLICATIONS[0], "status": "approved"}}))
+        if path == "/api/v1/agent/turn":
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            return self._send(ok(agent_turn(payload)))
+        if path == "/api/v1/agent/confirm":
+            return self._send(ok({"kind": "success", "data": {"confirmed": True}, "request_id": "r-ok"}))
         return self._send(ok(None))
 
     def do_PATCH(self):

@@ -73,3 +73,62 @@
 - backend/layers/common/db/query_guard.py 新增 SQL 标识符校验，master_data_store 与 data_exchange_store 动态表名接入；其余动态 SQL 补充白名单注释。
 - readiness/load_support.py 健康轮询静默异常增加 debug 日志。
 - 后端全量（含一次性 MySQL）397 passed / 0 skipped；前端 102 unit / 34 e2e / build 通过。
+
+
+## 8. 智能体（塘小助）修复与验证 — 2026-09-10 晚
+
+### 8.1 现象
+用户问「查询我的权限」，助手回答「看起来当前环境未能正确连接到认证服务……可能是域名配置问题或服务未就绪」。
+
+### 8.2 根因（两条，均已修复）
+1. **内部派发被域名校验拦截（主因）**。共享域名切换提交（`14964bd`）给全局 `before_request`
+   增加了 `ADP_SERVER_NAME` 校验；而智能体网关执行工具时用
+   `current_app.test_client().open(...)` 走进程内请求，该请求默认 `Host: localhost`，
+   于是**每一次工具调用都返回 421 HOST_NOT_ALLOWED**。模型只看到「当前域名未绑定此服务」，
+   便自行编造了"认证服务/域名配置"的解释。
+2. **运行时不完整**：`ADP_AGENT_TOOL_CATALOG`（操作契约）只更新了 runtime 副本，
+   `$DSH_HOME/profiles/sdk` 下的插件副本仍是旧版；同时旧版 `describeOperations` 缺失，
+   模型拿不到合法 operation 清单，只能猜名字。
+
+### 8.3 修复内容
+- `backend/layers/product/agent/routes.py`：`_dispatch_fixed_tool` 用调用方真实 origin
+  （`request.host_url`，无请求上下文时回退 `ADP_SERVER_NAME`）作为进程内请求的 `base_url`；
+  并注入登录者身份摘要 `user_brief`。
+- `backend/layers/features/agent/agent_prompt.py`（新增）：登录者身份/角色/数据范围/权限码摘要、
+  行为约定与 `render_prompt`；`ensure_instructions` 把 `AGENTS.md` 行为契约写入 `$DSH_HOME`。
+- `backend/layers/features/agent/harness_sidecar.py`：把身份摘要+行为约定拼进模型输入；
+  新增 `kind=clarification` 结果解析（`adp_ask_user`）。
+- `backend/layers/features/agent/agent_tool_registry.py`：关键操作人工描述
+  （如 `/api/v1/auth/me` → "查询当前登录用户的资料、角色、数据范围与权限码"）
+  与 `q`（所需权限码）字段，让模型知道自己能不能做。
+- `deploy/agent-runtime/dsh-adp-agent-tools.index.js`（新增，权威副本）+ 插件源码：
+  新增 `adp_ask_user` 工具、错误码透传（`CODE: message`）、`perm=` 提示。
+- `frontend/src/layers/common/ui/AgentPanel.vue` 等：`kind=clarification` 时弹出提问框
+  （可点选项 + 自由输入），提交后作为同一 `conversation_id` 的下一轮消息。
+- `deploy/deploy-blue-green.sh`：先校验归档必需文件再停机（失败快速退出、零停机损失）；
+  shared 模式不再要求 standalone 的 `adp-auth.conf`。
+
+### 8.4 验证证据（生产，2026-09-10 21:5x）
+`20260910-agentfix-r2` 为当前线上 release；网关审计 `agent_tool` 记录：
+
+| 用户 | 角色 | 请求 | 结果 |
+| --- | --- | --- | --- |
+| 21 验收_核验员 | breed_manager | 查询我的权限 | success，列出本人 23 项权限码 |
+| 21 | breed_manager | 今天有哪些塘口未巡检 | success，返回 4 个塘口（均 verified） |
+| 21 | breed_manager | 把所有用户列出来 | failure FORBIDDEN，明确说明缺 `auth.user.manage` |
+| 1 系统管理员 | super_admin | 列出系统用户前 5 条 | success，返回用户表格 |
+| 21 | breed_manager | 喂养 pond_id=1 batch_id=1 material_id=1 数量 5 kg | 返回 `confirmation_required`（等待用户点击确认，未执行） |
+
+交互能力：
+- 「帮我投喂」等模糊指令 → `kind=clarification`，问题 + 4 个可点击选项 + 允许自由输入；
+- 完整写指令 → `kind=confirmation_required`（风险提示 + 确认/取消按钮）；
+- 未确认的待办操作已通过 `/api/v1/agent/cancel` 取消（`agent_confirmations.status=cancelled`）。
+
+回归：`python -m pytest -q backend/tests`（含新增 `test_agent_dispatch_host.py`、
+`test_agent_prompt.py`）与 `npm --prefix frontend run test:unit`、
+`npm --prefix frontend run test:e2e` 全绿。
+
+### 8.5 已知限制
+- `data-exchange` 附件上传与 `auth` 写操作仍为 `human_only`，智能体不能代办（设计如此）。
+- 现场探针需要 root（伪造临时会话行）：
+  `bash tools/agent_live_probe.sh turn 21 '查询我的权限'`。

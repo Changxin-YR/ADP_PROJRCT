@@ -45,6 +45,16 @@ __all__ = [
 
 ToolExecutor = Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]
 
+# Generated summaries are generic counts ("查询列表"); the model needs the real
+# intent for the operations users ask about by name.
+_DESCRIPTION_OVERRIDES: dict[tuple[str, str], str] = {
+    ("GET", "/api/v1/auth/me"): "查询当前登录用户的资料、角色、数据范围与权限码（回答“我有哪些权限/我是谁”必须用它）",
+    ("GET", "/api/v1/auth/workbench"): "查询当前登录用户的工作台入口信息",
+    ("GET", "/api/v1/workbench/summary"): "查询工作台摘要：待办事项、通知与风险提醒",
+    ("GET", "/api/v1/admin/roles"): "查询角色清单及其权限配置（需要 auth.role.manage）",
+    ("GET", "/api/v1/health"): "查询系统健康状态（无需业务权限）",
+}
+
 
 @dataclass(frozen=True)
 class AgentTool:
@@ -146,7 +156,7 @@ def _openapi_tools() -> list[AgentTool]:
             tools.append(
                 AgentTool(
                     name=name,
-                    description=str(operation.get("summary") or "ADP 业务操作"),
+                    description=_DESCRIPTION_OVERRIDES.get((method_upper, path)) or str(operation.get("summary") or "ADP 业务操作"),
                     method=method_upper,  # type: ignore[arg-type]
                     path_template=path,
                     parameters=schema_for(method_upper, path),
@@ -220,6 +230,7 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
             "m": tool.method,
             "p": tool.path_template,
             "r": tool.risk,
+            "q": tool.required_permission or "",
             "a": [
                 f"{name}!" if isinstance(schema, dict) and schema.get("required") else name
                 for name, schema in tool.parameters.items()
@@ -229,7 +240,7 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
     ]
     return json.dumps(
         {
-            "legend": "n=name; d=description; m=HTTP method; p=path; r=risk; a=parameters; ! means required",
+            "legend": "n=name; d=description; m=HTTP method; p=path; r=risk; q=required permission; a=parameters; ! means required",
             "operations": operations,
         },
         ensure_ascii=False,

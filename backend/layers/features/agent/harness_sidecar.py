@@ -9,6 +9,7 @@ from typing import Any
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
+from backend.layers.features.agent.agent_prompt import ensure_instructions, render_prompt
 from backend.layers.features.agent.agent_tool_registry import build_agent_tool_catalog
 
 
@@ -21,6 +22,9 @@ class HarnessSidecar:
         self._lock = threading.RLock()
 
     def _new_harness(self, runtime_env: dict[str, str], safe_context: dict[str, str]) -> Any:
+        # The harness loads $DSH_HOME/AGENTS.md on every baseline; keep it in sync
+        # with the release so the behaviour contract ships with the code.
+        ensure_instructions(self.settings.agent_sidecar_home)
         from deepseek_harness import DeepSeekHarness
 
         patch = self.settings.agent_sidecar_patch.strip()
@@ -78,7 +82,7 @@ class HarnessSidecar:
         safe_context = {
             key: str(value)
             for key, value in context.items()
-            if key in {"conversation_id", "request_id", "gateway_url", "context_token", "user_namespace"}
+            if key in {"conversation_id", "request_id", "gateway_url", "context_token", "user_namespace", "user_brief"}
             and value is not None
         }
         if not safe_context.get("conversation_id"):
@@ -101,7 +105,8 @@ class HarnessSidecar:
                     harness = self._new_harness(runtime_env, safe_context)
                     self._harnesses[namespace] = harness
                 harness_started = time.perf_counter()
-                result = harness.run(_bounded_query_prompt(prompt), session_id=session_id)
+                prompt_text = render_prompt(_bounded_query_prompt(prompt), safe_context.get("user_brief", ""))
+                result = harness.run(prompt_text, session_id=session_id)
                 harness_finished = time.perf_counter()
         except TimeoutError as exc:
             raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc
@@ -114,54 +119,50 @@ class HarnessSidecar:
             if any(marker in name for marker in ("protocol", "jsonrpc", "transport")):
                 raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手通信协议异常", 502) from exc
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
+        def diagnostics() -> dict[str, Any]:
+            # Keep diagnostics numeric and payload-free so live latency can be
+            # investigated without copying prompts, tool arguments, or keys.
+            return {
+                "request_received_ms": 0,
+                "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
+                "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
+                "total_ms": round((harness_finished - request_started) * 1000, 1),
+            }
+
+        final_response = str(getattr(result, "final_response", "") or "")
+        session = str(getattr(result, "session_id", session_id))
         confirmation = _confirmation_from_result(result)
         if confirmation is not None:
             return {
                 "kind": "confirmation_required",
                 "confirmation": confirmation,
-                "message": str(getattr(result, "final_response", "") or ""),
-                "session_id": str(getattr(result, "session_id", session_id)),
-                "diagnostics": {
-                    "request_received_ms": 0,
-                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
-                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
-                    "total_ms": round((harness_finished - request_started) * 1000, 1),
-                },
+                "message": final_response,
+                "session_id": session,
+                "diagnostics": diagnostics(),
+            }
+        clarification = _clarification_from_result(result)
+        if clarification is not None:
+            return {
+                "kind": "clarification",
+                "clarification": clarification,
+                "message": final_response,
+                "session_id": session,
+                "diagnostics": diagnostics(),
             }
         if isinstance(result, dict):
-            # Keep diagnostics numeric and payload-free so live latency can be
-            # investigated without copying prompts, tool arguments, or keys.
-            result.setdefault(
-                "diagnostics",
-                {
-                    "request_received_ms": 0,
-                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
-                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
-                    "total_ms": round((harness_finished - request_started) * 1000, 1),
-                },
-            )
+            result.setdefault("diagnostics", diagnostics())
             return result
-        final_response = getattr(result, "final_response", None)
-        if isinstance(final_response, str):
-            return {
-                "kind": "assistant",
-                "message": final_response,
-                "session_id": str(getattr(result, "session_id", session_id)),
-                "diagnostics": {
-                    "request_received_ms": 0,
-                    "harness_request_start_ms": round((harness_started - request_started) * 1000, 1),
-                    "harness_response_ms": round((harness_finished - harness_started) * 1000, 1),
-                    "total_ms": round((harness_finished - request_started) * 1000, 1),
-                },
-            }
+        if final_response:
+            return {"kind": "assistant", "message": final_response, "session_id": session, "diagnostics": diagnostics()}
         raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手返回格式无效", 502)
 
 
-def _confirmation_from_result(result: Any) -> dict[str, Any] | None:
-    """Expose a pending mutation returned by the ADP tool to the HTTP client."""
+def _tool_payloads(result: Any) -> list[dict[str, Any]]:
+    """Collect the JSON payloads ADP tools returned during the turn, newest first."""
     events = getattr(result, "events", None)
+    payloads: list[dict[str, Any]] = []
     if not isinstance(events, list):
-        return None
+        return payloads
     for event in reversed(events):
         if not isinstance(event, dict) or event.get("type") != "tool/result":
             continue
@@ -179,9 +180,32 @@ def _confirmation_from_result(result: Any) -> dict[str, Any] | None:
                 payload = json.loads(text)
             except (TypeError, ValueError):
                 continue
-            confirmation = payload.get("confirmation") if isinstance(payload, dict) else None
-            if payload.get("kind") == "confirmation_required" and isinstance(confirmation, dict) and confirmation.get("token"):
-                return confirmation
+            if isinstance(payload, dict):
+                payloads.append(payload)
+    return payloads
+
+
+def _confirmation_from_result(result: Any) -> dict[str, Any] | None:
+    """Expose a pending mutation returned by the ADP tool to the HTTP client."""
+    for payload in _tool_payloads(result):
+        confirmation = payload.get("confirmation")
+        if payload.get("kind") == "confirmation_required" and isinstance(confirmation, dict) and confirmation.get("token"):
+            return confirmation
+    return None
+
+
+def _clarification_from_result(result: Any) -> dict[str, Any] | None:
+    """Expose an adp_ask_user question so the panel can prompt the user for guidance."""
+    for payload in _tool_payloads(result):
+        question = payload.get("question")
+        if payload.get("kind") != "clarification" or not isinstance(question, str) or not question.strip():
+            continue
+        options = [str(item) for item in payload.get("options") or [] if str(item).strip()][:5]
+        return {
+            "question": question.strip(),
+            "options": options,
+            "allow_free_text": payload.get("allow_free_text") is not False,
+        }
     return None
 
 

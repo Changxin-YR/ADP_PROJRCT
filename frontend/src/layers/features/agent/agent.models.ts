@@ -12,11 +12,18 @@ export interface AgentConfirmation {
   request_id: string
 }
 
+export interface AgentClarification {
+  question: string
+  options?: string[]
+  allow_free_text?: boolean
+}
+
 export interface AgentTurnResult {
-  kind: 'assistant' | 'success' | 'confirmation_required' | 'human_only'
+  kind: 'assistant' | 'success' | 'confirmation_required' | 'human_only' | 'clarification'
   message?: string
   data?: unknown
   confirmation?: AgentConfirmation
+  clarification?: AgentClarification
   request_id?: string
   conversation_id?: string
   session_id?: string

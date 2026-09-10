@@ -410,3 +410,11 @@
   .agent-panel { position: fixed; right: 0; bottom: 0; width: 100vw; height: min(82vh, 680px); max-height: calc(100vh - 14px); border-radius: 14px 14px 0 0; }
   .agent-launcher { min-height: 46px; }
 }
+.agent-clarification { margin-top: 10px; padding: 10px 12px; border: 1px solid #cfe5e0; border-radius: 8px; background: #f3fbf9; font-size: 13px; line-height: 1.5; }
+.agent-clarification__options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.agent-clarification__options button { min-height: 32px; padding: 0 10px; border: 1px solid #cfe5e0; border-radius: 8px; color: #2c6b65; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+.agent-clarification__options button:disabled { opacity: .5; cursor: not-allowed; }
+.agent-clarification__answer { display: flex; gap: 8px; margin-top: 8px; }
+.agent-clarification__answer input { flex: 1; min-width: 0; min-height: 36px; padding: 8px 10px; border: 1px solid #cfe5e0; border-radius: 8px; color: #193b39; background: #fff; font: inherit; font-size: 13px; }
+.agent-clarification__answer button { min-height: 36px; padding: 0 12px; border: 1px solid #2f7f72; border-radius: 8px; color: #fff; background: #2c6b65; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.agent-clarification__answer button:disabled { opacity: .5; cursor: not-allowed; }

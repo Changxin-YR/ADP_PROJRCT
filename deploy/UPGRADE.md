@@ -67,3 +67,26 @@ rsync -a --delete "/opt/adp/backups/login-registration-${release_stamp}/" /opt/a
 mysql "$MYSQL_DATABASE" < "/opt/adp/backups/adp-${release_stamp}.sql"
 systemctl start adp-auth
 ```
+
+
+## 智能体运行时插件更新（必须手动执行）
+
+塘小助的工具实现不在 Flask 应用里，而在 DSH 运行时的 npm 包
+`@deepseek-ai/dsh-adp-agent-tools` 中。仓库内的权威副本是
+`deploy/agent-runtime/dsh-adp-agent-tools.index.js`（与
+`deepseek-harness/packages/extensions/adp-agent-tools/src/index.ts` 保持一致）。
+
+只要该文件发生变化，发布后必须在服务器上同步**两份**副本（profile 与 runtime 各一份，
+缺一不可，否则行为不一致）：
+
+```bash
+install -o root -g root -m 0644 deploy/agent-runtime/dsh-adp-agent-tools.index.js \
+  /opt/adp-agent-runtime-20260907/node_modules/@deepseek-ai/dsh-adp-agent-tools/lib/index.js
+install -o adp  -g adp  -m 0644 deploy/agent-runtime/dsh-adp-agent-tools.index.js \
+  /var/lib/adp/agent-sidecar/profiles/sdk/node_modules/@deepseek-ai/dsh-adp-agent-tools/lib/index.js
+node --check /opt/adp-agent-runtime-20260907/node_modules/@deepseek-ai/dsh-adp-agent-tools/lib/index.js
+systemctl restart adp-next      # 清掉进程内缓存的 harness 子进程
+```
+
+约束（DSH 工具 DSL）：`parameters` 里可选参数**不要写** `required: false`，
+省略 `required` 才是可选；写 `required: false` 会让插件加载失败，整轮对话返回 502。

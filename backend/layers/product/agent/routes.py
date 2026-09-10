@@ -21,6 +21,7 @@ from backend.layers.features.auth.auth_service import AuthService
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
 from backend.layers.features.agent.agent_confirmation_store import MySqlAgentConfirmationStore
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
+from backend.layers.features.agent.agent_prompt import build_user_brief
 from backend.layers.features.agent.agent_tool_registry import AgentTool, build_registry
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
 from backend.layers.common.db.connection import _request_state
@@ -66,7 +67,19 @@ def _context_session_token(settings: Settings) -> str | None:
     return _decode_context_token(settings, token)
 
 
-def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+def _internal_base_url(settings: Settings | None) -> str | None:
+    """Reuse the caller's origin: the domain cutover answers 421 for any other Host."""
+    try:
+        host_url = request.host_url.rstrip("/")
+    except RuntimeError:
+        host_url = ""
+    if host_url:
+        return host_url
+    server_name = getattr(settings, "server_name", "") if settings is not None else ""
+    return f"https://{server_name}" if server_name else None
+
+
+def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: dict[str, Any], settings: Settings | None = None) -> dict[str, Any]:
     """Dispatch only to the path fixed in the checked-in agent registry."""
     payload = arguments.get("payload") if isinstance(arguments.get("payload"), dict) else dict(arguments)
     path = tool.path_template
@@ -105,8 +118,10 @@ def _dispatch_fixed_tool(tool: AgentTool, arguments: dict[str, Any], context: di
     if cookie:
         headers["Cookie"] = cookie
     outer_scope = _request_state.get()
+    base_url = _internal_base_url(settings)
+    request_kwargs: dict[str, Any] = {"base_url": base_url} if base_url else {}
     try:
-        response = current_app.test_client().open(path, method=tool.method, query_string=query, json=None if tool.method == "GET" else body, headers=headers)
+        response = current_app.test_client().open(path, method=tool.method, query_string=query, json=None if tool.method == "GET" else body, headers=headers, **request_kwargs)
     finally:
         _request_state.set(outer_scope)
     result = response.get_json(silent=True)
@@ -141,7 +156,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 )
         gateway = AgentGatewayService(
             settings,
-            registry=build_registry(lambda tool: lambda arguments, context: _dispatch_fixed_tool(tool, arguments, context)),
+            registry=build_registry(lambda tool: lambda arguments, context: _dispatch_fixed_tool(tool, arguments, context, settings)),
             confirmations=MySqlAgentConfirmationStore(settings),
             audit=audit,
         )
@@ -198,6 +213,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                         # session so two users choosing the same conversation_id
                         # can never share model history.
                         "user_namespace": hash_session_token(session_token)[:16],
+                        "user_brief": build_user_brief(user),  # 让模型自己回答"我有哪些权限"
                     },
                 )
             else:

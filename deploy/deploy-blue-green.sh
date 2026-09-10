@@ -235,7 +235,7 @@ fi
 ARCHIVE="$1"; EXPECTED_SHA="$2"; RELEASE_ID="$3"
 [[ "$RELEASE_ID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "invalid release id" >&2; exit 2; }
 [[ "$EXPECTED_SHA" =~ ^[a-f0-9]{64}$ ]] || { echo "invalid SHA-256" >&2; exit 2; }
-[[ -f "$ARCHIVE" && -f "$LIVE_ENV" && -f "$NGINX_LIVE" ]] || { echo "missing deployment input" >&2; exit 1; }
+[[ -f "$ARCHIVE" && -f "$LIVE_ENV" ]] || { echo "missing deployment input" >&2; exit 1; }
 [[ -f /usr/include/jpeglib.h && -f /usr/include/freetype2/ft2build.h ]] || {
   echo "missing Pillow build headers: install libjpeg-turbo-devel and freetype-devel" >&2
   exit 1
@@ -252,6 +252,7 @@ MYSQL_DATABASE="$(env_value MYSQL_DATABASE)"; SERVER_NAME="$(env_value ADP_SERVE
 TLS_CERT="$(env_value ADP_TLS_CERTIFICATE)"; TLS_KEY="$(env_value ADP_TLS_CERTIFICATE_KEY)"
 load_public_path
 load_nginx_mode
+[[ "$NGINX_MODE" == "shared" || -f "$NGINX_LIVE" ]] || { echo "standalone mode requires $NGINX_LIVE" >&2; exit 1; }
 [[ "$MYSQL_USER" =~ ^[A-Za-z0-9_]+$ && "$MYSQL_DATABASE" =~ ^[A-Za-z0-9_]+$ ]] || { echo "unsafe database identity" >&2; exit 1; }
 assert_database_isolated "$MYSQL_DATABASE"
 [[ ! -e "$RELEASE_DIR" && ! -e "$STATE_DIR" ]] || { echo "release already exists" >&2; exit 1; }
@@ -262,6 +263,15 @@ install -d -m 0755 "$RELEASE_DIR"
 install -d -o root -g root -m 0755 /var/lib/adp-acme
 tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 cd "$RELEASE_DIR"
+require_release_files() {
+  local missing=() path
+  for path in backend/requirements.txt backend/app.py backend/scripts/reconcile_enterprise_data.py \
+    frontend/package.json database/migrations deploy/adp-next.service api-docs/openapi.json; do
+    [[ -e "$path" ]] || missing+=("$path")
+  done
+  ((${#missing[@]} == 0)) || { echo "release archive is missing: ${missing[*]}" >&2; return 1; }
+}
+require_release_files
 "/opt/adp-venv/bin/python" -m venv .venv
 PIP_DISABLE_PIP_VERSION_CHECK=1 .venv/bin/pip install --no-cache-dir -r backend/requirements.txt
 ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix frontend ci
