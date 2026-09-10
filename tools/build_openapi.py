@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -13,6 +14,9 @@ sys.path.insert(0, str(ROOT))
 from backend.app import app  # noqa: E402
 
 
+# 生产入口随部署方式变化（IP 直连 -> 共享域名），因此不再硬编码。
+# 需要其他环境时用 ADP_PUBLIC_BASE_URL 覆盖，例如本地生成。
+DEFAULT_PUBLIC_BASE_URL = "https://23331.cloud/adp"
 HTTP_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 PUBLIC_PATHS = {
     "/api/v1/health",
@@ -53,6 +57,9 @@ TAG_TITLES = {
     "sales": "销售与应收",
     "warehouse": "仓储库存",
     "workbench": "工作台",
+    # route_tag() 会把 /api/v1/agent/* 归到 "agent"；此前 TAB_TITLES 缺这一项，
+    # 导致重新生成 openapi.json 时 agent 分组（及其描述）被静默丢掉。
+    "agent": "当前登录用户权限内的智能助手操作",
 }
 
 
@@ -182,7 +189,12 @@ def build() -> dict[str, Any]:
     spec = {
         "openapi": "3.0.3",
         "info": {"title": "ADP 鱼塘养殖企业 API", "version": "1.0.0", "description": "网站二正式业务接口。提交后可修改并递增版本，核验后只读。"},
-        "servers": [{"url": "https://1.14.148.15", "description": "生产环境"}],
+        "servers": [
+            {
+                "url": (os.environ.get("ADP_PUBLIC_BASE_URL") or DEFAULT_PUBLIC_BASE_URL).rstrip("/"),
+                "description": "生产环境",
+            }
+        ],
         "tags": [{"name": key, "description": value} for key, value in TAG_TITLES.items()],
         "paths": paths,
         "components": components(),

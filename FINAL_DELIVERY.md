@@ -1,4 +1,27 @@
-﻿# FINAL_DELIVERY — ADP 鱼塘养殖喂养日常管理系统（Web 正式交付）
+# FINAL_DELIVERY — ADP 鱼塘养殖喂养日常管理系统（Web 正式交付）
+
+> ## ⚠️ 当前状态（2026-09-10 更新，优先于下文历史章节）
+>
+> 系统入口已从 **IP 直连** 迁移到 **共享域名**，下文第 4 节的网址已失效：
+>
+> | 项目 | 当前值 |
+> | --- | --- |
+> | 正式入口 | `https://23331.cloud/adp/` |
+> | API 基址 | `https://23331.cloud/adp/api/v1` |
+> | API 文档 | `https://23331.cloud/adp/api-docs/` |
+> | 健康检查 | `https://23331.cloud/adp/api/v1/health` |
+> | 线上 release | `/opt/adp/releases/20260910-domain-a94d17d-r4` |
+> | 回滚目标 | `/opt/adp/releases/20260909-a94d17d-r3` |
+> | 域名 | `23331.cloud`（A 记录 → `1.14.148.15`，与 SSH 目标同一台机器） |
+>
+> 旧的 `https://1.14.148.15/production`、`/test` 与 IP 直连**均已下线**：IP 不等于
+> `ADP_SERVER_NAME`，请求会被 Nginx 直接断开。`1.14.148.15` 现在只用作 SSH 目标。
+>
+> 同一台服务器为共享主机：`23331.cloud` 根路径 302 跳到 `/adp/`；物业项目在
+> `https://www.23331.cloud/wuye/`。
+>
+> 下文第 4/6 节中的发布号、归档 SHA 与 `/production` 网址属于 2026-08-24 那次交付的
+> 历史记录，保留原样以便追溯，**不代表当前线上状态**。
 
 ## 1. 最终源码版本与判断依据
 - 本地正式源码目录：`C:\Users\27363\Desktop\ADP`

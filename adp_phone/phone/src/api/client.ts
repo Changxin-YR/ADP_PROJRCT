@@ -2,7 +2,8 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosR
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const DEFAULT_API_BASE_URL = 'https://1.14.148.15';
+// 生产入口已从 IP 直连改为共享域名 23331.cloud/adp；IP 直连会被 Nginx 断开。
+const DEFAULT_API_BASE_URL = 'https://23331.cloud/adp';
 const BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/+$/, '');
 const CSRF_TOKEN_KEY = 'csrf_token';
 const SESSION_KEY = 'adp_session';

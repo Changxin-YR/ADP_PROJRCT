@@ -21,7 +21,7 @@ npm run check
 npm run test:android
 ```
 
-应用使用静态可内联的 `EXPO_PUBLIC_API_BASE_URL`，默认示例为 `https://1.14.148.15`。不要在 `EXPO_PUBLIC_` 变量中存放密码或密钥。
+应用使用静态可内联的 `EXPO_PUBLIC_API_BASE_URL`，默认示例为 `https://23331.cloud/adp`（共享域名部署，API 实际位于 `/adp/api/v1`）。IP 直连入口已下线，用 IP 会被 Nginx 断开。不要在 `EXPO_PUBLIC_` 变量中存放密码或密钥。
 
 ## 验证命令
 

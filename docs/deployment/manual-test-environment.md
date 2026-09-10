@@ -1,5 +1,20 @@
 # ADP 独立人工测试环境运行手册
 
+> ## ⚠️ 该环境已于 2026-09-10 下线，本文仅作历史记录
+>
+> 系统切换到共享域名 `https://23331.cloud/adp/` 之后，本文描述的独立人工测试环境
+> **已不再存在**，请勿按本文操作：
+>
+> - `https://1.14.148.15/test` 与 `/production` 入口已随 IP 直连一起下线（IP 会被 Nginx 断开）。
+> - `adp-manual-test.service` 单元已删除；**`127.0.0.1:5003` 现由物业项目占用**，与 ADP 无关。
+> - `/etc/adp/manual-test.env`、`manual-test-credentials.env` 与测试库
+>   `adp_manual_test_20260817` 均已清除。
+> - `adp_environment=test` 这个 Cookie 分流机制在共享域名下不再生效。
+>
+> 当前线上只有一个环境：`https://23331.cloud/adp/`（`APP_ENV=production`，数据库 `adp_auth`）。
+> 入口与运维信息见 [`production-cutover.md`](production-cutover.md) 与仓库根目录 `FINAL_DELIVERY.md`。
+> 若需要重建隔离测试环境，请以本文的历史步骤为参考重做部署，并另行分配端口、库名与域名路径。
+
 ## 1. 适用范围
 
 本手册用于在网站二上执行企业级人工验收。测试环境使用独立发布目录、独立服务、独立数据库、独立 MySQL 账号、独立附件目录和固定测试编号。正式数据库不写入测试数据。
