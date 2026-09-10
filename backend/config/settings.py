@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import re
 from dataclasses import dataclass
 from typing import Mapping
 
@@ -77,6 +78,20 @@ def _as_origins(value: str | None) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item.strip() for item in (value or '').split(',') if item.strip()))
 
 
+def _as_server_name(value: str | None, *, required: bool) -> str:
+    server_name = (value or '').strip().lower().rstrip('.')
+    if not server_name:
+        if required:
+            raise ConfigError("生产环境必须配置 ADP_SERVER_NAME")
+        return ""
+    if len(server_name) > 253 or not re.fullmatch(
+        r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?",
+        server_name,
+    ):
+        raise ConfigError("ADP_SERVER_NAME 必须是不含协议和端口的域名")
+    return server_name
+
+
 @dataclass(frozen=True)
 class Settings:
     app_env: str
@@ -88,6 +103,7 @@ class Settings:
     mysql_user: str
     mysql_password: str
     session_cookie_secure: bool
+    server_name: str = ""
     cors_origins: tuple[str, ...] = ()
     attachment_root: str = "backend/private/attachments"
     trusted_proxy_hops: int = 0
@@ -168,6 +184,8 @@ class Settings:
         if not sidecar_home:
             sidecar_home = ".agent-sidecar"
 
+        server_name = _as_server_name(values.get("ADP_SERVER_NAME"), required=app_env == "production")
+
         return cls(
             app_env=app_env,
             flask_secret_key=flask_secret_key,
@@ -178,6 +196,7 @@ class Settings:
             mysql_user=required["MYSQL_USER"].strip(),
             mysql_password=required["MYSQL_PASSWORD"],
             session_cookie_secure=session_cookie_secure,
+            server_name=server_name,
             cors_origins=_as_origins(values.get("ADP_CORS_ORIGINS")),
             attachment_root=values.get("ATTACHMENT_ROOT", "backend/private/attachments").strip() or "backend/private/attachments",
             trusted_proxy_hops=_as_non_negative_int(

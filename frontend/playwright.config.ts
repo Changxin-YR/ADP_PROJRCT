@@ -12,7 +12,7 @@ export default defineConfig({
     trace: 'on-first-retry',
     ...devices['Desktop Chrome'],
   },
-  webServer: [
+  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : [
     {
       command: 'python -u tests/e2e/full_stub.py --port 5011',
       url: 'http://127.0.0.1:5011/api/v1/health',

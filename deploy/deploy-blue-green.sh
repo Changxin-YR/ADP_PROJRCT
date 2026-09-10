@@ -13,6 +13,10 @@ RELEASE_ROOT=/opt/adp/releases
 SLOT_ROOT=/opt/adp/slots
 STATE_ROOT=/var/lib/adp/deployments
 LIVE_APP=/opt/adp/login-registration/实现文档/登陆注册
+SHARED_NGINX_INCLUDE=/etc/nginx/snippets/adp-location.conf
+NGINX_MODE=standalone
+PUBLIC_PATH=/adp/
+PUBLIC_PREFIX=/adp
 
 env_value() {
   local key="$1" line value
@@ -21,6 +25,43 @@ env_value() {
   if [[ "$value" == \"*\" && "$value" == *\" ]]; then value="${value:1:${#value}-2}"; fi
   if [[ "$value" == \'*\' && "$value" == *\' ]]; then value="${value:1:${#value}-2}"; fi
   printf '%s' "$value"
+}
+
+load_nginx_mode() {
+  NGINX_MODE="$(env_value ADP_NGINX_MODE 2>/dev/null || printf 'standalone')"
+  [[ "$NGINX_MODE" == "shared" || "$NGINX_MODE" == "standalone" ]] || { echo "invalid ADP_NGINX_MODE" >&2; exit 1; }
+  if [[ "$NGINX_MODE" == "shared" ]]; then
+    PARENT_NGINX_CONFIG="$(env_value ADP_NGINX_PARENT_CONFIG 2>/dev/null || true)"
+    [[ -n "$PARENT_NGINX_CONFIG" && -f "$PARENT_NGINX_CONFIG" ]] || { echo "shared mode requires ADP_NGINX_PARENT_CONFIG" >&2; exit 1; }
+    grep -Fq "include $SHARED_NGINX_INCLUDE;" "$PARENT_NGINX_CONFIG" || {
+      echo "shared mode requires $PARENT_NGINX_CONFIG to include $SHARED_NGINX_INCLUDE" >&2
+      exit 1
+    }
+    [[ -f "$SHARED_NGINX_INCLUDE" ]] || { echo "missing existing shared Nginx include" >&2; exit 1; }
+  fi
+}
+
+load_public_path() {
+  PUBLIC_PATH="$(env_value ADP_PUBLIC_PATH 2>/dev/null || printf '/adp/')"
+  [[ "$PUBLIC_PATH" =~ ^/[A-Za-z0-9._~-]+/$ ]] || { echo "invalid ADP_PUBLIC_PATH" >&2; exit 1; }
+  PUBLIC_PREFIX="${PUBLIC_PATH%/}"
+}
+
+mysql_cmd() {
+  MYSQL_PWD="$MYSQL_PASSWORD" mysql --no-defaults --protocol=tcp \
+    --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USER" "$@"
+}
+
+assert_database_isolated() {
+  local database="$1" grant grants
+  grants="$(mysql_cmd --batch --skip-column-names --execute="SHOW GRANTS")"
+  while IFS= read -r grant; do
+    [[ -z "$grant" || "$grant" == *"GRANT USAGE ON *.*"* ]] && continue
+    [[ "$grant" == *" ON \`$database\`.* TO "* ]] || {
+      echo "database grants are not isolated to $database" >&2
+      return 1
+    }
+  done <<<"$grants"
 }
 
 write_env() {
@@ -38,7 +79,7 @@ write_env() {
 
 migrate_database() {
   local database="$1" migration version checksum legacy_crlf_checksum recorded
-  mysql "$database" < database/migrations/000_schema_migrations.sql
+  mysql_cmd "$database" < database/migrations/000_schema_migrations.sql
   for migration in database/migrations/[0-9][0-9][0-9]_*.sql; do
     [[ "$migration" == *000_schema_migrations.sql ]] && continue
     version="$(basename "$migration" .sql)"
@@ -46,7 +87,7 @@ migrate_database() {
     # while the release archive preserves CRLF blobs from the repository.
     checksum="$(sed 's/\r$//' "$migration" | sha256sum | awk '{print $1}')"
     legacy_crlf_checksum="$(sed 's/\r$//' "$migration" | sed 's/$/\r/' | sha256sum | awk '{print $1}')"
-    recorded="$(mysql "$database" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version='${version}'")"
+    recorded="$(mysql_cmd "$database" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version='${version}'")"
     if [[ -n "$recorded" ]]; then
       [[ "$recorded" == "$checksum" || "$recorded" == "$legacy_crlf_checksum" ]] || {
         echo "migration checksum mismatch: $version" >&2
@@ -54,10 +95,10 @@ migrate_database() {
       }
       continue
     fi
-    mysql "$database" < "$migration"
-    mysql "$database" --execute="INSERT INTO schema_migrations(version,checksum) VALUES ('${version}','${checksum}')"
+    mysql_cmd "$database" < "$migration"
+    mysql_cmd "$database" --execute="INSERT INTO schema_migrations(version,checksum) VALUES ('${version}','${checksum}')"
   done
-  mysql "$database" < database/seed_reference.sql
+  mysql_cmd "$database" < database/seed_reference.sql
 }
 
 reconcile_database() {
@@ -71,7 +112,11 @@ reconcile_database() {
 
 backup_live() {
   install -d -m 0750 "$BACKUP_DIR"
-  cp -a "$NGINX_LIVE" "$STATE_DIR/previous-nginx.conf"
+  if [[ "$NGINX_MODE" == "shared" ]]; then
+    cp -a "$SHARED_NGINX_INCLUDE" "$STATE_DIR/previous-nginx.conf"
+  else
+    cp -a "$NGINX_LIVE" "$STATE_DIR/previous-nginx.conf"
+  fi
   tar -C "$(dirname "$LIVE_APP")" -czf "$BACKUP_DIR/live-code.tgz" "$(basename "$LIVE_APP")"
   mysqldump --single-transaction --routines --triggers --events "$MYSQL_DATABASE" > "$BACKUP_DIR/live-database.sql"
   if [[ -d /var/lib/adp/attachments ]]; then
@@ -81,17 +126,27 @@ backup_live() {
 }
 
 render_nginx() {
+  local template=deploy/nginx-adp-blue-green.conf
+  [[ "$NGINX_MODE" == "shared" ]] && template=deploy/nginx-adp-shared-location.conf
   sed -e "s|__ADP_SERVER_NAME__|$SERVER_NAME|g" \
     -e "s|__ADP_TLS_CERTIFICATE__|$TLS_CERT|g" \
     -e "s|__ADP_TLS_CERTIFICATE_KEY__|$TLS_KEY|g" \
     -e "s|__ADP_RELEASE_PATH__|$RELEASE_DIR|g" \
     -e 's|__ADP_BACKEND_PORT__|5002|g' \
-    deploy/nginx-adp-blue-green.conf > "$STATE_DIR/new-nginx.conf"
+    -e "s|__ADP_PUBLIC_PATH__|$PUBLIC_PATH|g" \
+    -e "s|__ADP_PUBLIC_PREFIX__|$PUBLIC_PREFIX|g" \
+    "$template" > "$STATE_DIR/new-nginx.conf"
   ! grep -q '__ADP_' "$STATE_DIR/new-nginx.conf"
 }
 
 install_nginx_config() {
   local source="$1" temporary=/etc/nginx/conf.d/.adp-auth.conf.next
+  if [[ "$NGINX_MODE" == "shared" ]]; then
+    install -o root -g root -m 0644 "$source" "$SHARED_NGINX_INCLUDE"
+    nginx -t
+    systemctl reload nginx
+    return
+  fi
   install -o root -g root -m 0644 "$source" "$temporary"
   mv -f -- "$temporary" "$NGINX_LIVE"
   if ! nginx -t; then
@@ -101,6 +156,12 @@ install_nginx_config() {
 }
 
 restore_previous() {
+  if [[ "$NGINX_MODE" == "shared" ]]; then
+    install -o root -g root -m 0644 "$STATE_DIR/previous-nginx.conf" "$SHARED_NGINX_INCLUDE"
+    nginx -t
+    systemctl reload nginx
+    return
+  fi
   local temporary=/etc/nginx/conf.d/.adp-auth.conf.restore
   install -o root -g root -m 0644 "$STATE_DIR/previous-nginx.conf" "$temporary"
   mv -f -- "$temporary" "$NGINX_LIVE"
@@ -138,9 +199,9 @@ cleanup_on_error() {
 trap cleanup_on_error EXIT
 
 verify_public() {
-  local base="${ADP_PUBLIC_BASE_URL:-https://$SERVER_NAME}"
-  [[ "$base" == "https://$SERVER_NAME" ]] || {
-    echo "ADP_PUBLIC_BASE_URL must match the configured production host" >&2
+  local base="${ADP_PUBLIC_BASE_URL:-https://$SERVER_NAME$PUBLIC_PREFIX}"
+  [[ "$base" == "https://$SERVER_NAME" || "$base" == "https://$SERVER_NAME$PUBLIC_PREFIX" ]] || {
+    echo "ADP_PUBLIC_BASE_URL must match the configured production host or public path" >&2
     return 1
   }
   curl --fail --silent --show-error "$base/healthz" >/dev/null
@@ -163,6 +224,9 @@ activate_release() {
 
 if [[ "${1:-}" == "--activate" ]]; then
   [[ $# == 2 ]] || { echo "usage: $0 --activate RELEASE_ID" >&2; exit 2; }
+  SERVER_NAME="$(env_value ADP_SERVER_NAME)"
+  load_public_path
+  load_nginx_mode
   activate_release "$2"
   exit 0
 fi
@@ -186,7 +250,10 @@ MYSQL_HOST="$(env_value MYSQL_HOST)"; MYSQL_PORT="$(env_value MYSQL_PORT)"
 MYSQL_USER="$(env_value MYSQL_USER)"; MYSQL_PASSWORD="$(env_value MYSQL_PASSWORD)"
 MYSQL_DATABASE="$(env_value MYSQL_DATABASE)"; SERVER_NAME="$(env_value ADP_SERVER_NAME)"
 TLS_CERT="$(env_value ADP_TLS_CERTIFICATE)"; TLS_KEY="$(env_value ADP_TLS_CERTIFICATE_KEY)"
+load_public_path
+load_nginx_mode
 [[ "$MYSQL_USER" =~ ^[A-Za-z0-9_]+$ && "$MYSQL_DATABASE" =~ ^[A-Za-z0-9_]+$ ]] || { echo "unsafe database identity" >&2; exit 1; }
+assert_database_isolated "$MYSQL_DATABASE"
 [[ ! -e "$RELEASE_DIR" && ! -e "$STATE_DIR" ]] || { echo "release already exists" >&2; exit 1; }
 
 install -d -o root -g root -m 0711 "$RELEASE_ROOT" "$SLOT_ROOT"
@@ -197,10 +264,11 @@ tar -xzf "$ARCHIVE" -C "$RELEASE_DIR"
 cd "$RELEASE_DIR"
 "/opt/adp-venv/bin/python" -m venv .venv
 PIP_DISABLE_PIP_VERSION_CHECK=1 .venv/bin/pip install --no-cache-dir -r backend/requirements.txt
-npm --prefix frontend ci
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix frontend ci
 npm --prefix frontend audit --audit-level=low --omit=dev
-npm --prefix frontend run build
+VITE_PUBLIC_BASE_PATH="${ADP_PUBLIC_PATH:-/adp/}" npm --prefix frontend run build
 chmod -R u=rwX,go=rX frontend/dist api-docs
+chmod 0755 "$RELEASE_DIR" "$RELEASE_DIR/frontend" "$RELEASE_DIR/frontend/dist" "$RELEASE_DIR/api-docs"
 
 # Deployment sequence
 backup_live
@@ -228,9 +296,9 @@ chown -R adp:adp "$RELEASE_DIR"
 systemctl daemon-reload
 systemctl enable adp-next
 systemctl restart adp-next
-for _ in $(seq 1 30); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null && break; sleep 1; done
-curl --fail --silent --show-error http://127.0.0.1:5002/api/v1/health >/dev/null
-for _ in $(seq 1 50); do curl --fail --silent http://127.0.0.1:5002/api/v1/health >/dev/null; done
+for _ in $(seq 1 30); do curl --fail --silent -H "Host: $SERVER_NAME" http://127.0.0.1:5002/api/v1/health >/dev/null && break; sleep 1; done
+curl --fail --silent --show-error -H "Host: $SERVER_NAME" http://127.0.0.1:5002/api/v1/health >/dev/null
+for _ in $(seq 1 50); do curl --fail --silent -H "Host: $SERVER_NAME" http://127.0.0.1:5002/api/v1/health >/dev/null; done
 if (( OLD_SERVICE_WAS_ACTIVE )); then systemctl start adp-auth; fi
 rm -f -- "$MAINTENANCE_MARKER"
 render_nginx

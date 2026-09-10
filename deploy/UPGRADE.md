@@ -13,10 +13,18 @@
    APP_ENV=production
    SESSION_COOKIE_SECURE=true
    TRUSTED_PROXY_HOPS=1
-   ADP_SERVER_NAME=adp.example.com
-   ADP_TLS_CERTIFICATE=/etc/letsencrypt/live/adp.example.com/fullchain.pem
-   ADP_TLS_CERTIFICATE_KEY=/etc/letsencrypt/live/adp.example.com/privkey.pem
+   ADP_SERVER_NAME=23331.cloud
+   ADP_PUBLIC_PATH=/adp/
+   ADP_NGINX_MODE=shared
+   ADP_NGINX_PARENT_CONFIG=/etc/nginx/conf.d/23331.cloud.conf
+   ADP_TLS_CERTIFICATE=/etc/letsencrypt/live/23331.cloud/fullchain.pem
+   ADP_TLS_CERTIFICATE_KEY=/etc/letsencrypt/live/23331.cloud/privkey.pem
    ```
+
+   共享域名入口固定为 `https://23331.cloud/adp/`，API 固定为
+   `https://23331.cloud/adp/api/`。在现有 `23331.cloud` HTTPS `server` 块内加入
+   `deploy/nginx-adp-shared-location.conf` 渲染后的内容；不要把 ADP 的整站模板覆盖到
+   其他项目的根路径。
 
    本地开发或没有受控反向代理时保持 `TRUSTED_PROXY_HOPS=0`。该值必须等于 Flask 前受控代理的准确层数，不能按可能出现的最大层数填写。
 
@@ -33,8 +41,10 @@ mysql --database="$MYSQL_DATABASE" --execute="SHOW TRIGGERS LIKE 'cost_entries';
 mysql --database="$MYSQL_DATABASE" --execute="SELECT status, COUNT(*) FROM cost_entries GROUP BY status;"
 mysql --database="$MYSQL_DATABASE" --execute="SELECT status, COUNT(*) FROM users GROUP BY status;"
 mysql --database="$MYSQL_DATABASE" --execute="SELECT COUNT(*) AS work_items FROM work_items; SELECT COUNT(*) AS notifications FROM notifications;"
-curl --fail http://127.0.0.1:5001/api/v1/health
-curl --fail --resolve "$ADP_SERVER_NAME:443:127.0.0.1" "https://$ADP_SERVER_NAME/healthz"
+curl --fail -H "Host: 23331.cloud" http://127.0.0.1:5001/api/v1/health
+curl --fail --resolve "$ADP_SERVER_NAME:443:127.0.0.1" "https://$ADP_SERVER_NAME${ADP_PUBLIC_PATH:-/adp/}healthz"
+ADP_VERIFY_IDENTIFIER='一次性验收账号' ADP_VERIFY_PASSWORD='一次性验收密码' \
+  deploy/verify-domain.sh
 ```
 
 预期 `schema_migrations` 至少包含 001、002、003、004、005、022，`audit_logs` 有禁止更新/删除的两个触发器，`cost_entries` 有禁止正式记录更新/非草稿删除的触发器，账号和成本状态统计可查询，两个治理表可读，两个健康检查均成功。若出现校验和不一致，不要修改登记表；恢复原迁移文件，并用新的递增编号编写修复迁移。

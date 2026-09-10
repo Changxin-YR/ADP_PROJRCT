@@ -25,6 +25,65 @@ def test_blue_green_nginx_template_switches_frontend_and_api_together():
     assert "location /api/" in nginx
     assert "location /api-docs/" in nginx
     assert "root /var/lib/adp-acme;" in nginx
+    assert nginx.count("if ($host != __ADP_SERVER_NAME__) { return 444; }") == 2
+
+
+def test_single_release_nginx_template_rejects_other_hosts():
+    nginx = _read("deploy/nginx-adp.conf")
+
+    assert nginx.count("if ($host != __ADP_SERVER_NAME__) { return 444; }") == 2
+
+
+def test_shared_domain_location_is_limited_to_adp_prefixes():
+    nginx = _read("deploy/nginx-adp-shared-location.conf")
+
+    assert "location ^~ __ADP_PUBLIC_PREFIX__/api/" in nginx
+    assert "location ^~ __ADP_PUBLIC_PREFIX__/api-docs/" in nginx
+    assert "location ^~ __ADP_PUBLIC_PATH__" in nginx
+    assert "rewrite ^__ADP_PUBLIC_PREFIX__/api/(.*)$ /api/$1 break;" in nginx
+    assert "rewrite ^__ADP_PUBLIC_PREFIX__/(.*)$ /$1 break;" in nginx
+    assert "try_files $uri $uri/ __ADP_PUBLIC_PREFIX__/api-docs/index.html;" in nginx
+    assert "try_files $uri $uri/ __ADP_PUBLIC_PREFIX__/index.html;" in nginx
+    assert "location = __ADP_PUBLIC_PREFIX__/" in nginx
+    assert "location = __ADP_PUBLIC_PREFIX__/api-docs/" in nginx
+    assert "index index.html;" in nginx
+    assert "location / {" not in nginx
+    assert "nginx-adp-shared-location.conf" in _read("deploy/render-shared-location.sh")
+
+
+def test_domain_verification_script_covers_health_page_login_and_data_session():
+    script = _read("deploy/verify-domain.sh")
+
+    for marker in (
+        "ADP_VERIFY_IDENTIFIER",
+        "ADP_VERIFY_PASSWORD",
+        "/healthz",
+        "/api/v1/health",
+        "/auth/login",
+        "/api/v1/auth/csrf",
+        "/api/v1/auth/login",
+        "/api/v1/auth/me",
+        "/api/v1/auth/workbench",
+    ):
+        assert marker in script
+
+
+def test_production_deploy_checks_database_grants_are_scoped_to_adp_database():
+    script = _read("deploy/deploy-blue-green.sh")
+
+    assert "SHOW GRANTS" in script
+    assert "mysql_cmd" in script
+    assert "database grants are not isolated" in script
+    assert "database grants are not isolated" in _read("deploy/deploy.sh")
+
+
+def test_blue_green_shared_mode_does_not_replace_the_other_projects_server():
+    script = _read("deploy/deploy-blue-green.sh")
+
+    assert "ADP_NGINX_MODE" in script
+    assert "/etc/nginx/snippets/adp-location.conf" in script
+    assert "ADP_NGINX_PARENT_CONFIG" in script
+    assert "missing existing shared Nginx include" in script
 
 
 def test_deploy_requires_backups_and_verifies_before_switching():
@@ -88,7 +147,7 @@ def test_public_gate_covers_frontend_and_api_documentation():
     script = _read("deploy/deploy-blue-green.sh")
     public_gate = script.split("verify_public() {", 1)[1].split("\n}", 1)[0]
 
-    assert '[[ "$base" == "https://$SERVER_NAME" ]]' in public_gate
+    assert '"https://$SERVER_NAME$PUBLIC_PREFIX"' in public_gate
     assert '"$base/workbench"' in public_gate
     assert '"$base/api-docs/"' in public_gate
 

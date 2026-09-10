@@ -6,7 +6,7 @@ import { hasPermission } from './layers/common/security/access-control'
 const auth = { authOnly: true, activeOnly: true, requiredStatus: 'active' }
 
 export const router = createRouter({
-  history: window.location.protocol === 'file:' ? createWebHashHistory() : createWebHistory(),
+  history: window.location.protocol === 'file:' ? createWebHashHistory() : createWebHistory(import.meta.env.BASE_URL),
   routes: [
     { path: '/', redirect: '/auth/login' },
     { path: '/auth/login', component: () => import('./layers/product/auth/LoginPage.vue'), meta: { guestOnly: true } },

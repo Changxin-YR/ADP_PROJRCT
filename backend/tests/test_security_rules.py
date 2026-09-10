@@ -106,6 +106,42 @@ def test_production_configuration_rejects_insecure_session_cookie() -> None:
         Settings.from_env(env)
 
 
+def test_production_configuration_requires_the_public_server_name() -> None:
+    env = {
+        "APP_ENV": "production",
+        "FLASK_SECRET_KEY": "production-flask-secret",
+        "CSRF_SECRET_KEY": "production-csrf-secret",
+        "MYSQL_HOST": "127.0.0.1",
+        "MYSQL_DATABASE": "adp_auth",
+        "MYSQL_USER": "adp_app",
+        "MYSQL_PASSWORD": "db-password-from-secret-store",
+        "SESSION_COOKIE_SECURE": "true",
+        "TRUSTED_PROXY_HOPS": "1",
+        "AGENT_SIDECAR_HOME": "/var/lib/adp/agent-sidecar",
+    }
+
+    with pytest.raises(ConfigError, match="ADP_SERVER_NAME"):
+        Settings.from_env(env)
+
+
+def test_requests_with_an_unexpected_host_are_rejected() -> None:
+    settings = Settings.from_env({
+        "APP_ENV": "test",
+        "ADP_SERVER_NAME": "23331.cloud",
+        "FLASK_SECRET_KEY": "test-flask-secret",
+        "CSRF_SECRET_KEY": "test-csrf-secret",
+        "MYSQL_HOST": "127.0.0.1",
+        "MYSQL_DATABASE": "adp_test",
+        "MYSQL_USER": "adp_test",
+        "MYSQL_PASSWORD": "test-password",
+        "SESSION_COOKIE_SECURE": "false",
+    })
+    client = create_app(settings, store=FakeAuthStore()).test_client()
+
+    assert client.get("/api/v1/health", headers={"Host": "other-project.example"}).status_code == 421
+    assert client.get("/api/v1/health", headers={"Host": "23331.cloud"}).status_code == 200
+
+
 def test_security_headers_include_cross_origin_isolation_headers() -> None:
     settings = Settings.from_env(
         {

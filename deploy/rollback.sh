@@ -22,5 +22,9 @@ chmod 0755 "$APP_ROOT" "$APP_ROOT/实现文档" "$APP_ROOT/实现文档/登陆�
 nginx -t
 systemctl restart adp-auth
 systemctl reload nginx
-curl --fail --silent --show-error http://127.0.0.1:5001/api/v1/health >/dev/null
+server_name="$(grep -m1 '^ADP_SERVER_NAME=' /etc/adp/auth.env | cut -d= -f2- | tr -d '\"')"
+public_path="$(grep -m1 '^ADP_PUBLIC_PATH=' /etc/adp/auth.env | cut -d= -f2- | tr -d '\"')"
+public_path="${public_path:-/adp/}"
+curl --fail --silent --show-error -H "Host: $server_name" http://127.0.0.1:5001/api/v1/health >/dev/null
+curl --fail --silent --show-error --resolve "$server_name:443:127.0.0.1" "https://$server_name${public_path}healthz" >/dev/null
 echo "已回滚到 $LATEST_BACKUP。"

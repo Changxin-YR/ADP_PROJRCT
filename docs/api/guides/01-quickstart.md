@@ -2,7 +2,7 @@
 
 ## 基本约定
 
-- 基础地址：`https://1.14.148.15/api/v1`
+- 基础地址：`https://23331.cloud/adp/api/v1`
 - 编码：UTF-8，业务请求与响应使用 JSON；附件和导入使用 `multipart/form-data`。
 - 登录态：服务端通过 HttpOnly Cookie `adp_session` 识别用户。浏览器调用必须设置 `credentials: 'include'`。
 - 请求追踪：客户端可传 `X-Request-ID`（1–32 位字母、数字、点、下划线或连字符）；响应始终返回同名响应头和 `request_id` 字段。
@@ -15,17 +15,17 @@
 
 ```bash
 # 1. 获取 CSRF Token，并保存服务端会话 Cookie
-curl -k -c adp.cookies https://1.14.148.15/api/v1/auth/csrf
+curl -k -c adp.cookies https://23331.cloud/adp/api/v1/auth/csrf
 
 # 2. 使用返回 data.csrf_token 登录；继续保存 Cookie
 curl -k -b adp.cookies -c adp.cookies \
   -H "Content-Type: application/json" \
   -H "X-CSRF-Token: <CSRF_TOKEN>" \
   -d '{"identifier":"api-user","password":"<PASSWORD>"}' \
-  https://1.14.148.15/api/v1/auth/login
+  https://23331.cloud/adp/api/v1/auth/login
 
 # 3. 读取当前账号、角色、权限和数据范围
-curl -k -b adp.cookies https://1.14.148.15/api/v1/auth/me
+curl -k -b adp.cookies https://23331.cloud/adp/api/v1/auth/me
 ```
 
 生产证书配置完成后不应使用 `-k`。示例保留该参数仅用于当前 IP HTTPS 环境的自签名证书验收。
@@ -73,4 +73,3 @@ Cookie: adp_session=<SESSION_COOKIE>
 - 409 `VERSION_CONFLICT` 必须重新读取最新记录，由用户确认差异后再次提交，禁止静默覆盖。
 - 429 按 `Retry-After` 等待，不得固定频率高并发重试。
 - 401 重新登录；403 不重试，应申请权限或缩小数据范围。
-

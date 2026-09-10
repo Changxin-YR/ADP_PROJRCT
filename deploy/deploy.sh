@@ -58,8 +58,8 @@ fi
 
 cd "$APP_ROOT/实现文档/登陆注册"
 "$VENV_PIP" install --no-cache-dir -r backend/requirements.txt
-npm --prefix frontend ci
-npm --prefix frontend run build
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix frontend ci
+VITE_PUBLIC_BASE_PATH="${ADP_PUBLIC_PATH:-/adp/}" npm --prefix frontend run build
 npm --prefix frontend prune --omit=dev
 
 MYSQL_CNF="$(mktemp /etc/adp/mysql-client.XXXXXX)"
@@ -71,6 +71,14 @@ chmod 600 "$MYSQL_CNF"
   echo "user=$MYSQL_USER"
   echo "password=$MYSQL_PASSWORD"
 } > "$MYSQL_CNF"
+grants="$(mysql --defaults-extra-file="$MYSQL_CNF" --batch --skip-column-names --execute="SHOW GRANTS")"
+while IFS= read -r grant; do
+  [[ -z "$grant" || "$grant" == *"GRANT USAGE ON *.*"* ]] && continue
+  [[ "$grant" == *" ON \`$MYSQL_DATABASE\`.* TO "* ]] || {
+    echo "database grants are not isolated to $MYSQL_DATABASE" >&2
+    exit 1
+  }
+done <<< "$grants"
 migration_registry="database/migrations/000_schema_migrations.sql"
 mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < "$migration_registry"
 
@@ -123,7 +131,7 @@ systemctl daemon-reload
 systemctl restart adp-auth
 systemctl reload nginx
 for attempt in $(seq 1 30); do
-  if curl --fail --silent http://127.0.0.1:5001/api/v1/health >/dev/null 2>&1; then
+  if curl --fail --silent -H "Host: $ADP_SERVER_NAME" http://127.0.0.1:5001/api/v1/health >/dev/null 2>&1; then
     break
   fi
   if [[ "$attempt" == "30" ]]; then
@@ -132,5 +140,5 @@ for attempt in $(seq 1 30); do
   fi
   sleep 1
 done
-curl --fail --silent --show-error --resolve "$ADP_SERVER_NAME:443:127.0.0.1" "https://$ADP_SERVER_NAME/healthz" >/dev/null
+curl --fail --silent --show-error --resolve "$ADP_SERVER_NAME:443:127.0.0.1" "https://${ADP_SERVER_NAME}${ADP_PUBLIC_PATH:-/adp/}healthz" >/dev/null
 echo "ADP 登录注册服务发布完成。"

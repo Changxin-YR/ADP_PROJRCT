@@ -90,6 +90,8 @@ def create_app(
         begin_request_connection_scope()
         candidate = request.headers.get("X-Request-ID", "").strip()
         g.request_id = candidate if re.fullmatch(r"[A-Za-z0-9._-]{1,32}", candidate) else uuid4().hex
+        if resolved.server_name and request.host.partition(":")[0].casefold() != resolved.server_name:
+            return jsonify(fail("HOST_NOT_ALLOWED", "当前域名未绑定此服务", 421)), 421
         if request.method == "OPTIONS" and request.path.startswith("/api/"):
             return "", 204
 

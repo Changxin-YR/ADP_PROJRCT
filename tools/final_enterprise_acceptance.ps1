@@ -2,7 +2,7 @@ param(
     [string]$Server = "root@1.14.148.15",
     [string]$SshKey = "$env:USERPROFILE\.ssh\adp_server_ed25519",
     [string]$Release = "",
-    [string]$PublicBaseUrl = "https://1.14.148.15",
+    [string]$PublicBaseUrl = "https://23331.cloud/adp",
     [string]$MySqlClient = "C:\Program Files\MySQL\MySQL Server 9.7\bin\mysql.exe",
     [int]$MySqlPort = 33307
 )
@@ -64,9 +64,9 @@ if ([string]::IsNullOrWhiteSpace($Release)) {
     if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($Release)) { throw "Cannot resolve active release from cloud" }
 }
 if ($Release -notmatch '^[A-Za-z0-9._-]+$') { throw "Invalid release id" }
-$serverHost = (($Server -split '@')[-1] -split ':')[0]
 $publicUri = [Uri]$PublicBaseUrl
-if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $serverHost) { throw "PublicBaseUrl must target the SSH server over HTTPS" }
+$publicHost = if ($env:ADP_SERVER_NAME) { $env:ADP_SERVER_NAME } else { "23331.cloud" }
+if ($publicUri.Scheme -ne "https" -or $publicUri.Host -ne $publicHost) { throw "PublicBaseUrl must target the configured public domain over HTTPS" }
 
 $report = Get-Content -Raw -Encoding UTF8 -LiteralPath "docs/audits/final-enterprise-acceptance.md"
 if ($report -notmatch '(Final result:\s*PASS|PASS\s*[\uFF08(])') { throw "Acceptance report is not marked PASS" }
@@ -126,13 +126,13 @@ $backup = "/opt/adp/backups/$Release-blue-green"
 Invoke-SshStep "Old service health" "systemctl is-active adp-auth.service"
 Invoke-SshStep "New service health" "systemctl is-active adp-next.service"
 Invoke-SshStep "Nginx configuration" "nginx -t"
-Invoke-SshStep "Old API health" "curl --fail --silent http://127.0.0.1:5001/api/v1/health"
-Invoke-SshStep "New API health" "curl --fail --silent http://127.0.0.1:5002/api/v1/health"
-Invoke-SshStep "Active release root" "grep -F '/opt/adp/releases/$Release/frontend/dist' /etc/nginx/conf.d/adp-auth.conf"
-Invoke-SshStep "Active API upstream" "grep -F 'proxy_pass http://127.0.0.1:5002;' /etc/nginx/conf.d/adp-auth.conf"
+Invoke-SshStep "Old API health" "curl --fail --silent -H 'Host: 23331.cloud' http://127.0.0.1:5001/api/v1/health"
+Invoke-SshStep "New API health" "curl --fail --silent -H 'Host: 23331.cloud' http://127.0.0.1:5002/api/v1/health"
+Invoke-SshStep "Active release root" "grep -F '/opt/adp/releases/$Release/frontend/dist' /etc/nginx/snippets/adp-location.conf"
+Invoke-SshStep "Active API upstream" "grep -F 'proxy_pass http://127.0.0.1:5002;' /etc/nginx/snippets/adp-location.conf"
 Invoke-SshStep "Release evidence" "test -f $state/release.env && grep -F 'release_id=$Release' $state/release.env && grep -E '^release_sha256=[a-f0-9]{64}$' $state/release.env && grep -E '^database=[A-Za-z0-9_]+$' $state/release.env"
 Invoke-SshStep "Backup checksums" "cd $backup && sha256sum -c SHA256SUMS"
-Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/adp-auth.conf"
+Invoke-SshStep "ACME webroot" "test -d /var/lib/adp-acme && grep -F 'root /var/lib/adp-acme;' /etc/nginx/conf.d/$publicHost.conf"
 
 $reconciliationScript = @'
 set -e

@@ -1,5 +1,9 @@
 # ADP 蓝绿发布与生产切换
 
+共享域名入口：`https://23331.cloud/adp/`；API 入口：
+`https://23331.cloud/adp/api/`。Nginx 只转发这两个前缀到 ADP，其他项目继续使用根路径；
+请先把 `deploy/nginx-adp-shared-location.conf` 渲染后 include 到现有 HTTPS server 块。
+
 ## 目标
 
 旧版继续运行在 `127.0.0.1:5001`，新版运行在 `127.0.0.1:5002`。两套服务共用同一个生产数据库；迁移前短暂停止旧服务，完成向后兼容迁移和对账后启动新版，再原子切换 Nginx。发布前数据库仅用于可恢复备份，不克隆或切换生产库。
@@ -35,7 +39,7 @@ bash deploy/deploy-blue-green.sh --activate <版本>
 
 ## 上线后门禁
 
-必须确认 `/healthz`、`/api/v1/health`、`/api-docs/` 和 `/workbench` 返回正常；生产库对账总差异为 0；旧服务 `5001` 与新服务 `5002` 同时健康；备份摘要可复核；Nginx 当前配置指向 `5002`。任何一项失败时停止发布并恢复旧配置。
+必须确认 `/adp/healthz`、`/adp/api/v1/health`、`/adp/api-docs/` 和 `/adp/workbench` 返回正常；生产库对账总差异为 0；旧服务 `5001` 与新服务 `5002` 同时健康；备份摘要可复核；Nginx 当前 ADP location 指向 `5002`。任何一项失败时停止发布并恢复旧配置。
 
 ## 2026-08-17 生产发布证据
 
