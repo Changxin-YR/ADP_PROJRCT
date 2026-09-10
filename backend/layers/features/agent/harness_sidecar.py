@@ -5,7 +5,7 @@ import os
 import re
 import threading
 import time
-from typing import Any
+from typing import Any, Callable
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
@@ -68,7 +68,13 @@ class HarnessSidecar:
         with self._lock:
             self._cache.drop(namespace)
 
-    def run(self, prompt: str, *, context: dict[str, str]) -> dict[str, Any]:
+    def run(
+        self,
+        prompt: str,
+        *,
+        context: dict[str, str],
+        on_notification: Callable[[Any], None] | None = None,
+    ) -> dict[str, Any]:
         request_started = time.perf_counter()
         safe_context = {
             key: str(value)
@@ -82,7 +88,7 @@ class HarnessSidecar:
         # every HTTP request and therefore must never be used as Harness session id.
         namespace = safe_context.get("user_namespace", "").strip()
         conversation_id = safe_context["conversation_id"]
-        session_id = f"{namespace}:{conversation_id}" if namespace else conversation_id
+        session_id = conversation_id
         try:
             import deepseek_harness  # noqa: F401
         except ImportError as exc:
@@ -97,6 +103,9 @@ class HarnessSidecar:
                     self._cache.put(namespace, harness)
                 else:
                     self._cache.touch(namespace)
+                # 必须在缓存定代之后算 session id：同一个子进程内保持不变，换新子进程才换代次。
+                generation = self._cache.generation(namespace)
+                session_id = f"{namespace}:{conversation_id}:{generation}" if namespace else conversation_id
                 harness_started = time.perf_counter()
                 prompt_text = render_prompt(
                     _bounded_query_prompt(prompt),
@@ -104,7 +113,7 @@ class HarnessSidecar:
                     safe_context.get("page_context", ""),
                     safe_context.get("history_text", ""),
                 )
-                result = harness.run(prompt_text, session_id=session_id)
+                result = harness.run(prompt_text, session_id=session_id, on_notification=on_notification)
                 harness_finished = time.perf_counter()
         except TimeoutError as exc:
             raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc

@@ -410,6 +410,8 @@
   .agent-panel { position: fixed; right: 0; bottom: 0; width: 100vw; height: min(82vh, 680px); max-height: calc(100vh - 14px); border-radius: 14px 14px 0 0; }
   .agent-launcher { min-height: 46px; }
 }
+.agent-status { margin: 8px 0 0; color: #5b7a75; font-size: 12px; }
+
 .agent-clarification { margin-top: 10px; padding: 10px 12px; border: 1px solid #cfe5e0; border-radius: 8px; background: #f3fbf9; font-size: 13px; line-height: 1.5; }
 .agent-clarification__options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .agent-clarification__options button { min-height: 32px; padding: 0 10px; border: 1px solid #cfe5e0; border-radius: 8px; color: #2c6b65; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }

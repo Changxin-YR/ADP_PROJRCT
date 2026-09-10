@@ -8378,51 +8378,278 @@
       }
     },
     "/api/v1/purchase/returns": {
-      "get": {"operationId": "purchase_list_returns", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}},
-      "post": {"operationId": "purchase_create_return", "responses": {"201": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "get": {
+        "operationId": "purchase_list_returns",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "operationId": "purchase_create_return",
+        "responses": {
+          "201": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/purchase/returns/{record_id}/submit": {
-      "post": {"operationId": "purchase_submit_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "purchase_submit_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/purchase/returns/{record_id}/verify": {
-      "post": {"operationId": "purchase_verify_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "purchase_verify_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/purchase/returns/{record_id}/cancel": {
-      "post": {"operationId": "purchase_cancel_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "purchase_cancel_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/purchase/returns/{record_id}": {
-      "delete": {"operationId": "purchase_delete_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "delete": {
+        "operationId": "purchase_delete_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/sales/returns": {
-      "get": {"operationId": "sales_list_returns", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}},
-      "post": {"operationId": "sales_create_return", "responses": {"201": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "get": {
+        "operationId": "sales_list_returns",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      },
+      "post": {
+        "operationId": "sales_create_return",
+        "responses": {
+          "201": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/sales/returns/{record_id}/submit": {
-      "post": {"operationId": "sales_submit_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "sales_submit_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/sales/returns/{record_id}/verify": {
-      "post": {"operationId": "sales_verify_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "sales_verify_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/sales/returns/{record_id}/cancel": {
-      "post": {"operationId": "sales_cancel_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "operationId": "sales_cancel_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/sales/returns/{record_id}": {
-      "delete": {"operationId": "sales_delete_return", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "delete": {
+        "operationId": "sales_delete_return",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/agent/turn": {
-      "post": {"tags": ["agent"], "operationId": "agent_turn", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "operationId": "agent_turn",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/api/v1/agent/turn/stream": {
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "summary": "新建记录",
+        "description": "核验完成的数据只读；DELETE 仅适用于从未提交且无业务引用的草稿。",
+        "operationId": "agent_turn_stream_post_api_v1_agent_turn_stream",
+        "parameters": [],
+        "responses": {
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          },
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MutationRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "CookieAuth": [],
+            "CsrfToken": []
+          }
+        ]
+      }
     },
     "/api/v1/agent/query": {
-      "post": {"tags": ["agent"], "operationId": "agent_query", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "operationId": "agent_query",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/agent/prepare": {
-      "post": {"tags": ["agent"], "operationId": "agent_prepare", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "operationId": "agent_prepare",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/agent/confirm": {
-      "post": {"tags": ["agent"], "operationId": "agent_confirm", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "operationId": "agent_confirm",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     },
     "/api/v1/agent/cancel": {
-      "post": {"tags": ["agent"], "operationId": "agent_cancel", "responses": {"200": {"description": "成功"}, "default": {"$ref": "#/components/responses/ErrorResponse"}}}
+      "post": {
+        "tags": [
+          "agent"
+        ],
+        "operationId": "agent_cancel",
+        "responses": {
+          "200": {
+            "description": "成功"
+          },
+          "default": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
     }
   },
   "components": {

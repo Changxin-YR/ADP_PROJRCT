@@ -27,7 +27,7 @@ class _FakeHarness:
     def __exit__(self, *_args) -> None:
         self.closed = True
 
-    def run(self, prompt: str, *, session_id: str):
+    def run(self, prompt: str, *, session_id: str, on_notification=None):
         if self.behaviour == "protocol":
             raise HarnessTransportError("jsonrpc transport broke")
         return {"kind": "assistant", "message": prompt, "session_id": session_id}

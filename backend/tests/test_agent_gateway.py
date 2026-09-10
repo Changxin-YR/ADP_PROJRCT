@@ -560,7 +560,7 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
         def __exit__(self, *args):
             return False
 
-        def run(self, prompt, *, session_id):
+        def run(self, prompt, *, session_id, on_notification=None):
             captured["prompt"] = prompt
             captured["session_id"] = session_id
             return {"kind": "assistant", "message": "ok"}
@@ -579,7 +579,7 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
     )
     assert result["kind"] == "assistant"
     assert "adp_session" not in captured["prompt"]
-    assert captured["session_id"] == "session-a:c-1"
+    assert captured["session_id"].startswith("session-a:c-1")  # 末尾是子进程代次
     assert captured["kwargs"]["env"]["ADP_AGENT_GATEWAY_URL"] == "http://127.0.0.1"
     assert captured["kwargs"]["env"]["ADP_AGENT_CONTEXT_TOKEN"] == "short-lived"
     assert "master_data.list_records" in captured["kwargs"]["env"]["ADP_AGENT_TOOL_CATALOG"]
@@ -602,7 +602,7 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
         def __exit__(self, *args):
             return False
 
-        def run(self, prompt, *, session_id):
+        def run(self, prompt, *, session_id, on_notification=None):
             return {"kind": "assistant", "message": "ok"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
@@ -654,7 +654,7 @@ def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
         def __exit__(self, *_args):
             self.closed = True
 
-        def run(self, prompt, *, session_id):
+        def run(self, prompt, *, session_id, on_notification=None):
             return {"kind": "assistant", "message": f"{prompt}:{session_id}"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
@@ -664,10 +664,10 @@ def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
     other = sidecar.run("另一用户", context={"conversation_id": "c-1", "user_namespace": "user-b"})
 
     assert len(created) == 2
-    assert first["message"].endswith("user-a:c-1")
+    assert "user-a:c-1" in first["message"]  # 会话 id 末尾追加代次，避免复用旧子进程的持久化日志
     assert "第二轮" in second["message"]  # 轮次前缀会包一层身份/行为契约，用户原话在第 5 段
     assert "【用户请求】" in second["message"]
-    assert other["message"].endswith("user-b:c-1")
+    assert "user-b:c-1" in other["message"]
     sidecar.close()
     assert all(item.closed for item in created)
 

@@ -35,6 +35,8 @@ class HarnessCache:
         self.limit = max(1, int(limit))
         self._items: dict[str, Any] = {}
         self._order: list[str] = []
+        self._generations: dict[str, int] = {}
+        self._counter = 0
         self._active = ""
 
     def get(self, namespace: str) -> Any | None:
@@ -45,6 +47,10 @@ class HarnessCache:
     def put(self, namespace: str, harness: Any) -> None:
         """Store a freshly created runtime and evict the oldest idle ones."""
         self._active = namespace
+        # Each new child gets a fresh generation: DSH persists one log per session id
+        # and refuses to reuse an id whose log came from a different live session.
+        self._counter += 1
+        self._generations[namespace] = self._counter
         self._items[namespace] = harness
         if namespace in self._order:
             self._order.remove(namespace)
@@ -72,6 +78,9 @@ class HarnessCache:
         items, self._items, self._order = list(self._items.values()), {}, []
         for harness in items:
             close_harness(harness)
+
+    def generation(self, namespace: str) -> int:
+        return self._generations.get(namespace, 0)
 
     def namespaces(self) -> list[str]:
         return list(self._order)

@@ -17,6 +17,16 @@ export interface AgentTurnHistoryItem {
   text: string
 }
 
+export interface AgentStreamChunk {
+  type: 'status' | 'delta' | 'result' | 'error'
+  text?: string
+  tool?: string
+  data?: AgentTurnResult
+  code?: string
+  message?: string
+  status?: number
+}
+
 export interface AgentTurnContext {
   contextPath?: string
   history?: AgentTurnHistoryItem[]

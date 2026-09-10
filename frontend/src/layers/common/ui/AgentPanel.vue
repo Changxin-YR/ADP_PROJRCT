@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import { createSessionStore } from '../session/session.store'
 import { ApiError, errorText } from '../api/errors'
-import { cancelAgentConfirmation, confirmAgent, sendAgentTurn } from '../../features/agent/agent.service'
+import { cancelAgentConfirmation, confirmAgent, sendAgentTurn, sendAgentTurnStream } from '../../features/agent/agent.service'
 import type { AgentClarification, AgentConfirmation, AgentMessageRole, AgentTurnResult } from '../../features/agent/agent.models'
 
 interface Message { id: number; role: AgentMessageRole; text: string; result?: AgentTurnResult }
@@ -19,6 +19,8 @@ const error = ref('')
 const conversationId = ref<string>()
 const confirmation = ref<AgentConfirmation>()
 const clarification = ref<AgentClarification>()
+const streamingText = ref('')
+const statusHint = ref('')
 const answerText = ref('')
 const messages = ref<Message[]>([])
 const launcherElement = ref<HTMLButtonElement>()
@@ -83,10 +85,26 @@ async function submitText(text: string): Promise<void> {
   busy.value = true
   try {
     const history = messages.value.slice(-8).map((item) => ({ role: item.role, text: item.text }))
-    const result = await sendAgentTurn(message, conversationId.value, {
-      contextPath: router.currentRoute.value.fullPath,
-      history,
-    })
+    const context = { contextPath: router.currentRoute.value.fullPath, history }
+    streamingText.value = ''
+    statusHint.value = ''
+    let result: AgentTurnResult
+    try {
+      result = await sendAgentTurnStream(message, conversationId.value, context, (chunk) => {
+        if (chunk.type === 'delta' && chunk.text) streamingText.value += chunk.text
+        else if (chunk.type === 'status' && chunk.text) statusHint.value = chunk.text
+      })
+    } catch (streamError) {
+      // 只有端点缺失（部署期）才回退到非流式；其它错误直接上报，避免写操作被重复执行。
+      if (streamError instanceof ApiError && (streamError.status === 404 || streamError.status === 405)) {
+        result = await sendAgentTurn(message, conversationId.value, context)
+      } else {
+        throw streamError
+      }
+    } finally {
+      streamingText.value = ''
+      statusHint.value = ''
+    }
     conversationId.value ||= result.conversation_id || result.confirmation?.conversation_id || result.session_id
     applyResult(result)
   } catch (value) {
@@ -200,6 +218,10 @@ function toggle(): void {
             <button type="submit" :disabled="busy || !answerText.trim()">提交</button>
           </form>
         </div>
+        <article v-if="streamingText" class="agent-message agent-message--assistant" data-testid="agent-streaming">
+          <span>{{ streamingText }}</span>
+        </article>
+        <p v-else-if="statusHint" class="agent-status" data-testid="agent-status">{{ statusHint }}</p>
         <p v-if="error" class="agent-panel__error" role="alert">{{ error }}</p>
       </div>
       <form class="agent-panel__composer" @submit.prevent="submit">

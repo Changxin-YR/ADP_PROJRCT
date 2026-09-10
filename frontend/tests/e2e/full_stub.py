@@ -224,6 +224,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(ok(None))
         if re.fullmatch(r"/api/v1/admin/applications/\d+/(approve|reject)", path):
             return self._send(ok({"application": {**APPLICATIONS[0], "status": "approved"}}))
+        if path == "/api/v1/agent/turn/stream":
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            result = agent_turn(payload)
+            message = str(result.get("message") or "")
+            lines = [{"type": "status", "tool": "adp_query", "text": "正在查询业务数据…"}]
+            if message:
+                half = max(1, len(message) // 2)
+                lines.append({"type": "delta", "text": message[:half]})
+                lines.append({"type": "delta", "text": message[half:]})
+            lines.append({"type": "result", "data": result})
+            body = ("\n".join(json.dumps(item, ensure_ascii=False) for item in lines) + "\n").encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            return
         if path == "/api/v1/agent/turn":
             length = int(self.headers.get("Content-Length", "0"))
             payload = json.loads(self.rfile.read(length) or b"{}")
