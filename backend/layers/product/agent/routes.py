@@ -28,7 +28,7 @@ from backend.layers.common.db.connection import _request_state
 
 
 _PATH_PARAMETER = re.compile(r"\{([^}]+)\}")
-_AGENT_CONTEXT_TTL_SECONDS = 90
+_AGENT_CONTEXT_TTL_SECONDS = 180
 
 
 def _context_cipher(settings: Settings) -> Fernet:

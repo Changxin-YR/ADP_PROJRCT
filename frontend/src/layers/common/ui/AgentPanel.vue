@@ -63,6 +63,16 @@ function applyResult(result: AgentTurnResult): void {
   }
 }
 
+function agentErrorText(value: unknown): string {
+  // 5xx from /agent/turn is an agent-runtime failure, not a business error: tell the
+  // user what to actually do instead of showing "服务器暂时无法处理请求".
+  if (value instanceof ApiError) {
+    if (value.code === 'AGENT_TIMEOUT') return '这轮处理时间过长已被取消，请把问题拆小一点（例如一次只查一类记录）后重试'
+    if (value.code === 'AGENT_PROTOCOL_ERROR' || value.code === 'AGENT_UNAVAILABLE') return `智能助手这一轮没有跑完，请重试；若反复出现，请把问题拆成更小的步骤`
+  }
+  return errorText(value, `${assistantName}暂时不可用，请稍后重试`)
+}
+
 async function submitText(text: string): Promise<void> {
   const message = text.trim()
   if (!message || busy.value || !available.value) return
@@ -76,7 +86,7 @@ async function submitText(text: string): Promise<void> {
     conversationId.value ||= result.conversation_id || result.confirmation?.conversation_id || result.session_id
     applyResult(result)
   } catch (value) {
-    if (!handleAuthError(value)) error.value = errorText(value, `${assistantName}暂时不可用，请稍后重试`)
+    if (!handleAuthError(value)) error.value = agentErrorText(value)
   } finally { busy.value = false; await nextTick(); inputElement.value?.focus() }
 }
 

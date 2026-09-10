@@ -389,7 +389,7 @@ def test_agent_restricted_patch_disables_host_native_modules() -> None:
 
 @pytest.mark.parametrize(
     ("name", "value"),
-    [("AGENT_REQUEST_TIMEOUT_SECONDS", "61"), ("AGENT_CONFIRMATION_TTL_SECONDS", "601")],
+    [("AGENT_REQUEST_TIMEOUT_SECONDS", "121"), ("AGENT_CONFIRMATION_TTL_SECONDS", "601")],
 )
 def test_agent_settings_enforce_upper_bounds(name: str, value: str) -> None:
     with pytest.raises(ConfigError):

@@ -223,7 +223,7 @@ class Settings:
                 values.get("ATTACHMENT_SCANNER_THREAT_EXIT_CODES")
             ),
             agent_request_timeout_seconds=_as_bounded_positive_int(
-                "AGENT_REQUEST_TIMEOUT_SECONDS", values.get("AGENT_REQUEST_TIMEOUT_SECONDS"), default=30, maximum=60
+                "AGENT_REQUEST_TIMEOUT_SECONDS", values.get("AGENT_REQUEST_TIMEOUT_SECONDS"), default=30, maximum=120
             ),
             agent_confirmation_ttl_seconds=_as_bounded_positive_int(
                 "AGENT_CONFIRMATION_TTL_SECONDS", values.get("AGENT_CONFIRMATION_TTL_SECONDS"), default=120, maximum=600
