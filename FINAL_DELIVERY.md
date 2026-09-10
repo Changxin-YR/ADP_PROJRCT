@@ -166,3 +166,33 @@
 - 侧车不提供 shell/文件/网络/子智能体——它就跑在生产机上；
 - 权限码 + 角色 + 数据范围校验、写操作确认、幂等、审计；
 - `human_only`（登录/注册/改密/登出、附件上传）——会改变身份本身，且上传是 multipart，网关是 JSON。
+
+
+## 10. 智能体流式输出 — 2026-09-11 凌晨（release 20260910-agentfix-r7）
+
+**做法**：DSH 运行时本来就在 JSON-RPC 上增量发事件（`assistant/chunk` 的 `text-delta`、
+`tool/call`、`turn/end`），Python SDK 只是把它们收齐再返回。新增
+`POST /api/v1/agent/turn/stream`（NDJSON）：
+
+```
+{"type":"status","tool":"adp_query","text":"正在查询业务数据…"}
+{"type":"delta","text":"南区共"}
+{"type":"result","data":{ ...与 /turn 完全一致的 payload... }}
+{"type":"error","code":"AGENT_TIMEOUT","message":"…","status":504}
+```
+
+- 服务端：`agent_stream.stream_turn` 在后台线程跑原来的 `HarnessSidecar.run`（带
+  `on_notification` 回调），逐块 yield；权限、数据范围、审计、确认/提问语义与非流式端点
+  完全一致；`/turn` 保持可用（移动端/桌面包兼容）。
+- 前端：面板新增流式气泡与状态行，逐字追加；收到 `result` 后再走原有 `applyResult`
+  （确认卡片 / 提问框 / 澄清输入框）。**只有**端点缺失（404/405）才回退到 `/turn`，
+  其它错误直接上报 —— 避免写操作被重复执行。
+- nginx：`/adp/api/` 关闭 `proxy_buffering`，响应头带 `X-Accel-Buffering: no`。
+- e2e stub 增加流式端点，浏览器级用例覆盖新链路。
+
+**实测（生产）**：首字 1.8s 到达，之后每 ~0.1s 一块；工具执行期间下发
+`status` 块；同一句话在流式与非流式端点返回完全相同的 `kind`
+（assistant / clarification / confirmation_required 均已验证）。
+
+**注意**：流式请求会占用一个 gunicorn 线程直到本轮结束（当前 2 worker × 2 thread），
+多人并发长回合时可能排队；如需更高并发可加 worker 数或改用 SSE 专用进程。
