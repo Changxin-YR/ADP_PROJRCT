@@ -79,4 +79,47 @@ describe('AgentPanel', () => {
     expect(sent.conversation_id).toBe('c-9')
     expect(wrapper.find('[data-testid="agent-clarification"]').exists()).toBe(false)
   })
+  it('shows the tool status line while a tool runs and hides it when text resumes', async () => {
+    createSessionStore().setUser(user)
+    const encoder = new TextEncoder()
+    let push!: (line: string) => void
+    let finish!: () => void
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        push = (line: string) => controller.enqueue(encoder.encode(line))
+        finish = () => controller.close()
+      },
+    })
+    vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+      const path = String(input)
+      if (path.includes('/auth/csrf')) {
+        return Promise.resolve(new Response(JSON.stringify({ data: { csrf_token: 'csrf' } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      }
+      return Promise.resolve(new Response(body, { status: 200, headers: { 'Content-Type': 'application/x-ndjson' } }))
+    }))
+    const wrapper = mount(AgentPanel, { global: { plugins: [router()] } })
+    await wrapper.get('[aria-label="打开塘小助"]').trigger('click')
+    await wrapper.get('[aria-label="塘小助指令"]').setValue('南区的塘口情况怎么样？')
+    await wrapper.get('form').trigger('submit')
+
+    push('{"type":"delta","text":"我先查一下"}\n')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="agent-streaming"]').text()).toContain('我先查一下')
+
+    push('{"type":"status","tool":"adp_query","text":"正在查询业务数据…"}\n')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="agent-status"]').text()).toContain('正在查询业务数据')
+    expect(wrapper.get('[data-testid="agent-streaming"]').text()).toContain('我先查一下')
+
+    push('{"type":"delta","text":"，查到了 4 个塘口"}\n')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="agent-status"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="agent-streaming"]').text()).toContain('查到了 4 个塘口')
+
+    push('{"type":"result","data":{"kind":"assistant","message":"南区共 4 个塘口","conversation_id":"c-1"}}\n')
+    finish()   // 流结束，前端才会把 result 交给 applyResult
+    await flushPromises()
+    expect(wrapper.text()).toContain('南区共 4 个塘口')
+    expect(wrapper.find('[data-testid="agent-streaming"]').exists()).toBe(false)
+  })
 })

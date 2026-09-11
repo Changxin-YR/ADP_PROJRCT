@@ -91,7 +91,10 @@ async function submitText(text: string): Promise<void> {
     let result: AgentTurnResult
     try {
       result = await sendAgentTurnStream(message, conversationId.value, context, (chunk) => {
-        if (chunk.type === 'delta' && chunk.text) streamingText.value += chunk.text
+        if (chunk.type === 'delta' && chunk.text) {
+          streamingText.value += chunk.text
+          statusHint.value = ''   // 文字重新出现就收起状态行，避免与正文抢注意力
+        }
         else if (chunk.type === 'status' && chunk.text) statusHint.value = chunk.text
       })
     } catch (streamError) {
@@ -218,10 +221,10 @@ function toggle(): void {
             <button type="submit" :disabled="busy || !answerText.trim()">提交</button>
           </form>
         </div>
+        <p v-if="statusHint" class="agent-status" data-testid="agent-status">{{ statusHint }}</p>
         <article v-if="streamingText" class="agent-message agent-message--assistant" data-testid="agent-streaming">
           <span>{{ streamingText }}</span>
         </article>
-        <p v-else-if="statusHint" class="agent-status" data-testid="agent-status">{{ statusHint }}</p>
         <p v-if="error" class="agent-panel__error" role="alert">{{ error }}</p>
       </div>
       <form class="agent-panel__composer" @submit.prevent="submit">
