@@ -221,10 +221,17 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
     Compact keys keep the environment value below Windows' process
     environment limit while retaining the fields needed for tool selection.
     A trailing ``!`` marks a required parameter.
+
+    ``f`` carries the business payload fields the endpoint accepts (and which of them
+    are required) so the model stops guessing names like ``group_id`` when the archive
+    actually expects ``pond_group_id``. ``rs`` lists the legal values for ``resource``.
     """
+    from backend.layers.features.agent.agent_field_guide import field_spec, fields_by_resource, resources_for
+
     registry = registry or build_registry()
-    operations = [
-        {
+    operations = []
+    for tool in sorted(registry.tools, key=lambda item: item.name):
+        entry: dict[str, Any] = {
             "n": tool.name,
             "d": tool.description,
             "m": tool.method,
@@ -236,11 +243,21 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
                 for name, schema in tool.parameters.items()
             ],
         }
-        for tool in sorted(registry.tools, key=lambda item: item.name)
-    ]
+        if tool.risk != "read":
+            resources = resources_for(tool.path_template)
+            if resources:
+                # 通用 {resource} 写接口：每种资源一套字段，模型先选 resource 再照抄字段名
+                entry["f"] = fields_by_resource(tool)
+            else:
+                spec = field_spec(tool)
+                if spec is not None:
+                    allowed, required = spec
+                    entry["f"] = [f"{name}!" if name in required else name for name in allowed]
+        operations.append(entry)
+
     return json.dumps(
         {
-            "legend": "n=name; d=description; m=HTTP method; p=path; r=risk; q=required permission; a=parameters; ! means required",
+            "legend": "n=name; d=description; m=HTTP method; p=path; r=risk; q=required permission; a=parameters; f=payload 可用字段(!=必填); rs=resource 可选值; ! means required",
             "operations": operations,
         },
         ensure_ascii=False,

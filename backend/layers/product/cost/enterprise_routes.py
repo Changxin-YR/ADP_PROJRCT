@@ -7,8 +7,8 @@ from flask import Blueprint, Response, g, jsonify, request, session
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.http.response import fail, ok
-from backend.layers.common.http.request_helpers import pagination
-from backend.layers.common.security.csrf import CsrfError, validate_csrf_token
+from backend.layers.common.http.request_helpers import pagination, require_csrf
+from backend.layers.common.security.csrf import CsrfError
 from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.cost.cost_enterprise_service import CostEnterpriseService
@@ -52,7 +52,7 @@ def register_cost_enterprise_routes(blueprint: Blueprint, auth: AuthService, ser
 
     def write(operation: Callable[..., dict[str, Any]], record_id: int | None = None, *, created: bool = False) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body(); current_user = user()
             def perform() -> tuple[dict[str, Any], int]:
                 result = operation(current_user, payload) if record_id is None else operation(current_user, record_id, payload)
@@ -64,7 +64,7 @@ def register_cost_enterprise_routes(blueprint: Blueprint, auth: AuthService, ser
 
     def remove(operation: Callable[..., dict[str, Any]], record_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             return jsonify(ok(operation(user(), record_id)))
         except (CsrfError, AuthServiceError, DomainError) as exc:
             return error(exc)

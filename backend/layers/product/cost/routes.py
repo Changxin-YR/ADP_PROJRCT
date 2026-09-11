@@ -9,8 +9,8 @@ from backend.config.settings import Settings
 from backend.layers.common.http.response import fail, ok
 from backend.layers.common.governance.idempotency import execute_idempotent
 from backend.layers.common.governance.lifecycle import DomainError
-from backend.layers.common.http.request_helpers import pagination
-from backend.layers.common.security.csrf import CsrfError, validate_csrf_token
+from backend.layers.common.http.request_helpers import pagination, require_csrf
+from backend.layers.common.security.csrf import CsrfError
 from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
 from backend.layers.features.cost.cost_service import CostService, CostServiceError
@@ -109,7 +109,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.post("/entries")
     def create_entry() -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.create_expense(actor, payload)}, message="成本草稿已保存"), status=201)
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -118,7 +118,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.patch("/entries/<int:entry_id>")
     def update_entry(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.update_expense(actor, entry_id, payload)}, message="成本草稿已更新"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -127,7 +127,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.post("/entries/<int:entry_id>/submit")
     def submit_entry(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.submit_expense(actor, entry_id, payload)}, message="成本已提交核验"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -136,7 +136,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.post("/entries/<int:entry_id>/verify")
     def verify_entry(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.verify_expense(actor, entry_id, payload)}, message="成本已完成核验，等待最终确认"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -145,7 +145,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.post("/entries/<int:entry_id>/confirm")
     def confirm_entry(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.confirm_expense(actor, entry_id, payload)}, message="成本核验已完成，记录进入只读状态"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -154,7 +154,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.delete("/entries/<int:entry_id>")
     def delete_draft(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             result = enterprise_service.delete_expense(current_user(), entry_id)
             return jsonify(ok({"entry": result}, message="未正式录入的成本草稿已删除"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -163,7 +163,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.post("/entries/<int:entry_id>/reverse")
     def reverse_entry(entry_id: int) -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             payload = json_body()
             return run_write(payload, lambda actor: ok({"entry": enterprise_service.reverse_expense(actor, entry_id, payload)}, message="已生成冲销记录，原核验记录保持不变"))
         except (CsrfError, AuthServiceError, CostServiceError, DomainError) as error:
@@ -172,7 +172,7 @@ def create_cost_blueprint(settings: Settings, auth_store: Any, cost_store: Any) 
     @blueprint.put("/allocation-rules")
     def save_allocation_rules() -> tuple[Response, int] | Response:
         try:
-            validate_csrf_token(request.headers.get("X-CSRF-Token"), session.get("csrf_token"))
+            require_csrf()
             result = service.save_rules(
                 current_user(),
                 json_body(),
