@@ -22,6 +22,10 @@ from backend.layers.features.agent import agent_stream
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
 from backend.layers.product.agent.agent_dispatch import _dispatch_fixed_tool, dispatch_fixed_tool  # noqa: F401
 from backend.layers.features.agent.agent_prompt import build_user_brief, turn_prompt_context
+from backend.layers.features.agent.agent_confirmation_work_item import (
+    cancel_confirmation_work_item,
+    close_expired_confirmation_work_items,
+)
 from backend.layers.features.agent.agent_tool_registry import AgentTool, build_registry
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
 
@@ -115,11 +119,25 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             raise AgentGatewayError("VALIDATION_ERROR", "conversation_id 必须是 1-64 个字符", 400)
         return value.strip()
 
+    def sweep_expired_confirmations(user: dict[str, Any]) -> None:
+        """惰性清理：把当前用户到期的 pending 确认置为 expired，并收口对应待办。
+
+        幂等且廉价；放在对话入口而不是后台任务，是因为这个项目没有调度器。
+        只收窄到当前用户，避免把别人的待办顺手改掉（后台任务可传 user_id=None 全量清扫）。
+        """
+        try:
+            expired = gateway.confirmations.mark_expired(user_id=int(user["id"]))
+        except Exception:  # noqa: BLE001 - 清理失败不能影响对话
+            return
+        if expired:
+            close_expired_confirmation_work_items(settings, confirmation_ids=expired, user_id=int(user["id"]))
+
     @blueprint.post("/turn")
     def turn() -> tuple[Response, int] | Response:
         try:
             user = current_user()
             require_csrf()
+            sweep_expired_confirmations(user)
             payload = json_object()
             message = payload.get("message")
             if not isinstance(message, str) or not message.strip():
@@ -233,7 +251,9 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                     raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
             else:
                 require_csrf()
-            user = current_user(); arguments, operation, conversation = operation_request(json_object())
+            user = current_user()
+            sweep_expired_confirmations(user)
+            arguments, operation, conversation = operation_request(json_object())
             result = gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
             if result.get("kind") != "success":
                 raise AgentGatewayError("TOOL_RISK_INVALID", "查询工具未按只读策略注册", 409)
@@ -261,6 +281,7 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             confirmation_id = int(payload.get("confirmation_id") or 0)
             if confirmation_id <= 0 or not gateway.confirmations.mark_cancelled(confirmation_id, user_id=int(user["id"])):
                 raise AgentGatewayError("CONFIRMATION_INVALID", "确认操作不存在或已处理", 409)
+            cancel_confirmation_work_item(settings, confirmation_id=confirmation_id, user_id=int(user["id"]))
             return jsonify(ok({"cancelled": True}))
         except (CsrfError, AuthServiceError, AgentGatewayError, TypeError, ValueError) as error:
             return error_response(error)

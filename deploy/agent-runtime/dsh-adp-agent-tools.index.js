@@ -57,7 +57,7 @@ function apply(ctx, config) {
         const operationDescription = describeOperations(config.operationCatalog);
         ctx.tools.register(defineTool({
                 name: "adp_query",
-                description: "查询当前登录用户有权查看的 ADP 数据。每次调用只传一个 operation 与它的对象参数。",
+                description: "查询当前登录用户有权查看的 ADP 数据。每次调用只传一个 operation 与它的对象参数；结果请用业务语言转述。",
                 parameters: {
                         operation: {
                                 type: "string",
@@ -83,7 +83,7 @@ function apply(ctx, config) {
         }));
         ctx.tools.register(defineTool({
                 name: "adp_mutation",
-                description: "准备一个需要登录者确认的 ADP 业务写操作。得到 confirmation_required 后立即停止，等待用户点击确认。",
+                description: "执行 ADP 业务增删改（新增/修改/删除）。默认按当前登录者权限立即生效；若网关返回 confirmation_required，则必须停止本轮输出并等待用户点击确认。",
                 parameters: {
                         operation: {
                                 type: "string",

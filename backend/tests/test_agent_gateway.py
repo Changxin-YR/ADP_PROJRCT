@@ -72,8 +72,8 @@ class _MemoryConfirmationStore:
     def mark_cancelled(self, confirmation_id, *, user_id):
         return False
 
-    def mark_expired(self, *, now=None):
-        return 0
+    def mark_expired(self, *, now=None, user_id=None):
+        return []
 
     def mark_failed(self, confirmation_id, *, user_id):
         for token, row in self.rows.items():
@@ -98,8 +98,13 @@ class _MemoryConfirmationStore:
         return False
 
 
-def _gateway(executor=None):
-    registry = build_registry()
+def _gateway(executor=None, *, mode: str = "confirm"):
+    def factory(tool):
+        if tool.risk != "write":
+            return None
+        return executor or (lambda args, context: {"record": args})
+
+    registry = build_registry(factory)
     if executor:
         original = registry.get("master_data.create_record")
         replacement = type(original)(
@@ -118,7 +123,7 @@ def _gateway(executor=None):
             original.requires_data_scope,
         )
         registry = type(registry)(tuple(replacement if item.name == original.name else item for item in registry.tools))
-    settings = Settings.from_env({"APP_ENV": "test"})
+    settings = Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": mode})
 
     def idempotent(_settings, *, user_id, action_code, key, payload, operation):
         body, status = operation()
@@ -163,7 +168,7 @@ def test_agent_confirmation_is_single_use_and_rechecks_identity():
         request_id="r-1",
     )
     token = pending["confirmation"]["token"]
-    assert gateway.confirm(user, token, request_id="r-2")["kind"] == "success"
+    assert gateway.confirm(user, token, request_id="r-2")["kind"] == "executed"
     with pytest.raises(AgentGatewayError, match="确认令牌无效"):
         gateway.confirm(user, token, request_id="r-3")
 
@@ -175,7 +180,7 @@ def test_agent_confirmation_business_failure_is_terminal_and_audited():
         raise ValueError("库存不足")
 
     gateway = AgentGatewayService(
-        Settings.from_env({"APP_ENV": "test"}),
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}),
         registry=build_registry(lambda tool: fail if tool.name == "master_data.create_record" else None),
         confirmations=_MemoryConfirmationStore(),
         audit=events.append,
@@ -207,7 +212,7 @@ def test_agent_audit_event_contains_authorization_and_business_trace_fields():
     events = []
     registry = build_registry(lambda _tool: lambda _args, _context: {"before": {"status": "active"}, "after": {"status": "inactive"}})
     gateway = AgentGatewayService(
-        Settings.from_env({"APP_ENV": "test"}),
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}),
         registry=registry,
         confirmations=_MemoryConfirmationStore(),
         audit=events.append,
@@ -238,7 +243,7 @@ def test_agent_audit_redacts_all_credential_fields():
     events = []
     registry = build_registry(lambda _tool: lambda _args, _context: {"ok": True})
     gateway = AgentGatewayService(
-        Settings.from_env({"APP_ENV": "test"}),
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}),
         registry=registry,
         confirmations=_MemoryConfirmationStore(),
         audit=events.append,
@@ -270,7 +275,7 @@ def test_agent_audit_redacts_all_credential_fields():
 
 
 def test_agent_admin_write_is_delegable_for_authorized_super_admin():
-    gateway = _gateway()
+    gateway = _gateway(lambda args, context: {"record": {"id": 1}}, mode="direct")
     user = _active_user("auth.role.manage", roles=("super_admin",), data_scopes=[])
     result = gateway.prepare_tool(
         user,
@@ -279,8 +284,8 @@ def test_agent_admin_write_is_delegable_for_authorized_super_admin():
         conversation_id="c-1",
         request_id="r-1",
     )
-    assert result["kind"] == "confirmation_required"
-    assert result["confirmation"]["risk_level"] == "high"
+    assert result["kind"] == "executed"
+    assert result["execution"]["title"] == "调整角色权限"
 
 
 def test_agent_admin_write_requires_super_admin_role():
@@ -300,7 +305,7 @@ def test_agent_resource_specific_permission_is_accepted():
     executor = lambda args, context: {"rows": [args["resource"]]}
     registry = build_registry(lambda _tool: executor)
     gateway = AgentGatewayService(
-        Settings.from_env({"APP_ENV": "test"}),
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}),
         registry=registry,
         confirmations=_MemoryConfirmationStore(),
     )
@@ -346,7 +351,7 @@ def test_agent_read_uses_registered_executor():
     executor = lambda args, context: {"rows": [args["resource"]]}
     registry = build_registry(lambda _tool: executor)
     gateway = AgentGatewayService(
-        Settings.from_env({"APP_ENV": "test"}),
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}),
         registry=registry,
         confirmations=_MemoryConfirmationStore(),
     )
@@ -367,7 +372,7 @@ def test_agent_registry_excludes_gateway_endpoints() -> None:
 
 
 def test_agent_settings_defaults_and_sidecar_paths() -> None:
-    settings = Settings.from_env({"APP_ENV": "test"})
+    settings = Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})
     assert settings.agent_request_timeout_seconds == 30
     assert settings.agent_confirmation_ttl_seconds == 120
     assert settings.agent_sidecar_home
@@ -566,7 +571,7 @@ def test_sidecar_passes_ephemeral_context_without_cookie(monkeypatch) -> None:
             return {"kind": "assistant", "message": "ok"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
-    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run(
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run(
         "查询塘口",
         context={
             "conversation_id": "c-1",
@@ -636,7 +641,7 @@ def test_sidecar_maps_timeout(monkeypatch) -> None:
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=TimeoutHarness))
     with pytest.raises(AgentGatewayError) as exc:
-        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-1"})
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("查询", context={"conversation_id": "c-1"})
     assert exc.value.code == "AGENT_TIMEOUT"
 
 
@@ -658,7 +663,7 @@ def test_sidecar_reuses_runtime_for_conversation_namespace(monkeypatch) -> None:
             return {"kind": "assistant", "message": f"{prompt}:{session_id}"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
-    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test"}))
+    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}))
     first = sidecar.run("第一轮", context={"conversation_id": "c-1", "user_namespace": "user-a"})
     second = sidecar.run("第二轮", context={"conversation_id": "c-1", "user_namespace": "user-a"})
     other = sidecar.run("另一用户", context={"conversation_id": "c-1", "user_namespace": "user-b"})
@@ -687,14 +692,14 @@ def test_sidecar_adds_payload_free_latency_diagnostics(monkeypatch) -> None:
             return {"kind": "assistant", "message": "ok"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
-    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-1"})
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("查询", context={"conversation_id": "c-1"})
     diagnostics = result["diagnostics"]
     assert set(diagnostics) == {"request_received_ms", "harness_request_start_ms", "harness_response_ms", "total_ms"}
     assert all(isinstance(value, (int, float)) and value >= 0 for value in diagnostics.values())
 
 
 def test_sidecar_rejects_missing_conversation_and_invalid_harness_result(monkeypatch) -> None:
-    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test"}))
+    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}))
     with pytest.raises(AgentGatewayError) as missing:
         sidecar.run("查询", context={})
     assert missing.value.code == "VALIDATION_ERROR"
@@ -726,7 +731,7 @@ def test_sidecar_maps_runtime_failures(monkeypatch, error_type, expected) -> Non
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FailingHarness))
     with pytest.raises(AgentGatewayError) as error:
-        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "failure"})
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("查询", context={"conversation_id": "failure"})
     assert error.value.code == expected
 
 
@@ -743,7 +748,7 @@ def test_sidecar_maps_protocol_failures_and_final_response_object(monkeypatch) -
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ProtocolHarness))
     with pytest.raises(AgentGatewayError) as error:
-        HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "protocol"})
+        HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("查询", context={"conversation_id": "protocol"})
     assert error.value.code == "AGENT_PROTOCOL_ERROR"
 
     class Response:
@@ -755,7 +760,7 @@ def test_sidecar_maps_protocol_failures_and_final_response_object(monkeypatch) -
             return Response()
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ResponseHarness))
-    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "response"})
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("查询", context={"conversation_id": "response"})
     assert result["message"] == "完成"
     assert result["session_id"] == "session-1"
 
@@ -793,7 +798,7 @@ def test_sidecar_preserves_confirmation_from_tool_result_event(monkeypatch) -> N
             return Response()
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=ConfirmationHarness))
-    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("新增喂养", context={"conversation_id": "confirmation"})
+    result = HarnessSidecar(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"})).run("新增喂养", context={"conversation_id": "confirmation"})
     assert result["kind"] == "confirmation_required"
     assert result["confirmation"]["id"] == 7
     assert result["confirmation"]["token"] == "opaque-token"
@@ -814,7 +819,7 @@ def test_sidecar_bounds_uninspected_query_and_filters_runtime_environment(monkey
     assert _bounded_query_prompt("查询 3 号塘") == "查询 3 号塘"
     monkeypatch.setenv("DEEPSEEK_API_KEY", "configured-but-never-printed")
     monkeypatch.setenv("MYSQL_PASSWORD", "must-not-pass")
-    environment = _runtime_environment(Settings.from_env({"APP_ENV": "test"}), {"gateway_url": "http://gateway", "context_token": "ctx"})
+    environment = _runtime_environment(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}), {"gateway_url": "http://gateway", "context_token": "ctx"})
     assert environment["DEEPSEEK_API_KEY"] == "configured-but-never-printed"
     assert "MYSQL_PASSWORD" not in environment
     assert environment["ADP_AGENT_GATEWAY_URL"] == "http://gateway"

@@ -1,6 +1,6 @@
 {
-  "operation_count": 171,
-  "registered_count": 171,
+  "operation_count": 181,
+  "registered_count": 181,
   "unmapped_operations": [],
   "human_only_operations": [
     {
@@ -34,5 +34,5 @@
       "tool": "api.data_exchange_upload_attachment_post_api_v1_data_exchange_attachments"
     }
   ],
-  "tool_count": 171
+  "tool_count": 181
 }

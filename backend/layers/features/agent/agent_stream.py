@@ -23,7 +23,7 @@ from typing import Any, Callable, Iterator
 # Tool display names keep the panel readable while a turn is in flight.
 TOOL_LABELS = {
     "adp_query": "正在查询业务数据…",
-    "adp_mutation": "正在准备写入操作…",
+    "adp_mutation": "正在写入数据…",
     "adp_ask_user": "正在向你确认信息…",
 }
 _IDLE_GRACE_SECONDS = 20.0

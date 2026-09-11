@@ -78,6 +78,14 @@ def _as_origins(value: str | None) -> tuple[str, ...]:
     return tuple(dict.fromkeys(item.strip() for item in (value or '').split(',') if item.strip()))
 
 
+def _as_agent_write_mode(value: str | None) -> str:
+    """智能体写操作策略，只允许 direct / confirm，默认 direct。"""
+    mode = (value or "direct").strip().lower()
+    if mode not in {"direct", "confirm"}:
+        raise ConfigError("AGENT_WRITE_MODE 只能是 direct 或 confirm")
+    return mode
+
+
 def _as_server_name(value: str | None, *, required: bool) -> str:
     server_name = (value or '').strip().lower().rstrip('.')
     if not server_name:
@@ -129,6 +137,9 @@ class Settings:
     agent_model: str = "deepseek-v4-flash"
     agent_model_max_tokens: int = 32768
     agent_gateway_url: str = ""
+    # 写操作策略：direct = 智能体核实参数后直接落地（默认，用户要求放开）；
+    # confirm = 先出确认卡片，等用户点「确认执行」再落地（可随时回退）。
+    agent_write_mode: str = "direct"
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "Settings":
@@ -241,6 +252,7 @@ class Settings:
                 "AGENT_MODEL_MAX_TOKENS", values.get("AGENT_MODEL_MAX_TOKENS"), default=32768, maximum=256000
             ),
             agent_gateway_url=values.get("AGENT_GATEWAY_URL", "").strip(),
+            agent_write_mode=_as_agent_write_mode(values.get("AGENT_WRITE_MODE")),
         )
 
     def session_limit_for_user(self, user: Mapping[str, object]) -> int:

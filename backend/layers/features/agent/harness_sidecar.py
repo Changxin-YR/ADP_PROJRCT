@@ -25,7 +25,7 @@ class HarnessSidecar:
     def _new_harness(self, runtime_env: dict[str, str], safe_context: dict[str, str]) -> Any:
         # The harness loads $DSH_HOME/AGENTS.md on every baseline; keep it in sync
         # with the release so the behaviour contract ships with the code.
-        ensure_instructions(self.settings.agent_sidecar_home)
+        ensure_instructions(self.settings.agent_sidecar_home, self.settings.agent_write_mode)
         from deepseek_harness import DeepSeekHarness
 
         patch = self.settings.agent_sidecar_patch.strip()
@@ -112,6 +112,7 @@ class HarnessSidecar:
                     safe_context.get("user_brief", ""),
                     safe_context.get("page_context", ""),
                     safe_context.get("history_text", ""),
+                    write_mode=self.settings.agent_write_mode,
                 )
                 result = harness.run(prompt_text, session_id=session_id, on_notification=on_notification)
                 harness_finished = time.perf_counter()
@@ -252,7 +253,7 @@ def _bounded_query_prompt(prompt: str) -> str:
         }
         return (
             f"{prompt}\n\n"
-            "ADP 提示：这条指令的字段已经齐全，可以直接用 adp_mutation 准备写入；"
+            "ADP 提示：这条指令的字段已经齐全，可以直接用 adp_mutation 写入（会按当前登录者权限立即生效）；"
             "operation 建议使用 api.production_create_post_api_v1_production_resource，"
             f"arguments 可用 {json.dumps(arguments, ensure_ascii=False, separators=(',', ':'))}。"
             "若字段或口径不放心，也可以先用 adp_query 核对或 adp_ask_user 与用户确认。"

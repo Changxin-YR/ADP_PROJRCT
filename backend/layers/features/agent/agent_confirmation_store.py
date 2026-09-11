@@ -87,8 +87,21 @@ class MySqlAgentConfirmationStore(AgentConfirmationStore):
                 cursor.execute("UPDATE agent_confirmations SET status='failed' WHERE id=%s AND user_id=%s AND status='confirmed'", (confirmation_id, user_id))
                 return cursor.rowcount == 1
 
-    def mark_expired(self, *, now: datetime | None = None) -> int:
-        with self._connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute("UPDATE agent_confirmations SET status='expired' WHERE status='pending' AND expires_at<=COALESCE(%s,CURRENT_TIMESTAMP)", (now,))
-                return cursor.rowcount
+    def mark_expired(self, *, now: datetime | None = None, user_id: int | None = None) -> list[int]:
+        """把到期的 pending 置为 expired 并**返回被处理的确认 ID**，供调用方级联收口待办。
+
+        只改状态而不返回 ID 的话，对应 work_items 会永远停在 claimed —— 这正是之前留下的尾巴。
+        user_id 可选：惰性清理按当前用户收窄，后台任务可全量清扫；结果有上限，避免长事务。
+        """
+        with self._connection() as connection, connection.cursor() as cursor:
+            conditions = "status='pending' AND expires_at<=COALESCE(%s,CURRENT_TIMESTAMP)"
+            params: list[Any] = [now]
+            if user_id is not None:
+                conditions += " AND user_id=%s"
+                params.append(int(user_id))
+            cursor.execute(f"SELECT id FROM agent_confirmations WHERE {conditions} ORDER BY expires_at LIMIT 200", tuple(params))
+            ids = [int(row["id"]) for row in cursor.fetchall()]
+            if ids:
+                placeholders = ",".join(["%s"] * len(ids))
+                cursor.execute(f"UPDATE agent_confirmations SET status='expired' WHERE id IN ({placeholders}) AND status='pending'", tuple(ids))
+            return ids

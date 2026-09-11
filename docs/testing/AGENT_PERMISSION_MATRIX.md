@@ -1,6 +1,26 @@
 # Agent Permission Matrix
 
-> Generated from `app.url_map` and `build_registry()`; 171 business operations.
+> Generated from `app.url_map` and `build_registry()`; 181 business operations.
+
+## 写操作策略（AGENT_WRITE_MODE）
+
+| 模式 | 行为 | 适用场景 |
+| --- | --- | --- |
+| `direct`（默认） | 权限码与数据范围校验通过后，`adp_mutation` 直接落库；`/prepare` 返回 `kind="executed"` + `execution{title,detail,changes,rows_changed}`，审计记录 `result=success` 与 before/after | 让智能体按自然语言直接接手增删改 |
+| `confirm` | `adp_mutation` 只生成待确认操作（`kind="confirmation_required"`，同时建一条 `work_items` 待办），用户点击「确认执行」后由 `/confirm` 重新校验并落地 | 需要人工二次确认的高风险环境 |
+
+两种模式共用同一套权限校验、数据范围校验、幂等键与审计；`human_only`（登录/会话/上传等）在任何模式下都不允许委托。
+配置项见 `.env.example` 的 `AGENT_WRITE_MODE`；改回 `confirm` 只需改环境变量并重启服务，无需改代码。
+
+### 幂等与审计（direct 模式）
+
+- **只预留一次**：网关按 `agent-direct:<工具>:<请求ID>` 在 `idempotency_keys` 预留；调用业务路由时**不**转发这把键，
+  由业务路由按自己的 `Idempotency-Key` 记账。两层各记各的，避免同一把键在两条账本里互相干扰。
+- **同一请求重放**：网关直接回放首次的响应，业务 executor 不会被调用第二次。
+- **错误码不降级**：`IDEMPOTENCY_CONFLICT`(409) / `IDEMPOTENCY_IN_PROGRESS`(409) 等治理错误原样透出给用户与审计。
+- **被拒也要留痕**：权限不足、数据范围不足、会话失效三种被拒写都会写 failure 审计（含被尝试的操作名与原因码）。
+- 上线前建议在测试库实跑一次真实双写（同一会话连续两次相同指令），核对 `idempotency_keys` 只有一行 `completed`、
+  业务表只有一条草稿、`audit_logs` 有且只有一条 `success`。
 
 | Method | Route | Agent Permission | Backend Permission | Agent Tool | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -105,6 +125,8 @@
 | POST | `/api/v1/production/{resource}/{record_id}/verify` | `production.verify` | `production.verify (resource-specific)` | `api.production_verify_post_api_v1_production_resource_record_id_verify` | PASS |
 | GET | `/api/v1/production/batches/{batch_id}/reconciliation` | `production.view` | `production.view (service guard not statically exposed)` | `api.production_reconciliation_get_api_v1_production_batches_batch_id_reconciliation` | PASS |
 | POST | `/api/v1/production/batches/{batch_id}/status` | `production.manage` | `production.manage (service guard not statically exposed)` | `api.production_change_batch_status_post_api_v1_production_batches_batch_id_status` | PASS |
+| GET | `/api/v1/production/ponds/{pond_id}/stock-summary` | `production.view` | `production.view (service guard not statically exposed)` | `api.production_pond_stock_summary_get_api_v1_production_ponds_pond_id_stock_summary` | PASS |
+| GET | `/api/v1/production/ponds/stock-summary` | `production.view` | `production.view (service guard not statically exposed)` | `api.production_pond_stock_summaries_get_api_v1_production_ponds_stock_summary` | PASS |
 | POST | `/api/v1/purchase/orders` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_create_order_post_api_v1_purchase_orders` | PASS |
 | GET | `/api/v1/purchase/orders` | `purchase.view` | `purchase.view (service guard not statically exposed)` | `purchase.list_orders` | PASS |
 | DELETE | `/api/v1/purchase/orders/{record_id}` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_delete_order_delete_api_v1_purchase_orders_record_id` | PASS |
@@ -121,12 +143,20 @@
 | POST | `/api/v1/purchase/payments/{record_id}/reverse` | `finance.payment.verify` | `finance.payment.verify (service guard not statically exposed)` | `api.purchase_reverse_payment_post_api_v1_purchase_payments_record_id_reverse` | PASS |
 | POST | `/api/v1/purchase/payments/{record_id}/submit` | `finance.payment.manage` | `finance.payment.manage (service guard not statically exposed)` | `api.purchase_submit_payment_post_api_v1_purchase_payments_record_id_submit` | PASS |
 | POST | `/api/v1/purchase/payments/{record_id}/verify` | `finance.payment.verify` | `finance.payment.verify (service guard not statically exposed)` | `api.purchase_verify_payment_post_api_v1_purchase_payments_record_id_verify` | PASS |
-| POST | `/api/v1/purchase/returns` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_create_return` | PASS |
-| GET | `/api/v1/purchase/returns` | `purchase.view` | `purchase.view (service guard not statically exposed)` | `api.purchase_list_returns` | PASS |
-| DELETE | `/api/v1/purchase/returns/{record_id}` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_delete_return` | PASS |
-| POST | `/api/v1/purchase/returns/{record_id}/cancel` | `purchase.return.verify` | `purchase.return.verify / purchase.verify` | `api.purchase_cancel_return` | PASS |
-| POST | `/api/v1/purchase/returns/{record_id}/submit` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_submit_return` | PASS |
-| POST | `/api/v1/purchase/returns/{record_id}/verify` | `purchase.return.verify` | `purchase.return.verify / purchase.verify` | `api.purchase_verify_return` | PASS |
+| POST | `/api/v1/purchase/requisitions` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_create_requisition_post_api_v1_purchase_requisitions` | PASS |
+| GET | `/api/v1/purchase/requisitions` | `purchase.view` | `purchase.view (service guard not statically exposed)` | `api.purchase_requisitions_get_api_v1_purchase_requisitions` | PASS |
+| DELETE | `/api/v1/purchase/requisitions/{record_id}` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_delete_requisition_delete_api_v1_purchase_requisitions_record_id` | PASS |
+| PATCH | `/api/v1/purchase/requisitions/{record_id}` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_update_requisition_patch_api_v1_purchase_requisitions_record_id` | PASS |
+| POST | `/api/v1/purchase/requisitions/{record_id}/approve` | `purchase.verify` | `purchase.verify (service guard not statically exposed)` | `api.purchase_approve_requisition_post_api_v1_purchase_requisitions_record_id_approve` | PASS |
+| POST | `/api/v1/purchase/requisitions/{record_id}/cancel` | `purchase.verify` | `purchase.verify (service guard not statically exposed)` | `api.purchase_cancel_requisition_post_api_v1_purchase_requisitions_record_id_cancel` | PASS |
+| POST | `/api/v1/purchase/requisitions/{record_id}/convert` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_convert_requisition_post_api_v1_purchase_requisitions_record_id_convert` | PASS |
+| POST | `/api/v1/purchase/requisitions/{record_id}/submit` | `purchase.manage` | `purchase.manage (service guard not statically exposed)` | `api.purchase_submit_requisition_post_api_v1_purchase_requisitions_record_id_submit` | PASS |
+| POST | `/api/v1/purchase/returns` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_create_return_post_api_v1_purchase_returns` | PASS |
+| GET | `/api/v1/purchase/returns` | `purchase.view` | `purchase.view (service guard not statically exposed)` | `api.purchase_returns_get_api_v1_purchase_returns` | PASS |
+| DELETE | `/api/v1/purchase/returns/{record_id}` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_delete_return_delete_api_v1_purchase_returns_record_id` | PASS |
+| POST | `/api/v1/purchase/returns/{record_id}/cancel` | `purchase.return.verify` | `purchase.return.verify / purchase.verify` | `api.purchase_cancel_return_post_api_v1_purchase_returns_record_id_cancel` | PASS |
+| POST | `/api/v1/purchase/returns/{record_id}/submit` | `purchase.return.manage` | `purchase.manage / purchase.return.manage` | `api.purchase_submit_return_post_api_v1_purchase_returns_record_id_submit` | PASS |
+| POST | `/api/v1/purchase/returns/{record_id}/verify` | `purchase.return.verify` | `purchase.return.verify / purchase.verify` | `api.purchase_verify_return_post_api_v1_purchase_returns_record_id_verify` | PASS |
 | POST | `/api/v1/sales/deliveries` | `sales.manage` | `sales.manage (service guard not statically exposed)` | `api.sales_create_delivery_post_api_v1_sales_deliveries` | PASS |
 | GET | `/api/v1/sales/deliveries` | `sales.view` | `sales.view (service guard not statically exposed)` | `api.sales_deliveries_get_api_v1_sales_deliveries` | PASS |
 | DELETE | `/api/v1/sales/deliveries/{record_id}` | `sales.manage` | `sales.manage (service guard not statically exposed)` | `api.sales_delete_delivery_delete_api_v1_sales_deliveries_record_id` | PASS |
@@ -151,12 +181,12 @@
 | POST | `/api/v1/sales/receipts/{record_id}/submit` | `finance.receipt.manage` | `finance.receipt.manage (service guard not statically exposed)` | `api.sales_submit_receipt_post_api_v1_sales_receipts_record_id_submit` | PASS |
 | POST | `/api/v1/sales/receipts/{record_id}/verify` | `finance.receipt.verify` | `finance.receipt.verify (service guard not statically exposed)` | `api.sales_verify_receipt_post_api_v1_sales_receipts_record_id_verify` | PASS |
 | GET | `/api/v1/sales/receivables` | `finance.receivable.view` | `finance.receivable.view (service guard not statically exposed)` | `api.sales_receivables_get_api_v1_sales_receivables` | PASS |
-| POST | `/api/v1/sales/returns` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_create_return` | PASS |
-| GET | `/api/v1/sales/returns` | `sales.view` | `sales.view (service guard not statically exposed)` | `api.sales_list_returns` | PASS |
-| DELETE | `/api/v1/sales/returns/{record_id}` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_delete_return` | PASS |
-| POST | `/api/v1/sales/returns/{record_id}/cancel` | `sales.return.verify` | `sales.return.verify / sales.verify` | `api.sales_cancel_return` | PASS |
-| POST | `/api/v1/sales/returns/{record_id}/submit` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_submit_return` | PASS |
-| POST | `/api/v1/sales/returns/{record_id}/verify` | `sales.return.verify` | `sales.return.verify / sales.verify` | `api.sales_verify_return` | PASS |
+| POST | `/api/v1/sales/returns` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_create_return_post_api_v1_sales_returns` | PASS |
+| GET | `/api/v1/sales/returns` | `sales.view` | `sales.view (service guard not statically exposed)` | `api.sales_returns_get_api_v1_sales_returns` | PASS |
+| DELETE | `/api/v1/sales/returns/{record_id}` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_delete_return_delete_api_v1_sales_returns_record_id` | PASS |
+| POST | `/api/v1/sales/returns/{record_id}/cancel` | `sales.return.verify` | `sales.return.verify / sales.verify` | `api.sales_cancel_return_post_api_v1_sales_returns_record_id_cancel` | PASS |
+| POST | `/api/v1/sales/returns/{record_id}/submit` | `sales.return.manage` | `sales.manage / sales.return.manage` | `api.sales_submit_return_post_api_v1_sales_returns_record_id_submit` | PASS |
+| POST | `/api/v1/sales/returns/{record_id}/verify` | `sales.return.verify` | `sales.return.verify / sales.verify` | `api.sales_verify_return_post_api_v1_sales_returns_record_id_verify` | PASS |
 | POST | `/api/v1/warehouse/{resource}` | `warehouse.manage` | `warehouse.manage (resource-specific)` | `api.warehouse_create_post_api_v1_warehouse_resource` | PASS |
 | GET | `/api/v1/warehouse/{resource}` | `warehouse.view` | `warehouse.view (resource-specific)` | `warehouse.list_records` | PASS |
 | DELETE | `/api/v1/warehouse/{resource}/{record_id}` | `warehouse.manage` | `warehouse.manage (resource-specific)` | `api.warehouse_delete_delete_api_v1_warehouse_resource_record_id` | PASS |
