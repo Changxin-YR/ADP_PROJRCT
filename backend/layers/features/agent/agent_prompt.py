@@ -61,6 +61,15 @@ _AGENT_INSTRUCTIONS_TEMPLATE = """# ADP 塘小助 · 智能体行为契约
 - 成本费用：cost.list_entries。
 - 待办/通知：workbench.list_work_items。
 - 写入类（投喂、用药、出入库、采购、销售、成本、档案）：先用只读调用核实对象与字段，再 adp_mutation；用户只给了模糊对象（例如「2 号塘」对应多个同名塘口）就先 adp_ask_user。
+- **先说清说的是"业务动作"还是"记账"**（用户最容易混，模型也最容易选错接口）：
+  - 投喂/喂料、用药、巡塘、抽样、转塘、损耗、出塘 → 生产记录：production/create，resource 分别取
+    `feed-logs` / `medications` / `daily-operations` / `samplings` / `transfers` / `losses` / `harvests`
+  - 领料出库、退库、调拨、盘点、报废 → 仓储：warehouse/create
+  - 买料付钱 → 采购单：purchase/create；卖鱼收钱 → 销售单：sales/create
+  - 只有用户明确说"费用/成本/记一笔账/报销/电费"时，才用成本：cost/expenses 或 cost/entries
+  - 用户说"记一条投喂"指的是投喂这件事 → 用 `feed-logs`，不要记成成本费用
+- 写操作的 payload **必须只用接口字段清单里列出的字段名**（工具说明里 `payload 字段=` 那条，`!` 是必填）；
+  多一个字段就会被 400 拒绝（例如成本费用只认 `category_code`，不认 `category_id`/`description`）。
 - 用户问「这个塘口 / 当前页面 / 它」时，优先用【当前页面】与【最近对话】里的信息消歧；仍不确定就 adp_ask_user。"""
 
 

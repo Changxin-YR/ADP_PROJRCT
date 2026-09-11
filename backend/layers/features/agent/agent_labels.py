@@ -128,6 +128,25 @@ FIELD_LABELS: dict[str, str] = {
     "scope_type": "范围类型", "scope_id": "范围对象", "method": "方式", "category": "分类", "type": "类型",
     "source": "来源", "target": "目标", "page": "页码", "page_size": "每页条数", "keyword": "关键词",
     "search": "搜索词", "uninspected_on": "未巡检日期", "pond_ids": "塘口范围", "id": "编号",
+    # 成本模块（分录/费用/资产/结算）：字段名最容易漏，模型和用户都直接看到
+    "category_code": "费用类别", "category_name": "费用类别名称", "cost_nature": "成本性质",
+    "occurred_on": "发生日期", "period_start": "期间开始", "period_end": "期间结束",
+    "source_detail": "来源说明", "source_ref": "来源单号", "source_type": "来源类型",
+    "target_type": "归集对象类型", "target_id": "归集对象", "evidence_attachment_ids": "凭证附件",
+    "asset_type": "资产类型", "purchase_date": "购置日期", "original_value": "原值",
+    "salvage_value": "残值", "useful_life_months": "使用月数", "depreciation_start_date": "折旧起始日",
+    "allocation_driver": "分摊动因", "allocation_method": "分摊方式", "period_code": "会计期间",
+    "amount_rule": "金额规则", "allocation_rule_id": "分摊规则", "asset_ids": "资产范围",
+    "manual_reason": "手工原因", "reversed_entry_id": "被冲销分录", "reversal_of_id": "冲销对象",
+    # 生产/仓储/采购/销售常用但此前没登记的字段
+    "operation_type": "操作类型", "planned_at": "计划时间", "target_pond_id": "目标塘口",
+    "initial_quantity": "初始数量", "initial_weight_kg": "初始重量（kg）", "stocked_at": "投苗日期",
+    "expected_harvest_date": "预计出塘日期", "feed_plan_id": "投喂计划", "feed_task_id": "投喂任务",
+    "material_issue_request_id": "领料申请", "assigned_user_id": "负责人", "organization_id": "组织",
+    "unit_price": "单价", "due_date": "应付日期", "expected_delivery_date": "预计到货日期",
+    "warehouse_id": "仓库", "supplier_id": "供应商", "customer_id": "客户", "material_id": "物料",
+    "quantity_delta": "数量变动", "unit": "单位", "specification": "规格", "category": "分类",
+    "price": "价格", "batch_no": "批次号", "document_type": "单据类型", "reason_code": "原因代码",
 }
 
 # 风险提示：确认卡片只在回退模式下出现
