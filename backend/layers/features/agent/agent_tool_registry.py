@@ -243,16 +243,18 @@ def build_agent_tool_catalog(registry: AgentToolRegistry | None = None) -> str:
                 for name, schema in tool.parameters.items()
             ],
         }
-        if tool.risk != "read":
-            resources = resources_for(tool.path_template)
-            if resources:
-                # 通用 {resource} 写接口：每种资源一套字段，模型先选 resource 再照抄字段名
+        resources = resources_for(tool.path_template)
+        if resources:
+            # 通用 {resource} 接口：先告诉模型 resource 能填什么（读操作同样需要）
+            entry["rs"] = resources
+            if tool.risk != "read":
+                # 写操作再按资源给出各自的字段清单，模型照抄字段名而不是猜
                 entry["f"] = fields_by_resource(tool)
-            else:
-                spec = field_spec(tool)
-                if spec is not None:
-                    allowed, required = spec
-                    entry["f"] = [f"{name}!" if name in required else name for name in allowed]
+        elif tool.risk != "read":
+            spec = field_spec(tool)
+            if spec is not None:
+                allowed, required = spec
+                entry["f"] = [f"{name}!" if name in required else name for name in allowed]
         operations.append(entry)
 
     return json.dumps(

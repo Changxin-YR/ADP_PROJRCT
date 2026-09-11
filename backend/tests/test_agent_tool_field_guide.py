@@ -62,15 +62,26 @@ def test_specialised_write_endpoints_keep_their_required_fields() -> None:
         assert field in order
 
 
-def test_read_operations_stay_lean_and_catalog_stays_small_enough() -> None:
+def test_read_operations_name_their_resources_but_carry_no_field_list() -> None:
     catalog = _catalog()
     reads = [entry for entry in catalog["operations"] if entry["r"] == "read"]  # type: ignore[index]
 
     assert reads, "目录里应该有只读操作"
     assert all("f" not in entry for entry in reads), "只读操作不需要字段清单"
+    # 读操作同样要让模型知道 resource 能填什么，否则它只能盲试
+    reader = next(entry for entry in reads if entry["n"] == "master_data.list_records")
+    assert reader["rs"] == list(resources_for("/api/v1/master-data/{resource}"))
 
     size = len(json.dumps(catalog, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
-    assert size < MAX_CATALOG_BYTES, f"工具目录 {size} 字节，超过环境变量安全上限 {MAX_CATALOG_BYTES}"
+    assert size < MAX_CATALOG_BYTES, f"工具目录 {size} 字节，超过进程环境的安全上限 {MAX_CATALOG_BYTES}"
+
+
+def test_generic_write_operations_expose_resource_values_too() -> None:
+    entry = _operation(_catalog(), "master_data.create_record")
+    assert entry, "catalog 应包含通用写操作"
+
+    assert entry["rs"] == list(resources_for("/api/v1/master-data/{resource}"))
+    assert set(entry["f"]) == set(entry["rs"])
 
 
 def test_field_guide_reads_from_the_business_validation_source() -> None:

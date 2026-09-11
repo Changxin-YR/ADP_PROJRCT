@@ -94,11 +94,16 @@ def _fields_for_resource(path: str, resource: str) -> tuple[list[str], list[str]
 
 
 def resources_for(path: str) -> list[str]:
-    """路径里的 ``{resource}`` 可以填哪些值。"""
-    if "/api/v1/production/{resource}" in path or path.startswith("/api/v1/production/{resource}"):
+    """路径里的 ``{resource}`` 可以填哪些值。
+
+    注意必须先把 path 变成 str：早期版本这里写成了 ``in Path(...)``，
+    直接抛 TypeError，又被调用方的兜底吞掉，资源清单于是永远为空。
+    """
+    text = str(path or "")
+    if "/api/v1/production/{resource}" in text:
         return list(PRODUCTION_RESOURCES)
-    if "/api/v1/master-data/{resource}" in path:
+    if "/api/v1/master-data/{resource}" in text:
         return list(MASTER_RESOURCES)
-    if "/api/v1/warehouse/{resource}" in path:
+    if "/api/v1/warehouse/{resource}" in text:
         return list(WAREHOUSE_RESOURCES)
     return []
