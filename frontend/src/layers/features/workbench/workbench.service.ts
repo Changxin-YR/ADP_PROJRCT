@@ -1,5 +1,5 @@
 import { createApiClient } from '../../common/api/client'
-import type { PageResult, PondDetail, PondSummary, WorkbenchSummary } from '../../common/api/workbench.models'
+import type { PageResult, PondDetail, PondStockSummary, PondStockSummaryPage, PondSummary, WorkbenchSummary } from '../../common/api/workbench.models'
 import type { MasterPage, MasterRecord } from '../../common/api/master-data.models'
 
 const api = createApiClient()
@@ -51,6 +51,23 @@ export async function getPond(id: number): Promise<PondDetail> {
     can_verify_status_change: result.record.can_verify_status_change === true,
     pending_status_change: result.record.pending_status_change ? result.record.pending_status_change as unknown as PondDetail['pending_status_change'] : null,
   }
+}
+
+/**
+ * 塘口存塘量只读汇总（生产事实）：
+ * - 数值来自 batch_stock_records（生产核验写入，append-only）+ 已核验抽样，服务端不回写塘口档案；
+ * - 档案里的 stock_quantity 只作为无批次流水时的兜底（data_source='manual'）。
+ */
+export const getPondStockSummary = (pondId: number) =>
+  api.get<PondStockSummary>(`/api/v1/production/ponds/${pondId}/stock-summary`)
+
+/** 列表页一次拉多口塘（服务端 3 条聚合查询），避免逐塘 N+1。 */
+export async function listPondStockSummaries(pondIds: number[]): Promise<PondStockSummaryPage> {
+  const unique = [...new Set(pondIds.filter((id) => Number.isFinite(id) && id > 0))]
+  const empty: PondStockSummaryPage = { items: [], page: 1, page_size: unique.length, total: 0, has_next: false }
+  if (!unique.length) return empty
+  const result = await api.get<PondStockSummaryPage>(`/api/v1/production/ponds/stock-summary?pond_ids=${unique.join(',')}`)
+  return { ...empty, ...result, items: Array.isArray(result?.items) ? result.items : [] }
 }
 
 export interface WorkItemRecord {

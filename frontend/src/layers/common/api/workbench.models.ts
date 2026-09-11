@@ -65,6 +65,64 @@ export interface PondStatusChange {
   requested_at?: string
 }
 
+/** 存塘量来源：批次流水汇总 / 档案手工值兜底 / 两者都没有 */
+export type PondStockDataSource = 'batch_ledger' | 'manual' | 'none'
+
+export interface PondStockBatch {
+  batch_id: number
+  code?: string | null
+  name?: string | null
+  species?: string | null
+  batch_status?: string | null
+  quantity: string
+  weight_kg: string
+  avg_weight_kg?: string | null
+}
+
+export interface PondStockSampling {
+  document_id: number
+  occurred_at?: string | null
+  quantity: string
+  weight_kg: string
+  avg_weight_kg?: string | null
+  batch_id?: number | null
+  code?: string | null
+}
+
+/** GET /api/v1/production/ponds/{pond_id}/stock-summary —— 只读汇总，绝不回写塘口档案 */
+export interface PondStockSummary {
+  pond_id: number
+  pond_code?: string | null
+  pond_name?: string | null
+  pond_status?: PondStatus | null
+  batch_stock: { quantity: string; weight_kg: string }
+  manual_stock: { quantity: string | null; current_spec: string | null }
+  batches: PondStockBatch[]
+  latest_sampling: PondStockSampling | null
+  data_source: PondStockDataSource
+}
+
+export interface PondStockSummaryListItem {
+  pond_id: number
+  pond_code?: string | null
+  pond_name?: string | null
+  pond_status?: PondStatus | null
+  batch_stock: { quantity: string; weight_kg: string }
+  manual_stock: { quantity: string | null; current_spec: string | null }
+  batch_count: number
+  latest_sampling: { document_id: number; occurred_at?: string | null } | null
+  data_source: PondStockDataSource
+}
+
+export interface PondStockSummaryPage {
+  items: PondStockSummaryListItem[]
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
+  source?: string
+}
+
 export interface PondGroupSummary {
   id: number
   name: string

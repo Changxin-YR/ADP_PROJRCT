@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 from backend.layers.common.governance.lifecycle import DomainError, parse_expected_version, require_deletable, require_editable, verify_version
 from backend.layers.features.production.daily_operation_rules import normalize_daily_operation_payload
+from backend.layers.features.production.pond_stock_summary import PondStockSummaryService
 from backend.layers.features.production.production_validation import require_stock_measurement, validate_batch_seed, validate_loss_reason
 from backend.layers.common.files.evidence import evidence_from_payload
 from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, unrestricted
@@ -32,7 +33,7 @@ FIELDS = {
 RESERVED = {"id", "status", "row_version", "version", "allowed_actions", "created_by", "updated_by", "verified_by", "created_at", "updated_at"}
 # DECIMAL(18,3) 上限：批次 1e18 等超界数量在服务层直接拒绝（BUG-M4-02）。
 MAX_PRODUCTION_QUANTITY = Decimal("999999999999999.999")
-class ProductionService:
+class ProductionService(PondStockSummaryService):
     def __init__(self, store: Any) -> None:
         self.store = store
     @staticmethod
@@ -282,7 +283,9 @@ class ProductionService:
         self.require(user, "batches", "view")
         self._current(user, "batches", batch_id)
         return self.store.reconcile_batch(batch_id)
+
     def change_batch_status(self, user: dict[str, Any], batch_id: int, payload: Any) -> dict[str, Any]:
+        """批次生命周期变更：只允许合法下一状态，且必须填写原因（存塘/未完成单据守卫在 store 层）。"""
         self.require(user, "batches", "manage")
         current = self._current(user, "batches", batch_id)
         target = str((payload or {}).get("batch_status") or "").strip()
@@ -291,5 +294,7 @@ class ProductionService:
             raise DomainError("INVALID_BATCH_STATUS_TRANSITION", "批次状态流转不符合业务规则", 409)
         if not reason or len(reason) > 500:
             raise DomainError("BATCH_STATUS_REASON_REQUIRED", "批次状态变更必须填写原因", 400)
-        expected = self._expected(payload); verify_version(expected_version=expected, current_version=int(current["row_version"]))
-        return self.result(self.store.change_batch_status(batch_id, target, reason=reason, expected_version=expected, user_id=int(user["id"])), user, "batches")
+        expected = self._expected(payload)
+        verify_version(expected_version=expected, current_version=int(current["row_version"]))
+        row = self.store.change_batch_status(batch_id, target, reason=reason, expected_version=expected, user_id=int(user["id"]))
+        return self.result(row, user, "batches")

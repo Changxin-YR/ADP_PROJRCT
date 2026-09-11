@@ -3,11 +3,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import AppShell from '../../common/ui/AppShell.vue'
 import RecordActions from '../../common/ui/RecordActions.vue'
 import StatusBadge from '../../common/ui/StatusBadge.vue'
-import { ApiError, submitErrorText } from '../../common/api/errors'
+import { ApiError, isNetworkError, messageWithContext, submitErrorText } from '../../common/api/errors'
 import { useSubmitGuard } from '../../common/ui/useSubmitGuard'
 import type { MasterField, MasterRecord } from '../../common/api/master-data.models'
 import type { RecordAction } from '../../common/api/lifecycle.models'
+import type { PondStockDataSource, PondStockSummaryListItem } from '../../common/api/workbench.models'
 import { createMasterRecord, deleteMasterDraft, listAllMasterOptions, listAllMasterRecords, submitMasterRecord, updateMasterRecord, verifyMasterRecord } from '../../features/master-data/master-data.service'
+import { listPondStockSummaries } from '../../features/workbench/workbench.service'
 
 type PondStatus = 'build' | 'stocked' | 'farming' | 'rest' | 'clean' | 'rebuild'
 type PondRecord = MasterRecord & { pond_status?: PondStatus; area_id?: number; pond_group_id?: number; capacity_mu?: number; species?: string; location_text?: string }
@@ -42,6 +44,38 @@ const fields: MasterField[] = [
   { key: 'stock_quantity', label: '当前存塘量（尾）', type: 'number' },
   { key: 'stock_quantity_source', label: '存塘量来源' },
 ]
+// 存塘量改为生产事实汇总（只读）：数值来自 batch_stock_records + 已核验抽样，档案手工值仅作兜底
+const stockSummaries = ref<Record<number, PondStockSummaryListItem>>({})
+const stockLoading = ref(false)
+const stockError = ref('')
+// 加载失败文案（通俗中文，不出现 HTTP/接口/字段名等技术术语）：
+// 服务端 5xx 的 request_id 也属于技术细节，一律换成「请稍后重试」。
+const STOCK_LOAD_FAILED = '存塘量（批次流水）加载失败'
+function stockErrorText(error: unknown) {
+  if (error instanceof ApiError && (error.status >= 500 || isNetworkError(error))) return `${STOCK_LOAD_FAILED}，请稍后重试`
+  return messageWithContext(error, STOCK_LOAD_FAILED)
+}
+// 注意：stockSourceLabels/stockSourceLabel 已被「档案存塘量来源」占用，这里区分「生产事实来源」
+const stockDataSourceLabels: Record<PondStockDataSource, string> = {
+  batch_ledger: '批次流水', manual: '档案手工值', none: '无数据',
+}
+function stockText(value?: string | null) {
+  if (value == null || value === '') return null
+  const quantity = Number(value)
+  return Number.isFinite(quantity) ? quantity.toLocaleString() : String(value)
+}
+function stockOf(pondId: number) {
+  const summary = stockSummaries.value[pondId]
+  if (!summary) return { stock_display: '—', stock_source: stockLoading.value ? '加载中' : stockDataSourceLabels.none, stock_available: false }
+  if (summary.data_source === 'batch_ledger') {
+    return { stock_display: `${stockText(summary.batch_stock?.quantity) ?? '0'} 尾`, stock_source: stockDataSourceLabels.batch_ledger, stock_available: true }
+  }
+  if (summary.data_source === 'manual') {
+    return { stock_display: `${stockText(summary.manual_stock?.quantity) ?? '0'} 尾`, stock_source: stockDataSourceLabels.manual, stock_available: true }
+  }
+  return { stock_display: '—', stock_source: stockDataSourceLabels.none, stock_available: false }
+}
+
 const areaOptions = ref<MasterRecord[]>([])
 const pondGroupOptions = ref<MasterRecord[]>([])
 const filteredPonds = computed(() => ponds.value.filter((pond) =>
@@ -49,6 +83,8 @@ const filteredPonds = computed(() => ponds.value.filter((pond) =>
   && (!areaId.value || String(pond.area_id) === areaId.value)
   && (!search.value || `${pond.name}${pond.code}${pond.species ?? ''}${pond.location_text ?? ''}`.toLowerCase().includes(search.value.toLowerCase())),
 ))
+
+const displayPonds = computed(() => filteredPonds.value.map((pond) => ({ ...pond, ...stockOf(pond.id) })))
 
 const formOpen = ref(false)
 const editing = ref<PondRecord | null>(null)
@@ -58,14 +94,31 @@ const confirmAction = ref<'delete' | 'submit' | 'verify' | null>(null)
 const target = ref<PondRecord | null>(null)
 
 function errorMessage(error: unknown, fallback: string) { return error instanceof ApiError ? `${fallback}：${error.message}` : fallback }
+
+/** 一次拉回当前页所有塘口的存塘量汇总（服务端聚合，避免逐塘 N+1）。 */
+async function loadStock(pondItems: PondRecord[]) {
+  stockError.value = ''
+  if (!pondItems.length) { stockSummaries.value = {}; return }
+  stockLoading.value = true
+  try {
+    const page = await listPondStockSummaries(pondItems.map((pond) => pond.id))
+    stockSummaries.value = Object.fromEntries(page.items.map((item) => [item.pond_id, item]))
+  } catch (error) {
+    // 存塘量是只读派生视图：失败时明确提示并留空，绝不用档案手工值假装成批次流水事实
+    stockSummaries.value = {}
+    stockError.value = stockErrorText(error)
+  } finally { stockLoading.value = false }
+}
+
 async function load() {
   loading.value = true; pageError.value = ''
   try {
     const [pondItems, areaOptionsPage, groupOptionsPage] = await Promise.all([listAllMasterRecords('ponds'), listAllMasterOptions('areas'), listAllMasterOptions('pond-groups')])
     ponds.value = pondItems as PondRecord[]; areaOptions.value = areaOptionsPage; pondGroupOptions.value = groupOptionsPage
   }
-  catch (error) { ponds.value = []; pageError.value = errorMessage(error, '塘口数据加载失败') }
+  catch (error) { ponds.value = []; pageError.value = errorMessage(error, '塘口数据加载失败'); stockSummaries.value = {}; stockError.value = ''; return }
   finally { loading.value = false }
+  await loadStock(ponds.value)
 }
 function replace(row: MasterRecord) {
   const index = ponds.value.findIndex((item) => item.id === row.id)
@@ -145,12 +198,18 @@ onMounted(load)
     <section class="kpi-grid"><article class="page-card kpi-card"><div class="kpi-card__top"><span>塘口总数</span></div><strong>{{ ponds.length }}<small> 口</small></strong><small>当前授权范围</small></article><article class="page-card kpi-card kpi--teal"><div class="kpi-card__top"><span>养殖中</span></div><strong>{{ ponds.filter((p) => p.pond_status === 'farming').length }}<small> 口</small></strong><small>运营状态</small></article><article class="page-card kpi-card kpi--amber"><div class="kpi-card__top"><span>待核验</span></div><strong>{{ ponds.filter((p) => p.status === 'submitted').length }}<small> 条</small></strong><small>提交后仍可编辑</small></article></section>
     <div class="filter-bar"><input v-model="search" data-testid="pond-search" class="filter-input" style="width:300px" placeholder="搜索塘口名称 / 编码 / 品种"><select v-model="pondStatus" class="filter-select"><option value="">全部养殖状态</option><option v-for="(label, key) in labels" :key="key" :value="key">{{ label }}</option></select><select v-model="areaId" class="filter-select"><option value="">全部区域</option><option v-for="area in areaOptions" :key="area.id" :value="String(area.id)">{{ area.name }}</option></select></div>
     <div v-if="pageError" class="page-card table-empty" role="alert">{{ pageError }}<div style="margin-top:12px"><button class="ghost-action" type="button" @click="load">重新加载</button></div></div>
-    <section v-else class="page-card data-table-card"><table class="data-table"><thead><tr><th>塘口</th><th>区域</th><th>分组</th><th>养殖品种</th><th>面积</th><th>养殖状态</th><th>录入状态</th><th>操作</th></tr></thead><tbody><tr v-for="pond in filteredPonds" :key="pond.id"><td><RouterLink class="table-link" :to="`/ponds/${pond.id}`"><strong>{{ pond.name }}</strong></RouterLink><small>{{ pond.code }}</small></td><td>区域 {{ pond.area_id ?? '—' }}</td><td>{{ pond.pond_group_id ? `分组 ${pond.pond_group_id}` : '未分组' }}</td><td>{{ pond.species || '待定' }}</td><td><span class="table-number">{{ pond.capacity_mu ?? 0 }} 亩</span></td><td><StatusBadge :label="labels[pond.pond_status ?? 'build']" :tone="tones[pond.pond_status ?? 'build']" /></td><td>{{ lifecycleNames[pond.status] ?? pond.status }} · v{{ pond.version }}</td><td><div class="table-actions"><RouterLink :to="`/ponds/${pond.id}`">查看</RouterLink><RecordActions :actions="pond.allowed_actions.filter((action) => action !== 'view')" @action="handleAction($event, pond)" /></div></td></tr><tr v-if="!filteredPonds.length"><td colspan="8" class="table-empty">{{ loading ? '正在加载塘口档案…' : '没有符合条件的塘口' }}</td></tr></tbody></table></section>
+    <p v-else-if="stockError" class="page-card stock-notice" role="alert" data-testid="pond-list-stock-error">{{ stockError }}。存塘量（批次流水）暂不显示，档案手工值不会被当作生产事实展示。<button class="ghost-action" type="button" data-testid="pond-list-stock-retry" @click="loadStock(ponds)">重新加载存塘量</button></p>
+    <section v-else class="page-card data-table-card"><table class="data-table"><thead><tr><th>塘口</th><th>区域</th><th>分组</th><th>养殖品种</th><th>面积</th><th>存塘量（批次流水）</th><th>养殖状态</th><th>录入状态</th><th>操作</th></tr></thead><tbody><tr v-for="pond in displayPonds" :key="pond.id"><td><RouterLink class="table-link" :to="`/ponds/${pond.id}`"><strong>{{ pond.name }}</strong></RouterLink><small>{{ pond.code }}</small></td><td>区域 {{ pond.area_id ?? '—' }}</td><td>{{ pond.pond_group_id ? `分组 ${pond.pond_group_id}` : '未分组' }}</td><td>{{ pond.species || '待定' }}</td><td><span class="table-number">{{ pond.capacity_mu ?? 0 }} 亩</span></td><td data-testid="pond-list-stock"><span class="table-number" :title="pond.stock_source">{{ pond.stock_display }}</span><small class="stock-source-tag">{{ pond.stock_source }}</small></td><td><StatusBadge :label="labels[pond.pond_status ?? 'build']" :tone="tones[pond.pond_status ?? 'build']" /></td><td>{{ lifecycleNames[pond.status] ?? pond.status }} · v{{ pond.version }}</td><td><div class="table-actions"><RouterLink :to="`/ponds/${pond.id}`">查看</RouterLink><RecordActions :actions="pond.allowed_actions.filter((action) => action !== 'view')" @action="handleAction($event, pond)" /></div></td></tr><tr v-if="!filteredPonds.length"><td colspan="9" class="table-empty">{{ loading ? '正在加载塘口档案…' : '没有符合条件的塘口' }}</td></tr></tbody></table></section>
     <div class="pagination-bar"><span>共 {{ filteredPonds.length }} 个塘口 · 当前页展示授权范围</span></div>
 
     <Teleport to="body">
-      <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="塘口资料编辑" @click.self="formOpen = false" @keydown.esc="formOpen = false"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? '编辑 · 塘口档案' : '新增 · 塘口档案' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">提交后仍可修改并保留版本；核验后永久只读。扩展字段（增氧机/规格/存塘量）随档案一起保存。</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><select v-if="field.key === 'area_id'" v-model="form[field.key]" data-testid="pond-area" class="filter-select" style="width:100%" @change="changeArea"><option value="" disabled>请选择已核验区域</option><option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}（{{ area.code }}）</option></select><select v-else-if="field.key === 'pond_group_id'" v-model="form[field.key]" data-testid="pond-group" class="filter-select" style="width:100%"><option value="">不分组</option><option v-for="group in availablePondGroups" :key="group.id" :value="group.id">{{ group.name }}（{{ group.code }}）</option></select><select v-else-if="field.key === 'stock_quantity_source'" v-model="form[field.key]" data-testid="pond-stock_quantity_source" class="filter-select" style="width:100%"><option value="">未标注</option><option v-for="item in stockSourceOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select><input v-else v-model="form[field.key]" :data-testid="`pond-${field.key}`" :type="field.type === 'number' ? 'number' : 'text'" :min="field.key === 'aerator_count' || field.key === 'stock_quantity' ? 0 : undefined" :step="field.key === 'aerator_count' ? 1 : undefined" class="filter-input" style="width:100%"></label><label v-if="!editing" class="modal-field"><span>初始养殖状态</span><select v-model="form.pond_status" class="filter-select" style="width:100%"><option v-for="(label, key) in labels" :key="key" :value="key">{{ label }}</option></select></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="pond-save" :disabled="saving" :aria-busy="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button></div></div></div>
+      <div v-if="formOpen" class="modal-overlay" role="dialog" aria-modal="true" aria-label="塘口资料编辑" @click.self="formOpen = false" @keydown.esc="formOpen = false"><div class="modal-panel"><div class="modal-panel__head"><div><p class="section-label">{{ editing ? 'Edit' : 'Create' }}</p><h2>{{ editing ? '编辑 · 塘口档案' : '新增 · 塘口档案' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="formOpen = false">×</button></div><p class="section-subtitle">提交后仍可修改并保留版本；核验后永久只读。扩展字段（增氧机/规格/存塘量）随档案一起保存。<br><strong>「当前存塘量 / 当前规格」仅供无批次流水时兜底，实际以批次流水与抽样事实为准</strong>，列表与详情展示的是生产事实汇总值。</p><div class="modal-row" style="grid-template-columns:repeat(2,minmax(0,1fr))"><label v-for="field in fields" :key="field.key" class="modal-field"><span>{{ field.label }}{{ field.required ? ' *' : '' }}</span><select v-if="field.key === 'area_id'" v-model="form[field.key]" data-testid="pond-area" class="filter-select" style="width:100%" @change="changeArea"><option value="" disabled>请选择已核验区域</option><option v-for="area in areaOptions" :key="area.id" :value="area.id">{{ area.name }}（{{ area.code }}）</option></select><select v-else-if="field.key === 'pond_group_id'" v-model="form[field.key]" data-testid="pond-group" class="filter-select" style="width:100%"><option value="">不分组</option><option v-for="group in availablePondGroups" :key="group.id" :value="group.id">{{ group.name }}（{{ group.code }}）</option></select><select v-else-if="field.key === 'stock_quantity_source'" v-model="form[field.key]" data-testid="pond-stock_quantity_source" class="filter-select" style="width:100%"><option value="">未标注</option><option v-for="item in stockSourceOptions" :key="item.value" :value="item.value">{{ item.label }}</option></select><input v-else v-model="form[field.key]" :data-testid="`pond-${field.key}`" :type="field.type === 'number' ? 'number' : 'text'" :min="field.key === 'aerator_count' || field.key === 'stock_quantity' ? 0 : undefined" :step="field.key === 'aerator_count' ? 1 : undefined" class="filter-input" style="width:100%"></label><label v-if="!editing" class="modal-field"><span>初始养殖状态</span><select v-model="form.pond_status" class="filter-select" style="width:100%"><option v-for="(label, key) in labels" :key="key" :value="key">{{ label }}</option></select></label></div><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="formOpen = false">取消</button><button class="primary-action" type="button" data-testid="pond-save" :disabled="saving" :aria-busy="saving" @click="save">{{ saving ? '保存中…' : '保存' }}</button></div></div></div>
       <div v-if="confirmAction && target" class="modal-overlay" role="dialog" aria-modal="true" aria-label="塘口操作确认"><div class="modal-panel" style="width:min(480px,100%)"><div class="modal-panel__head"><div><p class="section-label">Confirm</p><h2>{{ confirmAction === 'verify' ? '核验并锁定' : confirmAction === 'submit' ? '提交核验' : '删除草稿' }}</h2></div><button class="modal-close" type="button" aria-label="关闭" @click="confirmAction = null">×</button></div><p class="section-subtitle">{{ confirmAction === 'verify' ? '核验后永久只读，只能查看。' : confirmAction === 'submit' ? '提交后仍可修改，待办跟随最新版本。' : '只有未提交且无引用的草稿可以删除。' }}</p><p v-if="dialogError" class="modal-error" role="alert">{{ dialogError }}</p><div class="modal-panel__foot"><button class="ghost-action" type="button" @click="confirmAction = null">取消</button><button class="primary-action" type="button" :disabled="confirming" :aria-busy="confirming" @click="confirm">{{ confirming ? '处理中…' : '确认' }}</button></div></div></div>
     </Teleport>
   </AppShell>
 </template>
+
+<style scoped>
+.stock-notice { display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 12px; color: #8a6d1f; background: #fdf6e3; }
+.stock-source-tag { display: block; color: #64748b; font-size: 11px; }
+</style>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 import pymysql
 
@@ -10,20 +10,21 @@ from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.revisions import build_revision, save_revision
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
 from backend.layers.common.files.evidence import validate_bound_evidence
-from backend.layers.common.security.data_scope import require_active_scope, scope_predicate, unrestricted
+from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, scope_predicate, unrestricted
 from backend.layers.features.production.production_service import FIELDS
 from backend.layers.features.production.production_material_control import require_material_issue
 from backend.layers.features.production.production_relations import validate_relations
 from backend.layers.features.production.production_scope import scope_defaults
 from backend.layers.features.production.production_filters import apply_record_filters
 from backend.layers.features.production.production_stock_locking import lock_batch_anchors
+from backend.layers.features.production.pond_stock_summary import PondStockSummaryQueries
 from backend.layers.features.production.production_uninspected import list_uninspected_records
 DOC_TYPES = {
     "samplings": "sampling", "transfers": "transfer", "losses": "loss", "harvests": "harvest",
     "feed-plans": "feed_plan", "feed-tasks": "feed_task", "feed-logs": "feed_log",
     "daily-operations": "daily_operation",
 }
-class MySqlProductionStore:
+class MySqlProductionStore(PondStockSummaryQueries):
     require_material_issue = staticmethod(require_material_issue)
     def __init__(self, settings: Any) -> None:
         self.settings = settings
@@ -296,5 +297,3 @@ class MySqlProductionStore:
             cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight_kg FROM batch_stock_records WHERE batch_id=%s", (batch_id,))
             totals = cursor.fetchone() or {}
         return {"batch_id": batch_id, "quantity": totals.get("quantity", Decimal("0")), "weight_kg": totals.get("weight_kg", Decimal("0")), "difference": Decimal("0")}
-    def _audit(self, connection: Any, user_id: int, action: str, resource: str, record_id: int, *, before: Any = None, after: Any = None) -> None:
-        self.audit.write(connection, user_id=user_id, action=f"{action}_production", object_type=f"production:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", result="success", ip_address=None, module_code="production", before=before, after=after)

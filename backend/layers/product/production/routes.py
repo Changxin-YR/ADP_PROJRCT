@@ -97,4 +97,24 @@ def create_production_blueprint(settings: Settings, auth_store: Any, production_
         except (AuthServiceError, DomainError) as exc:
             return error(exc)
 
+    # 塘口存塘量只读汇总（D1）：结果由生产事实（batch_stock_records + 已核验抽样）汇总，
+    # 不写入/覆盖 ponds.stock_quantity 与 ponds.current_spec（历史数据无批次流水时手工值仍作兜底展示）。
+    @blueprint.get("/ponds/stock-summary")
+    def pond_stock_summaries() -> tuple[Response, int] | Response:
+        try:
+            page, page_size = pagination(code="PRODUCTION_PAGE_INVALID", default_page_size=50)
+            pond_ids = service.store.parse_pond_ids(request.args.get("pond_ids"))
+            return jsonify(ok(service.list_pond_stock_summaries(user(), page=page, page_size=page_size, pond_ids=pond_ids or None)))
+        except (AuthServiceError, DomainError) as exc:
+            return error(exc)
+        except (TypeError, ValueError):
+            return error(DomainError("PRODUCTION_PAGE_INVALID", "分页参数无效", 400))
+
+    @blueprint.get("/ponds/<int:pond_id>/stock-summary")
+    def pond_stock_summary(pond_id: int) -> tuple[Response, int] | Response:
+        try:
+            return jsonify(ok(service.pond_stock_summary(user(), pond_id)))
+        except (AuthServiceError, DomainError) as exc:
+            return error(exc)
+
     return blueprint
