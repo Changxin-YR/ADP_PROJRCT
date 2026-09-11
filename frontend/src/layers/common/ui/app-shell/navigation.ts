@@ -22,10 +22,12 @@ export const navGroups: NavGroup[] = [
   { code: 'purchase', label: '采购与付款', icon: 'swap', items: [
     { to: '/purchase/suppliers', label: '供应商档案', requiredPermission: 'purchase.view' }, { to: '/purchase/orders', label: '采购明细', requiredPermission: 'purchase.view' },
     { to: '/purchase/payables', label: '应付账款', requiredPermission: 'finance.payable.view' },
+    { to: '/purchase/returns', label: '供应商退货', requiredPermission: 'purchase.view' },
   ] },
   { code: 'sales', label: '销售与收款', icon: 'target', items: [
     { to: '/sales/customers', label: '客户档案', requiredPermission: 'sales.view' }, { to: '/sales/orders', label: '销售明细', requiredPermission: 'sales.view' },
     { to: '/sales/receivables', label: '应收账款', requiredPermission: 'finance.receivable.view' },
+    { to: '/sales/returns', label: '客户退货', requiredPermission: 'sales.view' },
   ] },
   { code: 'cost', label: '成本与经营', icon: 'diamond', items: [
     { to: '/cost/structure', label: '成本构成', requiredPermission: 'cost.view' },

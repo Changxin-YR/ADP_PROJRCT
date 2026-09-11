@@ -15,7 +15,9 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "desktop": "electron .",
-    "build:win": "npm run build && electron-builder --win nsis"
+    "build:win": "npm run build && electron-builder --win nsis",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "vue-tsc --noEmit && vite build --mode demo"
   },
   "dependencies": {
     "vue": "3.5.13",

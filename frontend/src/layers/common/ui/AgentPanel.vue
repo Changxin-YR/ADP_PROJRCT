@@ -6,6 +6,8 @@ import { createSessionStore } from '../session/session.store'
 import { ApiError, errorText } from '../api/errors'
 import { cancelAgentConfirmation, confirmAgent, sendAgentTurn, sendAgentTurnStream } from '../../features/agent/agent.service'
 import type { AgentClarification, AgentConfirmation, AgentMessageRole, AgentTurnResult } from '../../features/agent/agent.models'
+import { humanTextBlock, humanizeConfirmation, humanizeTurn } from '../../features/agent/agent.humanize'
+import { sanitizeTechnical } from '../../features/agent/agent.phrasing'
 
 interface Message { id: number; role: AgentMessageRole; text: string; result?: AgentTurnResult }
 
@@ -29,11 +31,15 @@ let messageId = 0
 
 const available = computed(() => session.user.value?.status === 'active')
 const panelLabel = computed(() => open.value ? `关闭${assistantName}` : `打开${assistantName}`)
+// 确认卡片按业务措辞渲染：中文动作名 + 影响对象 + 填写内容，不再展示 JSON。
+const confirmationView = computed(() => (confirmation.value ? humanizeConfirmation(confirmation.value) : undefined))
+// 澄清问题由模型生成，仍过一遍去技术标识；选项保持原样（点选后会原样发给后端）。
+const clarificationQuestion = computed(() => (clarification.value ? sanitizeTechnical(String(clarification.value.question ?? '')) : ''))
 
-function textOf(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (value === undefined || value === null) return '操作已完成'
-  try { return JSON.stringify(value, null, 2) } catch { return '操作已完成' }
+function traceHint(item: Message): string | undefined {
+  // 追踪编号只进 hover 提示，正文里不出现
+  const id = item.result?.request_id
+  return id ? `追踪编号：${id}` : undefined
 }
 
 function append(role: AgentMessageRole, text: string, result?: AgentTurnResult): void {
@@ -51,18 +57,11 @@ function handleAuthError(value: unknown): boolean {
 
 function applyResult(result: AgentTurnResult): void {
   confirmation.value = result.confirmation
-  if (result.kind === 'confirmation_required' && result.confirmation) {
-    append('assistant', result.confirmation.summary, result)
-  } else if (result.kind === 'human_only') {
-    append('assistant', result.message || '该操作需要人工在管理页面完成', result)
-  } else if (result.kind === 'clarification' && result.clarification) {
-    clarification.value = result.clarification
-    if (result.message) append('assistant', result.message, result)
-  } else if (result.kind === 'assistant') {
-    append('assistant', result.message || `${assistantName}已返回结果`, result)
-  } else {
-    append('assistant', textOf(result.data), result)
-  }
+  if (result.kind === 'clarification' && result.clarification) clarification.value = result.clarification
+  // 澄清卡片自己会显示问题，后端没另给正文就不重复追加一条气泡。
+  if (result.kind === 'clarification' && !result.message) return
+  const text = humanTextBlock(humanizeTurn(result))
+  if (text) append('assistant', text, result)
 }
 
 function agentErrorText(value: unknown): string {
@@ -184,21 +183,32 @@ function toggle(): void {
       </header>
       <div class="agent-panel__messages" aria-live="polite">
         <p v-if="!messages.length" class="agent-panel__empty">请输入查询或业务指令</p>
-        <article v-for="item in messages" :key="item.id" class="agent-message" :class="`agent-message--${item.role}`">
+        <article v-for="item in messages" :key="item.id" class="agent-message" :title="traceHint(item)" :class="`agent-message--${item.role}`">
           <span>{{ item.text }}</span>
-          <code v-if="item.result?.request_id">{{ item.result.request_id }}</code>
         </article>
-        <div v-if="confirmation" class="agent-confirmation" data-testid="agent-confirmation">
-          <strong>{{ confirmation.summary }}</strong>
-          <p>{{ confirmation.risk }}</p>
-          <pre>{{ JSON.stringify(confirmation.arguments, null, 2) }}</pre>
+        <div v-if="confirmation && confirmationView" class="agent-confirmation" data-testid="agent-confirmation">
+          <strong>即将执行：{{ confirmationView.title }}</strong>
+          <p v-if="confirmationView.detail" class="agent-confirmation__detail">{{ confirmationView.detail }}</p>
+          <p>影响对象：{{ confirmationView.target }}</p>
+          <div class="agent-confirmation__fields">
+            <span class="agent-confirmation__fields-title">填写内容</span>
+            <dl v-if="confirmationView.rows.length" class="agent-confirmation__rows" data-testid="agent-confirmation-rows">
+              <div v-for="row in confirmationView.rows" :key="row.label" class="agent-confirmation__row">
+                <dt>{{ row.label }}</dt>
+                <dd>{{ row.value }}</dd>
+              </div>
+            </dl>
+            <p v-else class="agent-confirmation__empty">无需额外填写内容</p>
+          </div>
+          <p>{{ confirmationView.risk }}</p>
+          <p v-if="confirmationView.expiresAt" class="agent-confirmation__expiry">{{ confirmationView.expiresAt }}</p>
           <div class="agent-confirmation__actions">
             <button type="button" data-testid="agent-cancel" :disabled="busy" @click="cancel">取消</button>
             <button type="button" data-testid="agent-confirm" :disabled="busy" @click="confirm">确认执行</button>
           </div>
         </div>
         <div v-if="clarification" class="agent-clarification" data-testid="agent-clarification">
-          <strong>{{ clarification.question }}</strong>
+          <strong>{{ clarificationQuestion }}</strong>
           <div v-if="clarification.options?.length" class="agent-clarification__options">
             <button
               v-for="option in clarification.options"

@@ -395,7 +395,12 @@
 .agent-confirmation { margin: 12px 0; padding: 12px; border: 1px solid #e3c77b; border-radius: 8px; background: #fffaf0; }
 .agent-confirmation strong { display: block; color: #5f4c1e; font-size: 13px; line-height: 1.5; }
 .agent-confirmation p { margin: 6px 0; color: #77663b; font-size: 12px; line-height: 1.5; }
-.agent-confirmation pre { max-height: 130px; margin: 8px 0; padding: 8px; overflow: auto; border: 1px solid #f0e4c7; border-radius: 6px; color: #5c543d; background: #fffdf8; font: 11px ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.agent-confirmation__fields { margin: 8px 0; }
+.agent-confirmation__fields-title { display: block; color: #8a7743; font-size: 11.5px; font-weight: 700; }
+.agent-confirmation__rows { display: grid; gap: 4px; margin: 6px 0 0; }
+.agent-confirmation__row { display: flex; gap: 10px; justify-content: space-between; padding: 5px 8px; border: 1px solid #f0e4c7; border-radius: 6px; background: #fffdf8; font-size: 12px; line-height: 1.5; }
+.agent-confirmation__row dt { color: #8a7743; }
+.agent-confirmation__row dd { margin: 0; color: #5f4c1e; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
 .agent-confirmation__actions { display: flex; justify-content: flex-end; gap: 8px; }
 .agent-confirmation__actions button, .agent-panel__composer button { min-height: 36px; padding: 0 12px; border: 1px solid #cfe5e0; border-radius: 8px; color: #365954; background: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .agent-confirmation__actions button:last-child, .agent-panel__composer button { border-color: #2f7f72; color: #fff; background: #2c6b65; }

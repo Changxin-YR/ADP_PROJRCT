@@ -53,11 +53,13 @@ export const router = createRouter({
     // 采购与付款
     { path: '/purchase/suppliers', component: () => import('./layers/product/purchase/SupplierPage.vue'), meta: { ...auth, requiredPermission: 'purchase.view' } },
     { path: '/purchase/orders', component: () => import('./layers/product/purchase/PurchasePage.vue'), meta: { ...auth, requiredPermission: 'purchase.view' } },
+    { path: '/purchase/returns', component: () => import('./layers/product/returns/ReturnPage.vue'), props: { mode: 'purchase' }, meta: { ...auth, requiredPermission: 'purchase.view' } },
     { path: '/purchase/payables', component: () => import('./layers/product/purchase/PayablePage.vue'), meta: { ...auth, requiredPermission: 'finance.payable.view' } },
 
     // 销售与收款
     { path: '/sales/customers', component: () => import('./layers/product/sales/CustomerPage.vue'), meta: { ...auth, requiredPermission: 'sales.view' } },
     { path: '/sales/orders', component: () => import('./layers/product/sales/SalePage.vue'), meta: { ...auth, requiredPermission: 'sales.view' } },
+    { path: '/sales/returns', component: () => import('./layers/product/returns/ReturnPage.vue'), props: { mode: 'sales' }, meta: { ...auth, requiredPermission: 'sales.view' } },
     { path: '/sales/receivables', component: () => import('./layers/product/sales/ReceivablePage.vue'), meta: { ...auth, requiredPermission: 'finance.receivable.view' } },
 
     // 成本与经营

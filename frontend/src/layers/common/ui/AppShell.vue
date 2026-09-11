@@ -11,6 +11,7 @@ import { getNotifications, getWorkItems, type NotificationRecord } from '../../f
 import AgentPanel from './AgentPanel.vue'
 import type { PondSummary } from '../../common/api/workbench.models'
 import { helpSections, navGroups, type NavGroup, type NavItem } from './app-shell/navigation'
+import { isCoreGroup, isCoreItem, isCoreScope } from './app-shell/demoScope'
 
 const props = withDefaults(defineProps<{ title?: string; eyebrow?: string; breadcrumbs?: string[] }>(), { title: '工作台', eyebrow: 'ADP / OPERATIONS' })
 watchEffect(() => { document.title = `${props.title} · ADP 养殖运营平台` })
@@ -21,14 +22,21 @@ const displayName = computed(() => session.user.value?.name || '管理员')
 const roleName = computed(() => session.user.value?.roles[0]?.name || '业务成员')
 const activePath = computed(() => route.path)
 
-const visibleGroups = computed<NavGroup[]>(() => navGroups
+// 演示范围：core 档只保留主线分区与主线页面（取舍说明见 demoScope.ts）；未设置时不过滤。
+const coreScope = isCoreScope()
+const scopedGroups = computed<NavGroup[]>(() => coreScope
+  ? navGroups.filter(isCoreGroup).map((group) => ({ ...group, items: group.items.filter(isCoreItem) }))
+  : navGroups)
+const visibleGroups = computed<NavGroup[]>(() => scopedGroups.value
   .map((group) => ({
     ...group,
     items: group.items.filter((item) => !item.requiredPermission || hasPermission(session.user.value, item.requiredPermission)),
   }))
   .filter((group) => group.items.length > 0))
 const helpPermissions = ['master_data.view', 'production.view', 'warehouse.view', 'purchase.view', 'cost.view', 'data_exchange.view']
-const visibleHelpSections = computed(() => helpSections.filter((_section, index) => !helpPermissions[index] || hasPermission(session.user.value, helpPermissions[index])))
+const visibleHelpSections = computed(() => helpSections
+  .filter((_section, index) => !coreScope || index === 0 || index === 4)
+  .filter((_section, index) => !helpPermissions[index] || hasPermission(session.user.value, helpPermissions[index])))
 const groupActive = (group: NavGroup) => group.items.some((item) => activePath.value === item.to || activePath.value.startsWith(`${item.to}/`))
 const overrides = ref<Record<string, boolean>>({})
 const isOpen = (group: NavGroup) => overrides.value[group.code] ?? groupActive(group)
