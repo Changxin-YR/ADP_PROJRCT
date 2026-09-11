@@ -119,7 +119,7 @@ def create_app(
     app.register_blueprint(create_master_data_blueprint(resolved, auth_store, resolved_master_store))
     app.register_blueprint(create_production_blueprint(resolved, auth_store, resolved_production_store))
     app.register_blueprint(create_warehouse_blueprint(resolved, auth_store, resolved_warehouse_store))
-    app.register_blueprint(create_purchase_blueprint(resolved, auth_store, resolved_purchase_store))
+    app.register_blueprint(create_purchase_blueprint(resolved, auth_store, resolved_purchase_store, getattr(resolved_purchase_store, "requisitions", None)))
     app.register_blueprint(create_sales_blueprint(resolved, auth_store, resolved_sales_store))
     app.register_blueprint(create_data_exchange_blueprint(resolved, auth_store, resolved_data_exchange_store))
     app.register_blueprint(create_agent_blueprint(resolved, auth_store, agent_gateway, agent_sidecar))

@@ -92,5 +92,73 @@ def require_unlocked(cursor: Any, row: dict[str, Any], occurred_field: str = "oc
         raise DomainError("COST_PERIOD_LOCKED", "该期间已确认结算，请先执行反结算", 409)
 
 
+DIRECT_STOCK_CATEGORY_CODES = {"feed", "seed", "health"}
+STOCK_OVERRIDE_SOURCE_TYPES = {"manual_feed_offset", "manual_feed_direct"}
+
+
+def resolve_entry_scope(cursor: Any, row: dict[str, Any]) -> dict[str, Any]:
+    """补全 organization_id/farm_id/area_id：旧成本入口不携带企业与基地，按归属对象回查。"""
+    result = {"organization_id": None, "farm_id": None, "area_id": None, **row}
+    if result.get("organization_id") is not None and result.get("farm_id") is not None:
+        return result
+    query = COST_TARGET_QUERIES.get(str(result.get("target_type") or ""))
+    if not query or result.get("target_id") in (None, ""):
+        return result
+    cursor.execute(query, (result["target_id"],))
+    target = cursor.fetchone()
+    if not target:
+        return result
+    for field in ("organization_id", "farm_id", "area_id"):
+        if result.get(field) is None and target.get(field) is not None:
+            result[field] = int(target[field])
+    return result
+
+
+def require_source_not_duplicated(cursor: Any, row: dict[str, Any], *, category_code: str | None = None) -> None:
+    """库存自动成本防重复归集：同一塘口或批次、期间重叠且已由库存自动归集时，拒绝手工费用再次归集。"""
+    source_type = str(row.get("source_type") or "").strip()
+    if source_type in STOCK_OVERRIDE_SOURCE_TYPES:
+        # 财务明确选择“库存已自动归集但仍需登记”的口径时放行，由人工对账负责不重复计入。
+        return
+    if source_type != "manual_expense":
+        return
+    code = str(category_code or row.get("category_code") or "").strip()
+    target_type, target_id = row.get("target_type"), row.get("target_id")
+    period_start, period_end = row.get("period_start"), row.get("period_end")
+    if code not in DIRECT_STOCK_CATEGORY_CODES or target_type not in {"pond", "batch"} or not target_id:
+        return
+    if not period_start or not period_end:
+        return
+    resolved = resolve_entry_scope(cursor, row)
+    cursor.execute(
+        """
+        SELECT ce.id
+        FROM cost_entries AS ce
+        WHERE ce.source_type='warehouse_ledger' AND ce.status='confirmed'
+          AND ce.target_type=%s AND ce.target_id=%s
+          AND ce.organization_id<=>%s AND ce.farm_id<=>%s
+          AND ce.period_start<=%s AND ce.period_end>=%s
+        LIMIT 1
+        """,
+        (target_type, int(target_id), resolved.get("organization_id"), resolved.get("farm_id"), period_end, period_start),
+    )
+    if cursor.fetchone():
+        raise DomainError(
+            "COST_SOURCE_DUPLICATED",
+            "该塘口/批次在此期间已有库存自动归集的同类成本，请改用直接采购/其他费用类别，或先冲销自动成本",
+            409,
+        )
+
+
+def require_entry_open(connection: Any, row: dict[str, Any], *, category_code: str | None = None, occurred_field: str = "occurred_on") -> dict[str, Any]:
+    """旧成本入口复用的公共前置校验：期间已确认结算即锁定，且不得与库存自动成本重复归集。"""
+    with connection.cursor() as cursor:
+        resolved = resolve_entry_scope(cursor, row)
+        if resolved.get(occurred_field) is not None:
+            require_unlocked(cursor, resolved, occurred_field)
+        require_source_not_duplicated(cursor, resolved, category_code=category_code or resolved.get("category_code"))
+    return resolved
+
+
 def page_result(items: list[dict[str, Any]], page: int, page_size: int, total: int) -> dict[str, Any]:
     return {"items": items, "page": page, "page_size": page_size, "total": total, "has_next": page * page_size < total}

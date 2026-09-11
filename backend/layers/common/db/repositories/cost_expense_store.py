@@ -5,7 +5,7 @@ from typing import Any
 
 from backend.layers.common.audit.audit_logger import AuditLogger
 from backend.layers.common.db.connection import get_connection
-from backend.layers.common.db.repositories.cost_enterprise_repository import decode, page_result, require_evidence, require_scope, require_unlocked, scope_clause, validate_scope
+from backend.layers.common.db.repositories.cost_enterprise_repository import decode, page_result, require_evidence, require_scope, require_source_not_duplicated, require_unlocked, scope_clause, validate_scope
 from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.common.governance.revisions import build_revision, save_revision
 from backend.layers.common.governance.work_item_notifications import notify_work_item_created
@@ -66,6 +66,7 @@ class MySqlCostExpenseStore:
     def create_expense(self, payload: dict[str, Any], *, user: dict[str, Any], user_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             clean = validate_scope(cursor, payload, user); category = self._category(cursor, clean["category_code"]); require_unlocked(cursor, clean)
+            require_source_not_duplicated(cursor, clean, category_code=clean["category_code"])
             cursor.execute(
                 "INSERT INTO cost_entries (organization_id,farm_id,area_id,category_id,amount,occurred_on,period_start,period_end,cost_nature,source_type,source_ref,source_detail_json,target_type,target_id,evidence_attachment_ids_json,status,created_by) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'draft',%s)",
                 (*self._values(clean, category), user_id),
@@ -83,6 +84,7 @@ class MySqlCostExpenseStore:
             if before["status"] not in {"draft", "submitted"}:
                 raise DomainError("RECORD_READ_ONLY", "已核验费用不可编辑", 409)
             clean = validate_scope(cursor, payload, user); category = self._category(cursor, clean["category_code"]); require_unlocked(cursor, clean)
+            require_source_not_duplicated(cursor, clean, category_code=clean["category_code"])
             cursor.execute(
                 "UPDATE cost_entries SET organization_id=%s,farm_id=%s,area_id=%s,category_id=%s,amount=%s,occurred_on=%s,period_start=%s,period_end=%s,cost_nature=%s,source_type=%s,source_ref=%s,source_detail_json=%s,target_type=%s,target_id=%s,evidence_attachment_ids_json=%s,updated_by=%s,row_version=row_version+1 WHERE id=%s AND row_version=%s AND status IN ('draft','submitted')",
                 (*self._values(clean, category), user_id, record_id, expected_version),

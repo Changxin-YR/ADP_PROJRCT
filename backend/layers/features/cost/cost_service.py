@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from backend.layers.common.governance.lifecycle import DomainError
 from backend.layers.features.cost.calculation import summarize_costs, unit_production_cost
 
 
@@ -157,6 +158,9 @@ class CostService:
         self.require(user, "cost.entry.manage")
         try:
             result = self.store.update_draft(entry_id, user_id=int(user["id"]), request_id=request_id, ip_address=ip_address, **self._entry_payload(payload))
+        except DomainError:
+            # 期间锁定等治理类错误必须原样上抛，保持与 require_unlocked 一致的错误码。
+            raise
         except ValueError as error:
             raise CostServiceError("COST_DRAFT_EDIT_FAILED", str(error), 409) from error
         return self._entry_result(result)

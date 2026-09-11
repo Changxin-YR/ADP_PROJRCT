@@ -9,6 +9,7 @@ from backend.layers.common.db.repositories.cost_dashboard_repository import Cost
 from backend.layers.common.db.repositories.cost_expense_store import MySqlCostExpenseStore
 from backend.layers.common.db.repositories.cost_allocation_store import MySqlCostAllocationStore
 from backend.layers.common.db.repositories.cost_asset_store import MySqlCostAssetStore
+from backend.layers.common.db.repositories.cost_enterprise_repository import require_entry_open
 from backend.layers.common.db.repositories.cost_settlement_store import MySqlCostSettlementStore
 
 
@@ -67,6 +68,7 @@ class MySqlCostStore:
 
     def create_entry(self, *, user_id: int, request_id: str | None = None, ip_address: str | None = None, **payload):
         with get_connection(self.settings) as connection:
+            require_entry_open(connection, payload, category_code=payload.get("category_code"))
             result = self.costs.create_entry(connection, payload=payload, user_id=user_id)
             self.audit.write(connection, user_id=user_id, action="create_cost_entry", object_type="cost_entry", object_id=result.get("id"), object_ref=f"cost_entry:{result.get('id')}", result="success", ip_address=ip_address, request_id=request_id, module_code="cost", action_code="create_cost_entry", after=result)
             return result
@@ -74,6 +76,7 @@ class MySqlCostStore:
     def update_draft(self, entry_id: int, *, user_id: int, request_id: str | None = None, ip_address: str | None = None, **payload):
         with get_connection(self.settings) as connection:
             before = self.costs.get_entry(connection, entry_id=entry_id, for_update=True)
+            require_entry_open(connection, {**(before or {}), **payload}, category_code=payload.get("category_code"))
             result = self.costs.update_draft(connection, entry_id=entry_id, payload=payload)
             self.audit.write(connection, user_id=user_id, action="update_cost_draft", object_type="cost_entry", object_id=entry_id, object_ref=f"cost_entry:{entry_id}", result="success", ip_address=ip_address, request_id=request_id, module_code="cost", action_code="update_cost_draft", before=before, after=result)
             return result

@@ -15,6 +15,7 @@ from backend.layers.features.purchase import purchase_payment_store as payments
 from backend.layers.features.purchase import purchase_payment_reversal_store as reversals
 from backend.layers.common.security.data_scope import require_active_scope, row_in_scope, scope_predicate, unrestricted
 from backend.layers.features.returns.return_store import MySqlReturnStore
+from backend.layers.features.purchase.purchase_requisition_store import MySqlPurchaseRequisitionStore
 
 
 ORDER_FIELDS = {
@@ -34,6 +35,8 @@ class MySqlPurchaseStore:
         self.settings = settings
         self.audit = AuditLogger()
         self.returns = MySqlReturnStore(settings)
+        # 请购单复用本 store 的 _scoped/_payload/_get/_require_scope/_audit，避免第二套主数据校验。
+        self.requisitions = MySqlPurchaseRequisitionStore(settings, self)
 
     @staticmethod
     def _decode(row: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -102,11 +105,11 @@ class MySqlPurchaseStore:
         if search:
             clauses.append("(o.code LIKE %s OR o.name LIKE %s OR s.name LIKE %s OR m.name LIKE %s)"); values.extend([f"%{search}%"] * 4)
         where = " AND ".join(clauses); page, page_size = max(1, int(page)), min(100, max(1, int(page_size)))
-        joins = " FROM purchase_orders o JOIN business_partners s ON s.id=o.supplier_id JOIN materials m ON m.id=o.material_id JOIN warehouses w ON w.id=o.warehouse_id"
+        joins = " FROM purchase_orders o JOIN business_partners s ON s.id=o.supplier_id JOIN materials m ON m.id=o.material_id JOIN warehouses w ON w.id=o.warehouse_id LEFT JOIN purchase_requisitions q ON q.id=o.requisition_id"
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute(f"SELECT COUNT(*) AS total{joins} WHERE {where}", tuple(values)); total = int(cursor.fetchone()["total"])
             cursor.execute(
-                f"SELECT o.*,s.name AS supplier_name,m.name AS material_name,w.name AS warehouse_name,COALESCE((SELECT SUM(CASE WHEN d.correction_of_id IS NULL THEN d.quantity ELSE d.quantity-parent.quantity END) FROM warehouse_documents d LEFT JOIN warehouse_documents parent ON parent.id=d.correction_of_id WHERE d.purchase_order_id=o.id AND d.document_type='receipt' AND d.status='verified'),0) AS received_quantity,COALESCE((SELECT SUM(p.paid_amount) FROM purchase_payables p WHERE p.purchase_order_id=o.id),0) AS paid_amount{joins} WHERE {where} ORDER BY {_sort_clause(sort_by, sort_dir, {'code':'o.code','name':'o.name','supplier_name':'s.name','quantity':'o.quantity','total_amount':'o.total_amount','status':'o.status','updated_at':'o.updated_at'}, 'o.updated_at') } LIMIT %s OFFSET %s",
+                f"SELECT o.*,s.name AS supplier_name,m.name AS material_name,w.name AS warehouse_name,q.code AS requisition_code,COALESCE((SELECT SUM(CASE WHEN d.correction_of_id IS NULL THEN d.quantity ELSE d.quantity-parent.quantity END) FROM warehouse_documents d LEFT JOIN warehouse_documents parent ON parent.id=d.correction_of_id WHERE d.purchase_order_id=o.id AND d.document_type='receipt' AND d.status='verified'),0) AS received_quantity,COALESCE((SELECT SUM(p.paid_amount) FROM purchase_payables p WHERE p.purchase_order_id=o.id),0) AS paid_amount{joins} WHERE {where} ORDER BY {_sort_clause(sort_by, sort_dir, {'code':'o.code','name':'o.name','supplier_name':'s.name','quantity':'o.quantity','total_amount':'o.total_amount','status':'o.status','updated_at':'o.updated_at'}, 'o.updated_at') } LIMIT %s OFFSET %s",
                 tuple(values + [page_size, (page - 1) * page_size]),
             )
             items = [self._decode(row) or {} for row in cursor.fetchall()]
@@ -209,6 +212,13 @@ class MySqlPurchaseStore:
     def cancel_payment(self, payment_id: int, **context: Any) -> dict[str, Any]: return payments.cancel_payment(self, payment_id, **context)
     def delete_payment_draft(self, payment_id: int, **context: Any) -> dict[str, Any]: return payments.delete_payment_draft(self, payment_id, **context)
     def reverse_payment(self, payment_id: int, **context: Any) -> dict[str, Any]: return reversals.reverse_payment(self, payment_id, **context)
+    def list_requisitions(self, **context: Any) -> dict[str, Any]: return self.requisitions.list_requisitions(**context)
+    def get_requisition(self, record_id: int, **context: Any) -> dict[str, Any] | None: return self.requisitions.get_requisition(record_id, **context)
+    def create_requisition(self, payload: dict[str, Any], **context: Any) -> dict[str, Any]: return self.requisitions.create_requisition(payload, **context)
+    def update_requisition(self, record_id: int, payload: dict[str, Any], **context: Any) -> dict[str, Any]: return self.requisitions.update_requisition(record_id, payload, **context)
+    def set_requisition_status(self, record_id: int, status: str, **context: Any) -> dict[str, Any]: return self.requisitions.set_requisition_status(record_id, status, **context)
+    def convert_requisition(self, record_id: int, payload: dict[str, Any], **context: Any) -> dict[str, Any]: return self.requisitions.convert_requisition(record_id, payload, **context)
+    def delete_requisition_draft(self, record_id: int, **context: Any) -> dict[str, Any]: return self.requisitions.delete_requisition_draft(record_id, **context)
     def list_returns(self, kind: str, **context: Any) -> dict[str, Any]: return self.returns.list_returns(kind, **context)
     def get_return(self, kind: str, record_id: int, **context: Any) -> dict[str, Any] | None: return self.returns.get_return(kind, record_id, **context)
     def create_return(self, kind: str, payload: dict[str, Any], **context: Any) -> dict[str, Any]: return self.returns.create_return(kind, payload, **context)

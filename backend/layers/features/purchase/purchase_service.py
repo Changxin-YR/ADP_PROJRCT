@@ -17,6 +17,7 @@ PAYMENT_FIELDS = PAYMENT_CREATE_FIELDS - {"payable_id"}
 PAYMENT_METHODS = {"bank_transfer", "cash", "check", "digital_wallet", "other"}
 
 
+
 class PurchaseService:
     def __init__(self, store: Any) -> None:
         self.store = store

@@ -12,13 +12,16 @@ from backend.layers.common.http.request_helpers import json_object, pagination, 
 from backend.layers.common.security.csrf import CsrfError
 from backend.layers.common.security.session import request_session_token
 from backend.layers.features.auth.auth_service import AuthService, AuthServiceError
+from backend.layers.features.purchase.purchase_requisition_service import RequisitionService
 from backend.layers.features.purchase.purchase_service import PurchaseService
 
 
-def create_purchase_blueprint(settings: Settings, auth_store: Any, purchase_store: Any) -> Blueprint:
+def create_purchase_blueprint(settings: Settings, auth_store: Any, purchase_store: Any,
+                              requisition_store: Any | None = None) -> Blueprint:
     blueprint = Blueprint("purchase", __name__, url_prefix="/api/v1/purchase")
     auth = AuthService(auth_store, settings)
     service = PurchaseService(purchase_store)
+    requisition_service = RequisitionService(requisition_store or purchase_store, service)
 
     def user() -> dict[str, Any]:
         return auth.current_user(request_session_token(request), request_id=getattr(g, "request_id", None))
@@ -27,14 +30,15 @@ def create_purchase_blueprint(settings: Settings, auth_store: Any, purchase_stor
         status = 403 if isinstance(exc, CsrfError) else int(getattr(exc, "status", 400))
         return jsonify(fail(getattr(exc, "code", "PURCHASE_REQUEST_FAILED"), getattr(exc, "message", str(exc)), status)), status
 
-    def write(operation: Callable[..., dict[str, Any]], record_id: int | None = None, *, created: bool = False) -> tuple[Response, int] | Response:
+    def write(operation: Callable[..., dict[str, Any]], record_id: int | None = None, *, created: bool = False,
+              serializer: Callable[[dict[str, Any]], dict[str, Any]] | None = None) -> tuple[Response, int] | Response:
         try:
             require_csrf()
             payload = json_object()
             current_user = user()
             def perform() -> tuple[dict[str, Any], int]:
                 row = operation(current_user, payload) if record_id is None else operation(current_user, record_id, payload)
-                return ok({"record": row}), 201 if created else 200
+                return ok((serializer or (lambda item: {"record": item}))(row)), 201 if created else 200
             body, status = execute_idempotent(settings, user_id=int(current_user["id"]), action_code=request.path, key=request.headers.get("Idempotency-Key"), payload=payload, operation=perform)
             response = jsonify(body); response.status_code = status
             return response
@@ -73,6 +77,40 @@ def create_purchase_blueprint(settings: Settings, auth_store: Any, purchase_stor
         try:
             require_csrf()
             return jsonify(ok({"record": service.delete_order(user(), record_id)}, message="采购草稿已删除"))
+        except (CsrfError, AuthServiceError, DomainError) as exc:
+            return error(exc)
+
+    def requisition_conversion(row: dict[str, Any]) -> dict[str, Any]:
+        """转换接口同时返回新建采购单与请购单，前端可一次拿到两端状态。"""
+        return {"record": row["record"], "requisition": row["requisition"]}
+
+    @blueprint.get("/requisitions")
+    def requisitions() -> tuple[Response, int] | Response: return listing(requisition_service.list_requisitions)
+
+    @blueprint.post("/requisitions")
+    def create_requisition() -> tuple[Response, int] | Response: return write(requisition_service.create_requisition, created=True)
+
+    @blueprint.patch("/requisitions/<int:record_id>")
+    def update_requisition(record_id: int) -> tuple[Response, int] | Response: return write(requisition_service.update_requisition, record_id)
+
+    @blueprint.post("/requisitions/<int:record_id>/submit")
+    def submit_requisition(record_id: int) -> tuple[Response, int] | Response: return write(requisition_service.submit_requisition, record_id)
+
+    @blueprint.post("/requisitions/<int:record_id>/approve")
+    def approve_requisition(record_id: int) -> tuple[Response, int] | Response: return write(requisition_service.approve_requisition, record_id)
+
+    @blueprint.post("/requisitions/<int:record_id>/cancel")
+    def cancel_requisition(record_id: int) -> tuple[Response, int] | Response: return write(requisition_service.cancel_requisition, record_id)
+
+    @blueprint.post("/requisitions/<int:record_id>/convert")
+    def convert_requisition(record_id: int) -> tuple[Response, int] | Response:
+        return write(requisition_service.convert_requisition, record_id, serializer=requisition_conversion)
+
+    @blueprint.delete("/requisitions/<int:record_id>")
+    def delete_requisition(record_id: int) -> tuple[Response, int] | Response:
+        try:
+            require_csrf()
+            return jsonify(ok({"record": requisition_service.delete_requisition(user(), record_id)}, message="请购草稿已删除"))
         except (CsrfError, AuthServiceError, DomainError) as exc:
             return error(exc)
 

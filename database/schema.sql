@@ -33,6 +33,8 @@ SOURCE database/migrations/029_supplier_customer_returns.sql;
 SOURCE database/migrations/030_accounting_periods.sql;
 SOURCE database/migrations/031_agent_confirmations.sql;
 SOURCE database/migrations/032_agent_confirmation_failures.sql;
+SOURCE database/migrations/033_cost_source_dedup.sql;
+SOURCE database/migrations/034_purchase_requisitions.sql;
 
 -- Contract index for source readers and schema checks:
 -- CREATE TABLE work_items: 004_enterprise_governance_foundation.sql

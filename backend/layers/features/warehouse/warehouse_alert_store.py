@@ -18,11 +18,25 @@ def alert_references(action: str, payload: dict[str, Any]) -> dict[str, Any]:
             raise DomainError("WAREHOUSE_ALERT_THRESHOLD_REQUIRED", "调整阈值必须填写非负安全库存值", 400)
         return {"safety_stock": threshold}
     if action == "replenish":
-        field, message = "purchase_order_id", "补货处理必须关联采购单"
-    elif action in {"transfer", "scrap", "recheck"}:
+        # 兼容老行为（关联已存在的采购单）；新增缺口来源：直接关联请购单。
+        message = "补货处理必须关联采购单或请购单"
+        for candidate in ("purchase_order_id", "requisition_id"):
+            raw = payload.get(candidate)
+            if raw is None or str(raw).strip() == "":
+                continue
+            try:
+                reference_id = int(raw)
+            except (TypeError, ValueError) as exc:
+                raise DomainError("WAREHOUSE_ALERT_REFERENCE_REQUIRED", message, 400) from exc
+            if reference_id <= 0:
+                raise DomainError("WAREHOUSE_ALERT_REFERENCE_REQUIRED", message, 400)
+            return {candidate: reference_id}
+        raise DomainError("WAREHOUSE_ALERT_REFERENCE_REQUIRED", message, 400)
+    if action in {"transfer", "scrap", "recheck"}:
         field, message = "resolution_document_id", "该处理动作必须关联仓储单据"
     else:
         return {}
+    field, message = "resolution_document_id", "该处理动作必须关联仓储单据"
     try:
         reference_id = int(payload.get(field))
     except (TypeError, ValueError) as exc:
@@ -59,6 +73,32 @@ def _collapse_low_stock_alerts(rows: list[dict[str, Any]]) -> list[dict[str, Any
         emitted.add(key)
         result.append({**row, "current_quantity": totals[key]})
     return result
+
+
+def validate_requisition_reference(requisition: dict[str, Any] | None, alert: dict[str, Any]) -> None:
+    """请购单必须存在、属于同企业、与预警物料一致且未取消。
+
+    抽成纯函数以便脱离 MySQL 直接测试；handle_alert 负责取行并调用本函数。
+    """
+    if requisition is None:
+        raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "请购单不存在或不属于当前企业", 400)
+    if int(requisition.get("material_id") or 0) != int(alert["material_id"]):
+        raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "请购单物料与预警物料不一致", 400)
+    if requisition.get("warehouse_id") and int(requisition["warehouse_id"]) != int(alert["warehouse_id"]):
+        raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "请购单交货仓与预警仓库不一致", 400)
+    if requisition.get("status") not in {"draft", "submitted", "approved", "converted"}:
+        raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "请购单已取消，不能关联该预警", 400)
+
+
+def _suggested_quantity(row: dict[str, Any]) -> Any:
+    """低库存预警的建议请购量 = 安全库存 - 当前可用量（不足则 0）。"""
+    if row.get("alert_type") != "low_stock":
+        return None
+    try:
+        gap = Decimal(str(row.get("safety_stock") or 0)) - Decimal(str(row.get("current_quantity") or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return gap if gap > 0 else Decimal(0)
 
 
 def list_alerts(store: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
@@ -127,6 +167,9 @@ def list_alerts(store: Any, user: dict[str, Any]) -> list[dict[str, Any]]:
         for row in rows:
             row["alert_key"] = f"{row['warehouse_id']}:{row['inventory_lot_id']}:{row['alert_type']}"
             row["condition_fingerprint"] = _fingerprint(row)
+            suggestion = _suggested_quantity(row)
+            if suggestion is not None:
+                row["suggested_quantity"] = suggestion
         keys = [row["alert_key"] for row in rows]
         actions: dict[str, dict[str, Any]] = {}
         if keys:
@@ -160,6 +203,7 @@ def handle_alert(
     purchase_order_id: int | None = None,
     resolution_document_id: int | None = None,
     safety_stock: Any = None,
+    requisition_id: int | None = None,
 ) -> dict[str, Any]:
     alert = next((item for item in list_alerts(store, user) if item["alert_key"] == alert_key), None)
     if alert is None:
@@ -168,15 +212,29 @@ def handle_alert(
         raise DomainError("WAREHOUSE_ALERT_ACTION_INVALID", "只有低库存预警可以调整安全库存阈值", 409)
     with get_connection(store.settings) as connection, connection.cursor() as cursor:
         reference_id = None
+        reference_type = None
         if action_code == "replenish":
-            cursor.execute(
-                "SELECT id,status FROM purchase_orders WHERE id=%s AND organization_id=%s AND material_id=%s AND warehouse_id=%s",
-                (purchase_order_id, alert["organization_id"], alert["material_id"], alert["warehouse_id"]),
-            )
-            reference = cursor.fetchone()
-            if reference is None or reference["status"] not in {"submitted", "approved", "partially_received"}:
-                raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "采购单不存在、未提交或与当前预警不匹配", 409)
-            reference_id = int(reference["id"])
+            if requisition_id is not None:
+                # 库存预警 -> 请购单：把缺料信号和请购发起连起来。
+                cursor.execute(
+                    "SELECT id,status,material_id,warehouse_id FROM purchase_requisitions "
+                    "WHERE id=%s AND organization_id=%s",
+                    (requisition_id, alert["organization_id"]),
+                )
+                reference = cursor.fetchone()
+                validate_requisition_reference(reference, alert)
+                reference_id = int(reference["id"])
+                reference_type = "requisition"
+            else:
+                cursor.execute(
+                    "SELECT id,status FROM purchase_orders WHERE id=%s AND organization_id=%s AND material_id=%s AND warehouse_id=%s",
+                    (purchase_order_id, alert["organization_id"], alert["material_id"], alert["warehouse_id"]),
+                )
+                reference = cursor.fetchone()
+                if reference is None or reference["status"] not in {"submitted", "approved", "partially_received"}:
+                    raise DomainError("WAREHOUSE_ALERT_REFERENCE_INVALID", "采购单不存在、未提交或与当前预警不匹配", 409)
+                reference_id = int(reference["id"])
+                reference_type = "purchase_order"
         elif action_code in {"transfer", "scrap", "recheck"}:
             document_type = {"transfer": "transfer", "scrap": "scrap", "recheck": "stocktake"}[action_code]
             if action_code == "transfer":
@@ -213,7 +271,7 @@ def handle_alert(
                ON DUPLICATE KEY UPDATE condition_fingerprint=VALUES(condition_fingerprint),status='handled',action_code=VALUES(action_code),resolution_note=VALUES(resolution_note),resolution_reference_type=VALUES(resolution_reference_type),resolution_reference_id=VALUES(resolution_reference_id),handled_by=VALUES(handled_by),handled_at=CURRENT_TIMESTAMP""",
             (alert["organization_id"], alert_key, alert["warehouse_id"], alert["material_id"], alert["inventory_lot_id"],
              alert["alert_type"], alert["condition_fingerprint"], action_code, resolution_note,
-             "purchase_order" if action_code == "replenish" else "warehouse_document" if action_code in {"transfer", "scrap", "recheck"} else None,
+             reference_type or ("warehouse_document" if action_code in {"transfer", "scrap", "recheck"} else None),
              reference_id, user_id),
         )
         result = {**alert, "status": "handled", "action_code": action_code, "resolution_note": resolution_note, "handled_by": user_id, "allowed_actions": []}
