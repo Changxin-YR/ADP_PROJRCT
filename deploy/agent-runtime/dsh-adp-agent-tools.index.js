@@ -24,12 +24,30 @@ function describeOperations(catalog) {
                         `${operation.m ?? ""} ${operation.p ?? ""}`.trim(),
                         operation.r ? `risk=${operation.r}` : "",
                         operation.q ? `perm=${operation.q}` : "",
-                        operation.a ? `parameters=${operation.a.join(",")}` : ""
+                        operation.a ? `parameters=${operation.a.join(",")}` : "",
+                        describeFields(operation)
                 ].filter(Boolean).join(" | ")).join("\n")}`;
         } catch {
                 return "必须从已登记的 ADP 工具名中选择。";
         }
 }
+function describeFields(operation) {
+        const parts = [];
+        const fields = operation.f;
+        if (fields && typeof fields === "object") {
+                if (Array.isArray(fields)) {
+                        if (fields.length) parts.push(`payload 字段=${fields.join(",")}（! 为必填）`);
+                } else {
+                        for (const [resource, list] of Object.entries(fields)) {
+                                if (Array.isArray(list) && list.length) parts.push(`${resource}: ${list.join(",")}`);
+                        }
+                }
+        }
+        const resources = operation.rs;
+        if (Array.isArray(resources) && resources.length) parts.push(`resource 可选=${resources.join("/")}`);
+        return parts.join(" ");
+}
+
 async function callGateway(config, path, args, signal) {
         const response = await fetch(endpoint(config, path), {
                 method: "POST",
