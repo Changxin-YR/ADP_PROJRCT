@@ -7,6 +7,9 @@ if [[ "$(id -u)" != "0" ]]; then
 fi
 
 APP_ROOT="${APP_ROOT:-/opt/adp/login-registration}"
+BACKEND_DIR="$APP_ROOT/backend"
+FRONTEND_DIR="$APP_ROOT/frontend"
+DEPLOY_DIR="$APP_ROOT/deploy"
 PYTHON_BIN="${PYTHON_BIN:-/opt/adp-venv/bin/python}"
 VENV_PIP="${VENV_PIP:-/opt/adp-venv/bin/pip}"
 MYSQL_CNF=""
@@ -23,6 +26,10 @@ cleanup() {
 trap cleanup EXIT
 
 test -f /etc/adp/auth.env || { echo "缺少 /etc/adp/auth.env，拒绝发布。" >&2; exit 1; }
+test -d "$APP_ROOT" || { echo "项目根目录不存在：$APP_ROOT" >&2; exit 1; }
+test -d "$BACKEND_DIR" || { echo "后端目录不存在：$BACKEND_DIR" >&2; exit 1; }
+test -d "$FRONTEND_DIR" || { echo "前端目录不存在：$FRONTEND_DIR" >&2; exit 1; }
+test -d "$DEPLOY_DIR" || { echo "部署目录不存在：$DEPLOY_DIR" >&2; exit 1; }
 test -x "$PYTHON_BIN" || { echo "未找到 $PYTHON_BIN。" >&2; exit 1; }
 test -x "$VENV_PIP" || { echo "未找到 $VENV_PIP。" >&2; exit 1; }
 
@@ -49,18 +56,18 @@ source /etc/adp/auth.env
 test -r "$ADP_TLS_CERTIFICATE" || { echo "TLS 证书不可读：$ADP_TLS_CERTIFICATE" >&2; exit 1; }
 test -r "$ADP_TLS_CERTIFICATE_KEY" || { echo "TLS 私钥不可读：$ADP_TLS_CERTIFICATE_KEY" >&2; exit 1; }
 
-if [[ -d "$APP_ROOT/实现文档/登陆注册" ]]; then
+if [[ -d "$APP_ROOT" ]]; then
   backup_root="/opt/adp/backups"
   backup_dir="$backup_root/$(date +%Y%m%d%H%M%S)"
   install -d -m 0750 "$backup_root" "$backup_dir"
-  cp -a "$APP_ROOT/实现文档/登陆注册" "$backup_dir/"
+  cp -a "$BACKEND_DIR" "$FRONTEND_DIR" "$APP_ROOT/database" "$backup_dir/"
 fi
 
-cd "$APP_ROOT/实现文档/登陆注册"
-"$VENV_PIP" install --no-cache-dir -r backend/requirements.txt
-ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix frontend ci
-VITE_PUBLIC_BASE_PATH="${ADP_PUBLIC_PATH:-/adp/}" npm --prefix frontend run build
-npm --prefix frontend prune --omit=dev
+cd "$APP_ROOT"
+"$VENV_PIP" install --no-cache-dir -r "$BACKEND_DIR/requirements.txt"
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix "$FRONTEND_DIR" ci
+VITE_PUBLIC_BASE_PATH="${ADP_PUBLIC_PATH:-/adp/}" npm --prefix "$FRONTEND_DIR" run build
+npm --prefix "$FRONTEND_DIR" prune --omit=dev
 
 MYSQL_CNF="$(mktemp /etc/adp/mysql-client.XXXXXX)"
 chmod 600 "$MYSQL_CNF"
@@ -113,14 +120,14 @@ done
 mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < database/seed_reference.sql
 
 chown -R adp:adp "$APP_ROOT"
-chmod 0755 "$APP_ROOT" "$APP_ROOT/实现文档" "$APP_ROOT/实现文档/登陆注册"
+chmod 0755 "$APP_ROOT" "$BACKEND_DIR" "$FRONTEND_DIR"
 NGINX_CONFIG="$(mktemp /etc/adp/nginx-adp.XXXXXX)"
 install -d -o root -g root -m 0755 /var/lib/adp-acme
 sed \
   -e "s|__ADP_SERVER_NAME__|$ADP_SERVER_NAME|g" \
   -e "s|__ADP_TLS_CERTIFICATE__|$ADP_TLS_CERTIFICATE|g" \
   -e "s|__ADP_TLS_CERTIFICATE_KEY__|$ADP_TLS_CERTIFICATE_KEY|g" \
-  deploy/nginx-adp.conf > "$NGINX_CONFIG"
+  "$DEPLOY_DIR/nginx-adp.conf" > "$NGINX_CONFIG"
 if grep -q '__ADP_' "$NGINX_CONFIG"; then
   echo "Nginx TLS 配置仍有未替换变量，拒绝发布。" >&2
   exit 1
