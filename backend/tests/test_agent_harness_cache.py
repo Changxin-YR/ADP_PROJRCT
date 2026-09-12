@@ -51,6 +51,31 @@ def test_cache_keeps_a_bounded_lru_window_and_closes_evicted_runtimes() -> None:
     assert created["a"].closed is True and created["c"].closed is True
 
 
+def test_independent_workers_never_share_a_runtime_generation() -> None:
+    first, second = HarnessCache(), HarnessCache()
+    first.put("same-user", _FakeHarness())
+    second.put("same-user", _FakeHarness())
+    assert first.generation("same-user") != second.generation("same-user")
+
+
+def test_each_delegated_turn_uses_current_context_and_closes_old_child(monkeypatch) -> None:
+    created = []
+
+    def factory(**kwargs):
+        harness = _FakeHarness()
+        created.append((harness, kwargs['env']['ADP_AGENT_CONTEXT_TOKEN']))
+        return harness
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=factory))
+    sidecar = HarnessSidecar(Settings.from_env({"APP_ENV": "test"}))
+    context = {"conversation_id": "c-1", "user_namespace": "user-a"}
+    sidecar.run("第一轮", context={**context, "context_token": "first-context"})
+    sidecar.run("第二轮", context={**context, "context_token": "second-context"})
+    assert [token for _, token in created] == ['first-context', 'second-context']
+    assert created[0][0].closed
+    sidecar.close()
+
+
 def test_sidecar_replaces_a_runtime_that_breaks_mid_turn(monkeypatch: pytest.MonkeyPatch) -> None:
     """A child that dies (protocol/transport error) must not poison later turns."""
     created: list[_FakeHarness] = []

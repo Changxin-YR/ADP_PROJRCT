@@ -10,6 +10,7 @@ from a fresh child.
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 DEFAULT_LIMIT = 6
 
@@ -35,8 +36,7 @@ class HarnessCache:
         self.limit = max(1, int(limit))
         self._items: dict[str, Any] = {}
         self._order: list[str] = []
-        self._generations: dict[str, int] = {}
-        self._counter = 0
+        self._generations: dict[str, str] = {}
         self._active = ""
 
     def get(self, namespace: str) -> Any | None:
@@ -49,8 +49,7 @@ class HarnessCache:
         self._active = namespace
         # Each new child gets a fresh generation: DSH persists one log per session id
         # and refuses to reuse an id whose log came from a different live session.
-        self._counter += 1
-        self._generations[namespace] = self._counter
+        self._generations[namespace] = uuid4().hex
         self._items[namespace] = harness
         if namespace in self._order:
             self._order.remove(namespace)
@@ -79,8 +78,8 @@ class HarnessCache:
         for harness in items:
             close_harness(harness)
 
-    def generation(self, namespace: str) -> int:
-        return self._generations.get(namespace, 0)
+    def generation(self, namespace: str) -> str:
+        return self._generations.get(namespace, "")
 
     def namespaces(self) -> list[str]:
         return list(self._order)

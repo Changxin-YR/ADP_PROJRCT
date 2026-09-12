@@ -61,5 +61,11 @@ install -m 0644 "$LATEST_BACKUP/nginx.conf" "$NGINX_TARGET"
 nginx -t
 systemctl restart "$SERVICE"
 systemctl reload nginx
-curl --retry 10 --retry-connrefused --retry-delay 1 --fail --silent --show-error -H "Host: $ADP_SERVER_NAME" "http://127.0.0.1:$BACKEND_PORT/api/v1/health" >/dev/null
+for attempt in {1..30}; do
+  if curl --fail --silent --show-error -H "Host: $ADP_SERVER_NAME" "http://127.0.0.1:$BACKEND_PORT/api/v1/health" >/dev/null; then
+    break
+  fi
+  [[ "$attempt" != 30 ]] || exit 1
+  sleep 1
+done
 echo "Application restored from $LATEST_BACKUP; displaced files retained in $FAILED_DIR. Database migrations were not reversed."

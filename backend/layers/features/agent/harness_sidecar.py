@@ -106,6 +106,12 @@ class HarnessSidecar:
         namespace = safe_context.get("user_namespace", "").strip() or "__default__"
         try:
             with self._lock:
+                # Delegated credentials bind the current prompt/request and expire.
+                # The SDK snapshots extension config at startup; rotate the child
+                # rather than reusing a previous turn's authority/audit context.
+                # Conversation history is supplied by the existing history_text contract.
+                if safe_context.get("context_token"):
+                    self._cache.drop(namespace)
                 harness = self._cache.get(namespace)
                 if harness is None:
                     harness = self._new_harness(runtime_env, safe_context)
