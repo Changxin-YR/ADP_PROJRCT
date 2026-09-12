@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 if [[ "$(id -u)" != "0" ]]; then
   echo "请使用 root 执行此脚本。" >&2
@@ -7,24 +8,58 @@ if [[ "$(id -u)" != "0" ]]; then
 fi
 
 APP_ROOT="${APP_ROOT:-/opt/adp/login-registration}"
-BACKUP_ROOT="${BACKUP_ROOT:-/opt/adp/backups}"
-LATEST_BACKUP="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null | sort -nr | awk 'NR==1 {print $2}')"
+[[ "$APP_ROOT" == /opt/adp/login-registration && ! -L "$APP_ROOT" ]] || exit 1
+LATEST_BACKUP="${ADP_ROLLBACK_BACKUP:?Select an explicit pre-release backup}"
+[[ "$LATEST_BACKUP" =~ ^/opt/adp/backups/[A-Za-z0-9._-]+$ && ! -L "$LATEST_BACKUP" ]] || exit 1
+ENV_FILE="${ADP_DEPLOY_ENV_FILE:-/etc/adp/auth.env}"
+SERVICE="${ADP_DEPLOY_SERVICE:-adp-auth}"
+BACKEND_PORT="${ADP_BACKEND_PORT:-5001}"
+[[ "$ENV_FILE" == /etc/adp/auth.env || "$ENV_FILE" == /etc/adp/next.env ]] || exit 1
+[[ "$SERVICE" == adp-auth || "$SERVICE" == adp-next ]] || exit 1
+[[ "$BACKEND_PORT" == 5001 || "$BACKEND_PORT" == 5002 ]] || exit 1
+exec 9>/run/lock/adp-canonical-deploy.lock
+flock -n 9 || exit 1
 
-if [[ -z "$LATEST_BACKUP" || ! -d "$LATEST_BACKUP/登陆注册" ]]; then
-  echo "没有可用的发布备份，停止回滚。" >&2
-  exit 1
+for directory in backend frontend database; do
+  test -d "$LATEST_BACKUP/$directory" && test -d "$APP_ROOT/$directory" || exit 1
+  [[ ! -L "$LATEST_BACKUP/$directory" && ! -L "$APP_ROOT/$directory" ]] || exit 1
+done
+test -f "$LATEST_BACKUP/nginx.conf" || exit 1
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+NGINX_TARGET=/etc/nginx/conf.d/adp-auth.conf
+if [[ "${ADP_NGINX_MODE:-standalone}" == shared ]]; then
+  NGINX_TARGET=/etc/nginx/snippets/adp-location.conf
 fi
+FAILED_DIR="$(mktemp -d /opt/adp/backups/rollback-displaced.XXXXXX)"
+cp -a "$NGINX_TARGET" "$FAILED_DIR/nginx.conf"
+restore_on_error() {
+  local status=$?
+  if (( status != 0 )); then
+    for directory in backend frontend database; do
+      if [[ -d "$FAILED_DIR/$directory" ]]; then
+        if [[ -d "$APP_ROOT/$directory" ]]; then
+          mv -- "$APP_ROOT/$directory" "$FAILED_DIR/unsuccessful-$directory"
+        fi
+        mv -- "$FAILED_DIR/$directory" "$APP_ROOT/$directory"
+      fi
+    done
+    cp -a "$FAILED_DIR/nginx.conf" "$NGINX_TARGET"
+    systemctl restart "$SERVICE" || true
+    nginx -t && systemctl reload nginx
+  fi
+  exit "$status"
+}
+trap restore_on_error EXIT
 
-mv "$APP_ROOT/实现文档/登陆注册" "$APP_ROOT/实现文档/登陆注册.failed.$(date +%Y%m%d%H%M%S)"
-cp -a "$LATEST_BACKUP/登陆注册" "$APP_ROOT/实现文档/登陆注册"
-chown -R adp:adp "$APP_ROOT"
-chmod 0755 "$APP_ROOT" "$APP_ROOT/实现文档" "$APP_ROOT/实现文档/登陆注册"
+systemctl stop "$SERVICE"
+for directory in backend frontend database; do
+  mv -- "$APP_ROOT/$directory" "$FAILED_DIR/$directory"
+  cp -a "$LATEST_BACKUP/$directory" "$APP_ROOT/$directory"
+done
+install -m 0644 "$LATEST_BACKUP/nginx.conf" "$NGINX_TARGET"
 nginx -t
-systemctl restart adp-auth
+systemctl restart "$SERVICE"
 systemctl reload nginx
-server_name="$(grep -m1 '^ADP_SERVER_NAME=' /etc/adp/auth.env | cut -d= -f2- | tr -d '\"')"
-public_path="$(grep -m1 '^ADP_PUBLIC_PATH=' /etc/adp/auth.env | cut -d= -f2- | tr -d '\"')"
-public_path="${public_path:-/adp/}"
-curl --fail --silent --show-error -H "Host: $server_name" http://127.0.0.1:5001/api/v1/health >/dev/null
-curl --fail --silent --show-error --resolve "$server_name:443:127.0.0.1" "https://$server_name${public_path}healthz" >/dev/null
-echo "已回滚到 $LATEST_BACKUP。"
+curl --retry 10 --retry-connrefused --retry-delay 1 --fail --silent --show-error -H "Host: $ADP_SERVER_NAME" "http://127.0.0.1:$BACKEND_PORT/api/v1/health" >/dev/null
+echo "Application restored from $LATEST_BACKUP; displaced files retained in $FAILED_DIR. Database migrations were not reversed."

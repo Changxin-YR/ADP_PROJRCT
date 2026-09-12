@@ -246,6 +246,12 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             user = current_user()
             sweep_expired_confirmations(user)
             arguments, operation, conversation = operation_request(json_object(), claims)
+            try:
+                query_tool = gateway.registry.require(operation)
+            except KeyError as exc:
+                raise AgentGatewayError("TOOL_NOT_FOUND", "智能体操作不在允许范围内", 404) from exc
+            if query_tool.risk != "read" or query_tool.method != "GET":
+                raise AgentGatewayError("TOOL_RISK_INVALID", "查询工具未按只读策略注册", 409)
             agent_request_id = str((claims or {}).get("request_id") or getattr(g, "request_id", ""))
             result = gateway.prepare_tool(
                 user,

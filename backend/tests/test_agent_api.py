@@ -66,6 +66,28 @@ def _logged_in_client(gateway: FakeAgentGateway) -> tuple[Any, FakeAuthStore, di
     return client, store, {"csrf": _csrf(client), "user": user}
 
 
+def test_agent_query_rejects_write_before_business_execution() -> None:
+    from test_agent_direct_write import _gateway, _tool
+
+    mutations = []
+    tool = _tool(
+        "master_data.create_record", method="POST", path="/api/v1/master-data/{resource}",
+        permission="master_data.manage", risk="write",
+        execute=lambda arguments, context: mutations.append(arguments) or {"id": 1},
+    )
+    gateway = _gateway((tool,))
+    client, _, context = _logged_in_client(gateway)
+    response = client.post(
+        "/api/v1/agent/query",
+        json={"operation": tool.name, "arguments": {"resource": "ponds", "payload": {"name": "test"}}},
+        headers={"X-CSRF-Token": context["csrf"]},
+    )
+    assert response.status_code == 409
+    assert response.get_json()["code"] == "TOOL_RISK_INVALID"
+    assert mutations == []
+    assert gateway.confirmations.rows == {}
+
+
 def test_agent_get_dispatch_caps_model_page_size_at_fifty() -> None:
     app = Flask(__name__)
     captured: dict[str, Any] = {}

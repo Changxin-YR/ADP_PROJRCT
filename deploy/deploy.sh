@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+umask 077
 
 if [[ "$(id -u)" != "0" ]]; then
   echo "请使用 root 执行此脚本。" >&2
@@ -7,6 +8,15 @@ if [[ "$(id -u)" != "0" ]]; then
 fi
 
 APP_ROOT="${APP_ROOT:-/opt/adp/login-registration}"
+[[ "$APP_ROOT" == /opt/adp/login-registration ]] || { echo "Unexpected deployment root" >&2; exit 1; }
+ENV_FILE="${ADP_DEPLOY_ENV_FILE:-/etc/adp/auth.env}"
+SERVICE="${ADP_DEPLOY_SERVICE:-adp-auth}"
+BACKEND_PORT="${ADP_BACKEND_PORT:-5001}"
+[[ "$ENV_FILE" == /etc/adp/auth.env || "$ENV_FILE" == /etc/adp/next.env ]] || exit 1
+[[ "$SERVICE" == adp-auth || "$SERVICE" == adp-next ]] || exit 1
+[[ "$BACKEND_PORT" == 5001 || "$BACKEND_PORT" == 5002 ]] || exit 1
+exec 9>/run/lock/adp-canonical-deploy.lock
+flock -n 9 || { echo "Deployment already running" >&2; exit 1; }
 BACKEND_DIR="$APP_ROOT/backend"
 FRONTEND_DIR="$APP_ROOT/frontend"
 DEPLOY_DIR="$APP_ROOT/deploy"
@@ -14,18 +24,34 @@ PYTHON_BIN="${PYTHON_BIN:-/opt/adp-venv/bin/python}"
 VENV_PIP="${VENV_PIP:-/opt/adp-venv/bin/pip}"
 MYSQL_CNF=""
 NGINX_CONFIG=""
+ACTIVATING=0
+OVERRIDE="/etc/systemd/system/$SERVICE.service.d/90-canonical-root.conf"
 
 cleanup() {
+  local status=$?
+  if (( status != 0 && ACTIVATING == 1 )); then
+    cp -a "$backup_dir/nginx.conf" "$NGINX_TARGET"
+    if [[ -f "$backup_dir/service-override.conf" ]]; then
+      cp -a "$backup_dir/service-override.conf" "$OVERRIDE"
+    else
+      rm -f -- "$OVERRIDE"
+    fi
+    systemctl daemon-reload
+    systemctl restart "$SERVICE" || true
+    nginx -t && systemctl reload nginx
+    echo "Application routing restored; committed database migrations are not reversed" >&2
+  fi
   if [[ -n "$MYSQL_CNF" && -f "$MYSQL_CNF" ]]; then
     rm -f -- "$MYSQL_CNF"
   fi
   if [[ -n "$NGINX_CONFIG" && -f "$NGINX_CONFIG" ]]; then
     rm -f -- "$NGINX_CONFIG"
   fi
+  exit "$status"
 }
 trap cleanup EXIT
 
-test -f /etc/adp/auth.env || { echo "缺少 /etc/adp/auth.env，拒绝发布。" >&2; exit 1; }
+test -f "$ENV_FILE" || { echo "Missing deployment environment file" >&2; exit 1; }
 test -d "$APP_ROOT" || { echo "项目根目录不存在：$APP_ROOT" >&2; exit 1; }
 test -d "$BACKEND_DIR" || { echo "后端目录不存在：$BACKEND_DIR" >&2; exit 1; }
 test -d "$FRONTEND_DIR" || { echo "前端目录不存在：$FRONTEND_DIR" >&2; exit 1; }
@@ -34,7 +60,16 @@ test -x "$PYTHON_BIN" || { echo "未找到 $PYTHON_BIN。" >&2; exit 1; }
 test -x "$VENV_PIP" || { echo "未找到 $VENV_PIP。" >&2; exit 1; }
 
 # shellcheck disable=SC1091
-source /etc/adp/auth.env
+source "$ENV_FILE"
+test -d "$APP_ROOT/database/migrations" || exit 1
+if [[ "${ADP_NGINX_MODE:-standalone}" == shared ]]; then
+  NGINX_TARGET=/etc/nginx/snippets/adp-location.conf
+  test -f "${ADP_NGINX_PARENT_CONFIG:?Missing shared Nginx parent}" || exit 1
+  grep -Fq "include $NGINX_TARGET;" "$ADP_NGINX_PARENT_CONFIG" || exit 1
+else
+  NGINX_TARGET=/etc/nginx/conf.d/adp-auth.conf
+fi
+test -f "$NGINX_TARGET" || { echo "Missing existing Nginx configuration" >&2; exit 1; }
 : "${APP_ENV:?auth.env 缺少 APP_ENV}"
 : "${SESSION_COOKIE_SECURE:?auth.env 缺少 SESSION_COOKIE_SECURE}"
 : "${TRUSTED_PROXY_HOPS:?auth.env 缺少 TRUSTED_PROXY_HOPS}"
@@ -61,6 +96,10 @@ if [[ -d "$APP_ROOT" ]]; then
   backup_dir="$backup_root/$(date +%Y%m%d%H%M%S)"
   install -d -m 0750 "$backup_root" "$backup_dir"
   cp -a "$BACKEND_DIR" "$FRONTEND_DIR" "$APP_ROOT/database" "$backup_dir/"
+  cp -a "$NGINX_TARGET" "$backup_dir/nginx.conf"
+  cp -a "$ENV_FILE" "$backup_dir/environment"
+  systemctl cat "$SERVICE" > "$backup_dir/service.txt"
+  if [[ -f "$OVERRIDE" ]]; then cp -a "$OVERRIDE" "$backup_dir/service-override.conf"; fi
 fi
 
 cd "$APP_ROOT"
@@ -69,16 +108,13 @@ ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm --prefix "$FRONTEND_DIR" ci
 VITE_PUBLIC_BASE_PATH="${ADP_PUBLIC_PATH:-/adp/}" npm --prefix "$FRONTEND_DIR" run build
 npm --prefix "$FRONTEND_DIR" prune --omit=dev
 
-MYSQL_CNF="$(mktemp /etc/adp/mysql-client.XXXXXX)"
-chmod 600 "$MYSQL_CNF"
-{
-  echo '[client]'
-  echo "host=$MYSQL_HOST"
-  echo "port=$MYSQL_PORT"
-  echo "user=$MYSQL_USER"
-  echo "password=$MYSQL_PASSWORD"
-} > "$MYSQL_CNF"
-grants="$(mysql --defaults-extra-file="$MYSQL_CNF" --batch --skip-column-names --execute="SHOW GRANTS")"
+mysql_client() {
+  local executable="$1"
+  shift
+  MYSQL_PWD="$MYSQL_PASSWORD" "$executable" --no-defaults --protocol=tcp \
+    --host="$MYSQL_HOST" --port="$MYSQL_PORT" --user="$MYSQL_USER" "$@"
+}
+grants="$(mysql_client mysql --batch --skip-column-names --execute="SHOW GRANTS")"
 while IFS= read -r grant; do
   [[ -z "$grant" || "$grant" == *"GRANT USAGE ON *.*"* ]] && continue
   [[ "$grant" == *" ON \`$MYSQL_DATABASE\`.* TO "* ]] || {
@@ -86,8 +122,9 @@ while IFS= read -r grant; do
     exit 1
   }
 done <<< "$grants"
+mysql_client mysqldump --single-transaction --routines --triggers "$MYSQL_DATABASE" > "$backup_dir/database.sql"
 migration_registry="database/migrations/000_schema_migrations.sql"
-mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < "$migration_registry"
+mysql_client mysql --database="$MYSQL_DATABASE" < "$migration_registry"
 
 shopt -s nullglob
 migrations=(database/migrations/[0-9][0-9][0-9]_*.sql)
@@ -102,10 +139,11 @@ for migration in "${migrations[@]}"; do
     exit 1
   fi
   checksum="$(sed 's/\r$//' "$migration" | sha256sum | awk '{print $1}')"
-  recorded_checksum="$(mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version = '$version' LIMIT 1")"
+  crlf_checksum="$(sed 's/\r$//' "$migration" | sed 's/$/\r/' | sha256sum | awk '{print $1}')"
+  recorded_checksum="$(mysql_client mysql --database="$MYSQL_DATABASE" --batch --skip-column-names --execute="SELECT checksum FROM schema_migrations WHERE version = '$version' LIMIT 1")"
 
   if [[ -n "$recorded_checksum" ]]; then
-    if [[ "$recorded_checksum" != "$checksum" ]]; then
+    if [[ "$recorded_checksum" != "$checksum" && "$recorded_checksum" != "$crlf_checksum" ]]; then
       echo "迁移校验和不一致，拒绝发布：$version" >&2
       exit 1
     fi
@@ -114,10 +152,10 @@ for migration in "${migrations[@]}"; do
   fi
 
   echo "正在应用迁移：$version"
-  mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < "$migration"
-  mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" --execute="INSERT INTO schema_migrations (version, checksum) VALUES ('$version', '$checksum')"
+  mysql_client mysql --database="$MYSQL_DATABASE" < "$migration"
+  mysql_client mysql --database="$MYSQL_DATABASE" --execute="INSERT INTO schema_migrations (version, checksum) VALUES ('$version', '$checksum')"
 done
-mysql --defaults-extra-file="$MYSQL_CNF" --database="$MYSQL_DATABASE" < database/seed_reference.sql
+mysql_client mysql --database="$MYSQL_DATABASE" < database/seed_reference.sql
 
 chown -R adp:adp "$APP_ROOT"
 chmod 0755 "$APP_ROOT" "$BACKEND_DIR" "$FRONTEND_DIR"
@@ -132,13 +170,21 @@ if grep -q '__ADP_' "$NGINX_CONFIG"; then
   echo "Nginx TLS 配置仍有未替换变量，拒绝发布。" >&2
   exit 1
 fi
-install -o root -g root -m 0644 "$NGINX_CONFIG" /etc/nginx/conf.d/adp-auth.conf
+if [[ "${ADP_NGINX_MODE:-standalone}" == shared ]]; then
+  ADP_SERVER_NAME="$ADP_SERVER_NAME" ADP_PUBLIC_PATH="${ADP_PUBLIC_PATH:-/adp/}" \
+    bash "$DEPLOY_DIR/render-shared-location.sh" "$APP_ROOT" "$BACKEND_PORT" > "$NGINX_CONFIG"
+fi
+ACTIVATING=1
+install -o root -g root -m 0644 "$NGINX_CONFIG" "$NGINX_TARGET"
 nginx -t
+install -d -m 0755 "$(dirname "$OVERRIDE")"
+printf '[Service]\nWorkingDirectory=%s\nExecStart=\nExecStart=%s --workers 2 --threads 2 --bind 127.0.0.1:%s --access-logfile - --error-logfile - backend.app:app\n' \
+  "$APP_ROOT" "$(dirname "$VENV_PIP")/gunicorn" "$BACKEND_PORT" > "$OVERRIDE"
 systemctl daemon-reload
-systemctl restart adp-auth
+systemctl restart "$SERVICE"
 systemctl reload nginx
 for attempt in $(seq 1 30); do
-  if curl --fail --silent -H "Host: $ADP_SERVER_NAME" http://127.0.0.1:5001/api/v1/health >/dev/null 2>&1; then
+  if curl --fail --silent -H "Host: $ADP_SERVER_NAME" "http://127.0.0.1:$BACKEND_PORT/api/v1/health" >/dev/null 2>&1; then
     break
   fi
   if [[ "$attempt" == "30" ]]; then
@@ -148,4 +194,6 @@ for attempt in $(seq 1 30); do
   sleep 1
 done
 curl --fail --silent --show-error --resolve "$ADP_SERVER_NAME:443:127.0.0.1" "https://${ADP_SERVER_NAME}${ADP_PUBLIC_PATH:-/adp/}healthz" >/dev/null
+curl --fail --silent --show-error "https://${ADP_SERVER_NAME}${ADP_PUBLIC_PATH:-/adp/}api/v1/health" >/dev/null
+ACTIVATING=0
 echo "ADP 登录注册服务发布完成。"
