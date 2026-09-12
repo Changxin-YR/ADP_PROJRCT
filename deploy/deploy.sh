@@ -159,6 +159,13 @@ mysql_client mysql --database="$MYSQL_DATABASE" < database/seed_reference.sql
 
 chown -R adp:adp "$APP_ROOT"
 chmod 0755 "$APP_ROOT" "$BACKEND_DIR" "$FRONTEND_DIR"
+# Only the public build is readable by the Nginx worker; backups/env stay private.
+find "$FRONTEND_DIR/dist" -type d -exec chmod 0755 {} +
+find "$FRONTEND_DIR/dist" -type f -exec chmod 0644 {} +
+if [[ "${AGENT_SIDECAR_HOME:-}" == /var/lib/adp/agent-sidecar ]]; then
+  install -d -o adp -g adp -m 0700 "$AGENT_SIDECAR_HOME/sessions"
+  chown -R adp:adp "$AGENT_SIDECAR_HOME/sessions"
+fi
 NGINX_CONFIG="$(mktemp /etc/adp/nginx-adp.XXXXXX)"
 install -d -o root -g root -m 0755 /var/lib/adp-acme
 sed \

@@ -61,6 +61,7 @@ _AGENT_INSTRUCTIONS_TEMPLATE = """# ADP 塘小助 · 智能体行为契约
 - 成本费用：cost.list_entries。
 - 待办/通知：workbench.list_work_items。
 - 写入类（投喂、用药、出入库、采购、销售、成本、档案）：先用只读调用核实对象与字段，再 adp_mutation；用户只给了模糊对象（例如「2 号塘」对应多个同名塘口）就先 adp_ask_user。
+- 修改已有记录时，resource、record_id、expected_version 必须作为 arguments 顶层字段，payload 只放要修改的业务字段；不要把版本号改名成 version，也不要嵌套进 payload。
 - **先说清说的是"业务动作"还是"记账"**（用户最容易混，模型也最容易选错接口）：
   - 投喂/喂料、用药、巡塘、抽样、转塘、损耗、出塘 → 生产记录：production/create，resource 分别取
     `feed-logs` / `medications` / `daily-operations` / `samplings` / `transfers` / `losses` / `harvests`

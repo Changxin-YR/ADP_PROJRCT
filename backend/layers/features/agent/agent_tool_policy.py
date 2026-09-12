@@ -50,10 +50,13 @@ def schema_for(method: str, path: str = "") -> dict[str, Any]:
         if path == "/api/v1/production/{resource}":
             schema["uninspected_on"] = {"type": "string", "description": "只读未巡检塘口查询日期，使用 today 或 YYYY-MM-DD"}
         return schema
-    return {
+    schema = {
         "payload": {"type": "object", "required": True},
         "expected_version": {"type": "integer", "minimum": 1},
     }
+    if method in {"PUT", "PATCH"} and "{record_id}" in path:
+        schema["expected_version"]["required"] = True
+    return schema
 
 
 def permission_action(path: str, method: str) -> str:

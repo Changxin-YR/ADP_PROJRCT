@@ -11,6 +11,8 @@ def test_registry_marks_read_write_and_identity_only_operations() -> None:
     assert registry.get("master_data.create_record").risk == "write"
     assert registry.get("admin.update_role_permissions").risk == "write"
     assert registry.get("admin.create_user").risk == "write"
+    update = registry.find_operation("PATCH", "/api/v1/master-data/{resource}/{record_id}")
+    assert update is not None and update.parameters["expected_version"]["required"] is True
 
     # Authentication/session lifecycle stays human-only; business/admin actions
     # are delegable when the logged-in user has the same authorization.
