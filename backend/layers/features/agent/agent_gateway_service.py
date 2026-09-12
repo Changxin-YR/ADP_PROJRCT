@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta, timezone
+import re
 from typing import Any, Callable
 
 from backend.config.settings import Settings
@@ -17,6 +18,7 @@ from backend.layers.features.agent.agent_errors import AgentGatewayError
 from backend.layers.features.agent.agent_gateway_policy import (
     AgentGatewayPolicyMixin,
     _redact,  # re-exported for callers that build confirmation cards here
+    requires_confirmation,
 )
 from backend.layers.features.agent.agent_gateway_write import DirectWriteMixin
 from backend.layers.features.agent.agent_humanize import action_title, change_rows, resource_code, target_label
@@ -41,7 +43,16 @@ class AgentGatewayService(DirectWriteMixin, AgentGatewayPolicyMixin):
         self.audit = audit
         self._idempotent = idempotent or execute_idempotent
 
-    def prepare_tool(self, user: dict[str, Any], tool_name: str, arguments: dict[str, Any], *, conversation_id: str, request_id: str) -> dict[str, Any]:
+    def prepare_tool(
+        self,
+        user: dict[str, Any],
+        tool_name: str,
+        arguments: dict[str, Any],
+        *,
+        conversation_id: str,
+        request_id: str,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
         try:
             self._require_session(user)
         except AgentGatewayError as error:
@@ -54,6 +65,10 @@ class AgentGatewayService(DirectWriteMixin, AgentGatewayPolicyMixin):
             raise AgentGatewayError("TOOL_NOT_FOUND", "智能体操作不在允许范围内", 404) from exc
 
         arguments = self._validate_arguments(tool, arguments)
+        if idempotency_key is not None:
+            idempotency_key = idempotency_key.strip()
+            if not re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", idempotency_key):
+                raise AgentGatewayError("VALIDATION_ERROR", "Idempotency-Key 格式无效", 400)
         self._authorize(user, tool, arguments, request_id=request_id, conversation_id=conversation_id)
 
         if tool.risk == "human_only":
@@ -74,20 +89,20 @@ class AgentGatewayService(DirectWriteMixin, AgentGatewayPolicyMixin):
 
         if tool.execute is None:
             raise AgentGatewayError("TOOL_UNAVAILABLE", "该写操作尚未连接业务服务", 503)
-        if self.write_mode == "direct":
+        if self.write_mode == "direct" and not requires_confirmation(tool):
             # 已确认放开：权限与数据范围通过后直接落地，审计留痕与人工确认路径一致。
             return self._execute_write(
                 user, tool, arguments,
                 conversation_id=conversation_id,
                 request_id=request_id,
-                idempotency_key=f"agent-direct:{tool.name}:{request_id}",
+                idempotency_key=idempotency_key or f"agent-direct:{tool.name}:{request_id}",
             )
 
         token = secrets.token_urlsafe(32)
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         confirmation = AgentConfirmation(
             id=0,
-            idempotency_key=f"agent-confirmation:{request_id}",
+            idempotency_key=idempotency_key or f"agent-confirmation:{request_id}",
             token_hash=_hash_token(token),
             user_id=int(user["id"]),
             session_hash=self.session_hash(user),
@@ -104,6 +119,7 @@ class AgentGatewayService(DirectWriteMixin, AgentGatewayPolicyMixin):
         self._audit(user, tool, arguments, result="pending", request_id=request_id, conversation_id=conversation_id)
 
         admin_risk = tool.path_template.startswith("/api/v1/admin")
+        high_risk = admin_risk or requires_confirmation(tool)
         risk_message = RISK_ADMIN if admin_risk else RISK_NORMAL
         action = action_title(tool.method, tool.path_template, resource=resource_code(tool.path_template, arguments))
         target = target_label(tool.path_template, arguments)
@@ -119,7 +135,7 @@ class AgentGatewayService(DirectWriteMixin, AgentGatewayPolicyMixin):
                 "changes": change_rows(arguments),
                 "arguments": _redact(arguments),
                 "risk": risk_message,
-                "risk_level": "high" if admin_risk else "normal",
+                "risk_level": "high" if high_risk else "normal",
                 "expires_at": saved.expires_at.isoformat(),
                 "conversation_id": saved.conversation_id,
                 "request_id": saved.request_id,

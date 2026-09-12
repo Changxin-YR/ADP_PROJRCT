@@ -11,10 +11,10 @@ function context() {
 }
 
 describe('ADP agent tools', () => {
-  it('registers only fixed query and mutation tools', () => {
+  it('registers only fixed query, mutation, and clarification tools', () => {
     const ctx = context()
     apply(ctx, { gatewayUrl: 'http://127.0.0.1/api/v1/agent', contextToken: 'short-lived' })
-    expect(ctx.registered.map((tool: { name: string }) => tool.name)).toEqual(['adp_query', 'adp_mutation'])
+    expect(ctx.registered.map((tool: { name: string }) => tool.name)).toEqual(['adp_query', 'adp_mutation', 'adp_ask_user'])
   })
 
   it('sends mutations to the ADP confirmation gateway', async () => {

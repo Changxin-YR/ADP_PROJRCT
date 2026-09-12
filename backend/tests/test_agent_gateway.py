@@ -6,7 +6,7 @@ import pytest
 from backend.config.settings import ConfigError, Settings
 from backend.layers.features.agent.agent_contracts import AgentConfirmation, AgentConfirmationError
 from backend.layers.features.agent.agent_confirmation_store import MySqlAgentConfirmationStore
-from backend.layers.features.agent.agent_tool_registry import build_registry
+from backend.layers.features.agent.agent_tool_registry import AgentToolRegistry, build_registry
 import backend.layers.features.agent.agent_confirmation_store as confirmation_store_module
 from datetime import datetime, timedelta, timezone
 import sys
@@ -239,6 +239,33 @@ def test_agent_audit_event_contains_authorization_and_business_trace_fields():
     assert success["tool_arguments"]["token"] == "[REDACTED]"
 
 
+def test_agent_audit_event_contains_prompt_role_scope_and_target_fields():
+    events = []
+    tool = build_registry(lambda _tool: lambda _args, _context: {"ok": True}).require("master_data.create_record")
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "direct"}),
+        registry=AgentToolRegistry((tool,)),
+        confirmations=_MemoryConfirmationStore(),
+        audit=events.append,
+        idempotent=lambda _settings, **kwargs: kwargs["operation"](),
+    )
+    user = _active_user("master_data.manage", roles=("operator",))
+    gateway.prepare_tool(
+        user,
+        tool.name,
+        {"resource": "ponds", "payload": {"code": "P-7", "name": "七号塘"}, "raw_instruction": "新建七号塘"},
+        conversation_id="c-audit",
+        request_id="r-audit",
+    )
+
+    event = events[-1]
+    assert event["original_prompt"] == "新建七号塘"
+    assert event["roles"] == [{"code": "operator"}]
+    assert event["permission_result"] is True
+    assert event["datascope_result"] is True
+    assert event["target_resource"] == "ponds"
+
+
 def test_agent_audit_redacts_all_credential_fields():
     events = []
     registry = build_registry(lambda _tool: lambda _args, _context: {"ok": True})
@@ -274,7 +301,7 @@ def test_agent_audit_redacts_all_credential_fields():
     assert trace["tool_arguments"]["session_token"] == "[REDACTED]"
 
 
-def test_agent_admin_write_is_delegable_for_authorized_super_admin():
+def test_agent_admin_write_requires_confirmation_for_authorized_super_admin():
     gateway = _gateway(lambda args, context: {"record": {"id": 1}}, mode="direct")
     user = _active_user("auth.role.manage", roles=("super_admin",), data_scopes=[])
     result = gateway.prepare_tool(
@@ -284,8 +311,9 @@ def test_agent_admin_write_is_delegable_for_authorized_super_admin():
         conversation_id="c-1",
         request_id="r-1",
     )
-    assert result["kind"] == "executed"
-    assert result["execution"]["title"] == "调整角色权限"
+    assert result["kind"] == "confirmation_required"
+    assert result["confirmation"]["risk_level"] == "high"
+    assert result["confirmation"]["summary"] == "调整角色权限"
 
 
 def test_agent_admin_write_requires_super_admin_role():
@@ -611,6 +639,7 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
             return {"kind": "assistant", "message": "ok"}
 
     monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    monkeypatch.setattr("shutil.which", lambda command: "C:\\runtime\\dsh.exe" if command == "dsh" else None)
     settings = Settings.from_env(
         {
             "APP_ENV": "test",
@@ -623,6 +652,30 @@ def test_sidecar_passes_configured_provider_and_model(monkeypatch) -> None:
     assert captured["kwargs"]["provider"] == "deepseek-official"
     assert captured["kwargs"]["model"] == "qwen-plus"
     assert captured["kwargs"]["max_tokens"] == 32768
+    assert captured["kwargs"]["dsh_bin"] is None
+
+
+def test_sidecar_lets_sdk_resolve_node_runtime(monkeypatch) -> None:
+    captured = {}
+
+    class FakeHarness:
+        def __init__(self, **kwargs):
+            captured["kwargs"] = kwargs
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def run(self, *_args, **_kwargs):
+            return {"kind": "assistant", "message": "ok"}
+
+    monkeypatch.setitem(sys.modules, "deepseek_harness", types.SimpleNamespace(DeepSeekHarness=FakeHarness))
+    monkeypatch.setattr("shutil.which", lambda command: "C:\\runtime\\dsh.exe" if command == "dsh" else None)
+    monkeypatch.setenv("DSH_RUNTIME_MODE", "node")
+    HarnessSidecar(Settings.from_env({"APP_ENV": "test"})).run("查询", context={"conversation_id": "c-node"})
+    assert captured["kwargs"]["dsh_bin"] is None
 
 
 def test_sidecar_maps_timeout(monkeypatch) -> None:
@@ -819,9 +872,11 @@ def test_sidecar_bounds_uninspected_query_and_filters_runtime_environment(monkey
     assert _bounded_query_prompt("查询 3 号塘") == "查询 3 号塘"
     monkeypatch.setenv("DEEPSEEK_API_KEY", "configured-but-never-printed")
     monkeypatch.setenv("MYSQL_PASSWORD", "must-not-pass")
+    monkeypatch.setenv("DSH_RUNTIME_MODE", "node")
     environment = _runtime_environment(Settings.from_env({"APP_ENV": "test", "AGENT_WRITE_MODE": "confirm"}), {"gateway_url": "http://gateway", "context_token": "ctx"})
     assert environment["DEEPSEEK_API_KEY"] == "configured-but-never-printed"
     assert "MYSQL_PASSWORD" not in environment
+    assert environment["DSH_RUNTIME_MODE"] == "node"
     assert environment["ADP_AGENT_GATEWAY_URL"] == "http://gateway"
 
 

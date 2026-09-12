@@ -4,7 +4,7 @@ import pytest
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
-from backend.layers.product.agent.routes import _decode_context_token, _issue_context
+from backend.layers.product.agent.routes import _decode_context_claims, _decode_context_token, _issue_context
 
 
 def _settings(secret: str) -> Settings:
@@ -34,3 +34,23 @@ def test_agent_context_cannot_be_issued_without_authenticated_session() -> None:
     with pytest.raises(AgentGatewayError) as exc:
         _issue_context(_settings("shared-worker-secret"), "")
     assert exc.value.code == "UNAUTHENTICATED"
+
+
+def test_agent_context_carries_encrypted_turn_metadata_for_audit() -> None:
+    settings = _settings("metadata-secret")
+    delegated = _issue_context(
+        settings,
+        "session-token",
+        raw_instruction="删除 7 号塘",
+        conversation_id="conversation-1",
+        request_id="request-1",
+    )
+
+    assert "删除 7 号塘" not in delegated
+    assert _decode_context_token(settings, delegated) == "session-token"
+    assert _decode_context_claims(settings, delegated) == {
+        "session_token": "session-token",
+        "raw_instruction": "删除 7 号塘",
+        "conversation_id": "conversation-1",
+        "request_id": "request-1",
+    }

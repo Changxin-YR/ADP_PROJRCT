@@ -30,6 +30,8 @@ interface CatalogOperation {
   r?: string
   q?: string
   a?: string[]
+  f?: string[] | Record<string, string[]>
+  rs?: string[]
 }
 
 function describeOperations(catalog: string | undefined): string {
@@ -45,11 +47,27 @@ function describeOperations(catalog: string | undefined): string {
       operation.r ? `risk=${operation.r}` : '',
       operation.q ? `perm=${operation.q}` : '',
       operation.a ? `parameters=${operation.a.join(',')}` : '',
+      describeFields(operation),
     ].filter(Boolean).join(' | '))
     return `必须从已登记的 ADP 工具名中选择，并按对应参数调用（perm= 是该操作需要的权限码）：\n${lines.join('\n')}`
   } catch {
     return '必须从已登记的 ADP 工具名中选择。'
   }
+}
+
+function describeFields(operation: CatalogOperation): string {
+  const parts: string[] = []
+  if (operation.f && typeof operation.f === 'object') {
+    if (Array.isArray(operation.f)) {
+      if (operation.f.length) parts.push(`payload 字段=${operation.f.join(',')}（! 为必填）`)
+    } else {
+      for (const [resource, fields] of Object.entries(operation.f)) {
+        if (Array.isArray(fields) && fields.length) parts.push(`${resource}: ${fields.join(',')}`)
+      }
+    }
+  }
+  if (Array.isArray(operation.rs) && operation.rs.length) parts.push(`resource 可选=${operation.rs.join('/')}`)
+  return parts.join(' ')
 }
 
 async function callGateway(
@@ -87,7 +105,7 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
   const operationDescription = describeOperations(config.operationCatalog)
   ctx.tools.register(defineTool({
     name: 'adp_query',
-    description: '查询当前登录用户有权查看的 ADP 数据。每次调用只传一个 operation 与它的对象参数。',
+    description: '查询当前登录用户有权查看的 ADP 数据。',
     parameters: {
       operation: { type: 'string', required: true, description: operationDescription },
       arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
@@ -98,6 +116,22 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
     },
     async execute(args, exec) {
       return callGateway(config, '/query', args as { operation: string; arguments: Record<string, unknown> }, exec.signal)
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'adp_mutation',
+    description: '执行 ADP 业务增删改（新增/修改/删除）。按当前登录者权限执行；若网关返回 confirmation_required，必须等待用户确认。',
+    parameters: {
+      operation: { type: 'string', required: true, description: operationDescription },
+      arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
+    },
+    output: {
+      schema: { type: 'json' },
+      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
+    },
+    async execute(args, exec) {
+      return callGateway(config, '/prepare', args as { operation: string; arguments: Record<string, unknown> }, exec.signal)
     },
   }))
 
@@ -131,22 +165,6 @@ export function apply(ctx: Context, config: AdpAgentToolsConfig): void {
         allow_free_text: payload?.allow_free_text !== false,
         note: '已向用户提问，请立即停止本轮输出，等待用户回答。',
       } as unknown as JsonValue
-    },
-  }))
-
-  ctx.tools.register(defineTool({
-    name: 'adp_mutation',
-    description: '准备一个需要登录者确认的 ADP 业务写操作。得到 confirmation_required 后立即停止，等待用户点击确认。',
-    parameters: {
-      operation: { type: 'string', required: true, description: operationDescription },
-      arguments: { type: 'json', required: true, description: '该工具的对象参数。' },
-    },
-    output: {
-      schema: { type: 'json' },
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
-    },
-    async execute(args, exec) {
-      return callGateway(config, '/prepare', args as { operation: string; arguments: Record<string, unknown> }, exec.signal)
     },
   }))
 }

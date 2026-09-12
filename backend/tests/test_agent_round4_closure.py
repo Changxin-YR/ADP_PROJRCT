@@ -105,7 +105,7 @@ def _agent_write(
         conversation_id=f"round4-{request_id}",
         request_id=f"{request_id}-prepare",
     )
-    return gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"{request_id}-confirm")
+    return pending if pending.get("kind") == "executed" else gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"{request_id}-confirm")
 
 
 def test_agent_idor_rejects_foreign_area_without_mutation() -> None:
@@ -133,20 +133,13 @@ def test_agent_idor_rejects_foreign_area_without_mutation() -> None:
             confirmations=MySqlAgentConfirmationStore(settings),
             audit=_audit_writer(settings),
         )
-        pending = gateway.prepare_tool(
-            user,
-            tool.name,
-            {"resource": "ponds", "record_id": ids["pond_id"], "payload": {"expected_version": 1, "name": "foreign"}, "raw_instruction": "修改 B 区塘口"},
-            conversation_id="idor",
-            request_id="idor-prepare",
-        )
         with pytest.raises(AgentGatewayError) as error:
-            gateway.confirm(user, pending["confirmation"]["token"], request_id="idor-confirm")
-        assert error.value.status == 400
+            gateway.prepare_tool(user, tool.name, {"resource": "ponds", "record_id": ids["pond_id"], "payload": {"expected_version": 1, "name": "foreign"}, "raw_instruction": "修改 B 区塘口"}, conversation_id="idor", request_id="idor-prepare")
+        assert error.value.code == "DATA_SCOPE_FORBIDDEN"
         with get_connection(settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT name FROM ponds WHERE id=%s", (ids["pond_id"],))
             assert cursor.fetchone()["name"] == "一号塘"
-            cursor.execute("SELECT COUNT(*) AS total FROM audit_logs WHERE request_id='idor-confirm' AND result='failure'")
+            cursor.execute("SELECT COUNT(*) AS total FROM audit_logs WHERE request_id='idor-prepare' AND result='failure'")
             assert cursor.fetchone()["total"] == 1
 
 
@@ -468,15 +461,15 @@ def test_agent_audit_trace_reconstructs_success_and_failure() -> None:
         )
         gateway = AgentGatewayService(settings, registry=AgentToolRegistry((tool,)), confirmations=MySqlAgentConfirmationStore(settings), audit=_audit_writer(settings))
         pending = gateway.prepare_tool(actor, tool.name, {"resource": "ponds", "record_id": target_id, "payload": {"expected_version": 1, "name": "审计后塘"}, "raw_instruction": "把 P001 停用"}, conversation_id="r4-audit", request_id="r4-audit-prepare")
-        gateway.confirm(actor, pending["confirmation"]["token"], request_id="r4-audit-confirm")
+        result = pending if pending.get("kind") == "executed" else gateway.confirm(actor, pending["confirmation"]["token"], request_id="r4-audit-confirm")
         with pytest.raises(AgentGatewayError) as error:
             gateway.prepare_tool(_actor(2, ["master_data.view"], area_id=ids["area_id"]), tool.name, {"resource": "ponds", "record_id": target_id, "payload": {"expected_version": 2, "name": "越权"}, "raw_instruction": "越权修改"}, conversation_id="r4-audit", request_id="r4-audit-denied")
         assert error.value.code == "FORBIDDEN"
         with get_connection(settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT result,request_id,detail_json,before_json,after_json,reason FROM audit_logs WHERE request_id IN ('r4-audit-prepare','r4-audit-confirm','r4-audit-denied') ORDER BY id")
             rows = cursor.fetchall()
-        assert len(rows) == 3
-        success = rows[1]
+        assert len(rows) == 2
+        success = rows[0]
         assert success["result"] == "success"
         detail = __import__("json").loads(success["detail_json"])
         assert detail["authenticated_user_id"] == actor["id"]
@@ -484,7 +477,7 @@ def test_agent_audit_trace_reconstructs_success_and_failure() -> None:
         assert detail["intent"] == tool.name
         assert detail["tool_name"] == tool.name
         assert detail["required_permission"] == "master_data.manage"
-        assert detail["confirmation_id"] == pending["confirmation"]["id"]
+        assert detail.get("confirmation_id") is None
         assert __import__("json").loads(success["before_json"])["name"] == "审计前塘"
         assert __import__("json").loads(success["after_json"])["name"] == "审计后塘"
-        assert rows[2]["result"] == "failure" and rows[2]["reason"] == "FORBIDDEN"
+        assert rows[1]["result"] == "failure" and rows[1]["reason"] == "FORBIDDEN"

@@ -74,7 +74,8 @@ def _agent_write(
         conversation_id=f"equivalence-{name}",
         request_id=f"equivalence-{name}-prepare",
     )
-    return gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"equivalence-{name}-confirm")["data"]
+    result = pending if pending.get("kind") == "executed" else gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"equivalence-{name}-confirm")
+    return result.get("data", result)
 
 
 def _business_compare(

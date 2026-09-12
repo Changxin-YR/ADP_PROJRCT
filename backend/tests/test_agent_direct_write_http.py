@@ -64,7 +64,7 @@ def _route(kind: str, resource: str) -> Any:
     )()
 
 
-def _client(*, created: list[dict[str, Any]], monkeypatch: Any) -> Any:
+def _client(*, created: list[dict[str, Any]], monkeypatch: Any, idempotency_keys: list[str] | None = None) -> Any:
     auth = FakeAuthStore()
     account = auth.add_user(phone="13800000901", login_name="agent-writer", password="Correct9!", status="active")
     account["permissions"] = ["master_data.view", "master_data.manage", "production.view", "production.manage"]
@@ -81,7 +81,12 @@ def _client(*, created: list[dict[str, Any]], monkeypatch: Any) -> Any:
         confirmations=MySqlAgentConfirmationStore(settings),
     )
     # 两层幂等表都要落 MySQL；本用例只验证 agent 执行链，替换成等价的「执行一次」。
-    gateway._idempotent = lambda _settings, **kwargs: (kwargs["operation"]()[0], 200)
+    def _idempotent(_settings: Any, **kwargs: Any) -> tuple[dict[str, Any], int]:
+        if idempotency_keys is not None:
+            idempotency_keys.append(str(kwargs["key"]))
+        return kwargs["operation"]()[0], 200
+
+    gateway._idempotent = _idempotent
     monkeypatch.setattr(production_routes, "execute_idempotent", lambda _s, **kwargs: (kwargs["operation"]()[0], kwargs["operation"]()[1]))
     client = create_app(settings, store=auth, production_store=store, agent_gateway=gateway).test_client()
     token = client.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]
@@ -92,6 +97,29 @@ def _client(*, created: list[dict[str, Any]], monkeypatch: Any) -> Any:
     )
     assert response.status_code == 200, response.get_json()
     return client
+
+
+def test_agent_prepare_forwards_client_idempotency_key_to_write_executor(monkeypatch: Any) -> None:
+    created: list[dict[str, Any]] = []
+    keys: list[str] = []
+    client = _client(created=created, monkeypatch=monkeypatch, idempotency_keys=keys)
+    csrf = client.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]
+    response = client.post(
+        "/api/v1/agent/prepare",
+        json={
+            "operation": "api.production_create_post_api_v1_production_resource",
+            "arguments": {"resource": "feed-logs", "payload": {
+                "code": "FL-IDEMPOTENCY-1", "name": "幂等验证", "pond_id": 3,
+                "batch_id": 1, "material_id": 1, "quantity": 20,
+            }},
+            "conversation_id": "c-http-idempotency",
+        },
+        headers={"X-CSRF-Token": csrf, "Idempotency-Key": "agent-http-key-1"},
+    )
+
+    assert response.status_code == 200, response.get_json()
+    assert created
+    assert keys == ["agent-http-key-1"]
 
 
 def test_agent_prepare_executes_a_write_and_returns_plain_language(monkeypatch: Any) -> None:

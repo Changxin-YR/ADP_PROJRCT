@@ -6,7 +6,7 @@
 继承登录者身份）。后果：智能体“查询没问题、写入全失败”。
 
 本文件两层保障：
-1. 回调形态（无 Cookie / 无 CSRF 头）必须能写成功；
+1. 回调形态（无 Cookie / 无 CSRF 头）能到达网关，且高风险费用写入不能绕过确认；
 2. 全量扫描：所有 mutating 路由都必须走 `require_csrf()`，不许再直接调 `validate_csrf_token`。
 """
 
@@ -20,6 +20,10 @@ import pytest
 
 from backend.layers.product.cost import enterprise_routes as enterprise_routes_module
 from backend.layers.product.cost import routes as cost_routes_module
+from backend.layers.features.agent.agent_contracts import AgentConfirmation
+from backend.layers.features.agent.agent_gateway_service import AgentGatewayService
+from backend.layers.features.agent.agent_tool_registry import build_registry
+from backend.layers.product.agent.agent_dispatch import dispatch_fixed_tool
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 DIRECT_CSRF_CALL = re.compile(r"validate_csrf_token\s*\(")
@@ -63,7 +67,7 @@ def test_cost_writes_use_the_shared_csrf_helper() -> None:
 
 
 @pytest.fixture
-def cost_callback_client(monkeypatch: Any) -> Any:
+def cost_callback_client() -> Any:
     """真 Flask + FakeAuthStore：登录一次拿到会话，然后只用 context 头回调。"""
     import sys
 
@@ -97,49 +101,47 @@ def cost_callback_client(monkeypatch: Any) -> Any:
         "MYSQL_PASSWORD": "test", "SESSION_COOKIE_SECURE": "false", "AGENT_WRITE_MODE": "direct",
     })
     store = FakeCostStore()
-    client = create_app(settings, store=auth, cost_store=store).test_client()
+    gateway = AgentGatewayService(
+        settings,
+        registry=build_registry(lambda tool: lambda arguments, context: dispatch_fixed_tool(tool, arguments, context, settings)),
+        confirmations=_MemoryConfirmations(),
+    )
+    gateway.open_confirmation_work_item = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    client = create_app(settings, store=auth, cost_store=store, agent_gateway=gateway).test_client()
     csrf = client.get("/api/v1/auth/csrf").get_json()["data"]["csrf_token"]
     login = client.post("/api/v1/auth/login", json={"identifier": "cb-accept", "password": "Correct9!"},
                         headers={"X-CSRF-Token": csrf})
     assert login.status_code == 200, login.get_json()
     session_token = client.get_cookie("adp_session").value
 
-    # 幂等表需要真库；这里只验证 CSRF/鉴权/路由链路，幂等与审计由其它用例覆盖。
-    # execute_idempotent 在函数内部 `from ...db.connection import get_connection`，
-    # 所以要替换的是那个模块里的名字。
-    monkeypatch.setattr(
-        "backend.layers.common.db.connection.get_connection",
-        lambda _settings: _PassthroughConnection(),
-    )
     return _Callback(client.application.test_client(), settings, _issue_context(settings, session_token), store)
 
 
-class _PassthroughConnection:
-    """execute_idempotent 需要一个连接；本用例只关心是否放行，所以给它一个空实现。"""
+class _MemoryConfirmations:
+    def __init__(self) -> None:
+        self.rows: dict[str, AgentConfirmation] = {}
+        self.next_id = 1
 
-    class _Cursor:
-        lastrowid = 1
+    def create(self, confirmation: AgentConfirmation, token: str) -> AgentConfirmation:
+        saved = AgentConfirmation(**{**confirmation.__dict__, "id": self.next_id})
+        self.next_id += 1
+        self.rows[token] = saved
+        return saved
 
-        def execute(self, *_a: Any, **_k: Any) -> None:
-            return None
+    def find(self, *, token: str, user_id: int, session_hash: str) -> AgentConfirmation | None:
+        return self.rows.get(token)
 
-        def fetchone(self) -> None:
-            return None
-
-        def __enter__(self) -> "_PassthroughConnection._Cursor":
-            return self
-
-        def __exit__(self, *_exc: Any) -> None:
-            return None
-
-    def cursor(self) -> "_PassthroughConnection._Cursor":
-        return self._Cursor()
-
-    def __enter__(self) -> "_PassthroughConnection":
-        return self
-
-    def __exit__(self, *_exc: Any) -> None:
+    def claim(self, *, token: str, user_id: int, session_hash: str, now: Any = None) -> AgentConfirmation | None:
         return None
+
+    def mark_cancelled(self, confirmation_id: int, *, user_id: int) -> bool:
+        return True
+
+    def mark_failed(self, confirmation_id: int, *, user_id: int) -> bool:
+        return True
+
+    def mark_expired(self, *, now: Any = None, user_id: int | None = None) -> list[int]:
+        return []
 
 
 class _Callback:
@@ -173,14 +175,13 @@ VALID_EXPENSE = {
 }
 
 
-def test_agent_callback_can_write_cost_expense_without_cookie_or_csrf_header(cost_callback_client: _Callback) -> None:
+def test_agent_callback_cannot_bypass_confirmation_for_cost_expense(cost_callback_client: _Callback) -> None:
     response = cost_callback_client.prepare("api.cost_create_expense_post_api_v1_cost_expenses", {"payload": dict(VALID_EXPENSE)})
 
     body = response.get_json()
     assert response.status_code == 200, body
-    assert body["data"]["kind"] == "executed", body
-    assert len(cost_callback_client.store.expenses) == 1, "业务 store 必须真的被写入一次"
-    assert body["data"]["message"].startswith("新增费用")
+    assert body["data"]["kind"] == "confirmation_required", body
+    assert cost_callback_client.store.expenses == []
 
 
 def test_agent_callback_write_still_rejects_a_forged_context_token(cost_callback_client: _Callback) -> None:

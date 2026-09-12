@@ -111,6 +111,52 @@ def test_direct_mode_keeps_human_only_operations_delegation_free() -> None:
     assert "人工" in result["message"] or "本人" in result["message"]
 
 
+def test_direct_mode_still_requires_confirmation_for_destructive_writes() -> None:
+    calls: list[dict[str, Any]] = []
+    tool = _tool(
+        "master_data.delete_record",
+        method="DELETE",
+        path="/api/v1/master-data/{resource}/{record_id}",
+        permission="master_data.manage",
+        risk="write",
+        execute=lambda arguments, context: calls.append(arguments) or {"deleted": True},
+    )
+    result = _gateway((tool,), mode="direct").prepare_tool(
+        _user("master_data.manage"),
+        tool.name,
+        {"resource": "ponds", "record_id": 7},
+        conversation_id="c-risk",
+        request_id="r-risk",
+    )
+
+    assert result["kind"] == "confirmation_required"
+    assert result["confirmation"]["risk_level"] == "high"
+    assert calls == []
+
+
+def test_direct_mode_requires_confirmation_for_batch_writes() -> None:
+    calls: list[dict[str, Any]] = []
+    tool = _tool(
+        "production.batch_update",
+        method="POST",
+        path="/api/v1/production/batch-update",
+        permission="production.manage",
+        risk="write",
+        execute=lambda arguments, context: calls.append(arguments) or {"updated": 4},
+    )
+    result = _gateway((tool,), mode="direct").prepare_tool(
+        _user("production.manage"),
+        tool.name,
+        {"payload": {"status": "inactive"}},
+        conversation_id="c-batch",
+        request_id="r-batch",
+    )
+
+    assert result["kind"] == "confirmation_required"
+    assert result["confirmation"]["risk_level"] == "high"
+    assert calls == []
+
+
 def test_confirm_mode_still_waits_for_the_user_click() -> None:
     calls: list[dict[str, Any]] = []
     tool = _tool(
@@ -155,6 +201,61 @@ def test_direct_mode_hides_framework_failures_behind_business_wording() -> None:
     assert "没做成" in exc.value.message
     assert "connection reset by peer" not in exc.value.message
     assert "Traceback" not in exc.value.message
+
+
+def test_gateway_rejects_missing_path_parameters_before_execution() -> None:
+    calls: list[dict[str, Any]] = []
+    tool = _tool(
+        "master_data.update_record",
+        method="PATCH",
+        path="/api/v1/master-data/{resource}/{record_id}",
+        permission="master_data.manage",
+        risk="write",
+        execute=lambda arguments, context: calls.append(arguments) or {"ok": True},
+    )
+
+    with pytest.raises(AgentGatewayError) as error:
+        _gateway((tool,)).prepare_tool(
+            _user("master_data.manage"),
+            tool.name,
+            {"resource": "ponds", "payload": {"name": "新名称"}},
+            conversation_id="c-validation",
+            request_id="r-validation",
+        )
+
+    assert error.value.code == "VALIDATION_ERROR"
+    assert calls == []
+
+
+def test_gateway_rejects_invalid_query_ranges_and_resource_values() -> None:
+    registry = build_registry()
+    query = registry.require("master_data.list_records")
+    gateway = AgentGatewayService(
+        Settings.from_env({"APP_ENV": "test"}),
+        registry=AgentToolRegistry((query,)),
+        confirmations=_MemoryConfirmations(),
+    )
+    scoped_user = {**_user("master_data.view"), "data_scopes": [{"scope_type": "area", "area_id": 1}]}
+
+    with pytest.raises(AgentGatewayError, match="page_size") as page_error:
+        gateway.prepare_tool(
+            scoped_user,
+            query.name,
+            {"resource": "ponds", "page_size": 0},
+            conversation_id="c-validation",
+            request_id="r-page",
+        )
+    assert page_error.value.code == "VALIDATION_ERROR"
+
+    with pytest.raises(AgentGatewayError) as resource_error:
+        gateway.prepare_tool(
+            scoped_user,
+            query.name,
+            {"resource": "not-a-resource"},
+            conversation_id="c-validation",
+            request_id="r-resource",
+        )
+    assert resource_error.value.code == "VALIDATION_ERROR"
 
 
 def test_direct_mode_replays_the_same_idempotency_key_for_one_request() -> None:

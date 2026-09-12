@@ -78,7 +78,7 @@ def test_confirmation_work_item_is_visible_to_requester_and_expires_cleanly(monk
         tool = _sales_tool()
 
         # 1) 未过期：待办指派给本人、状态 claimed
-        live = store.create(_confirmation(user_id, seconds=120), "token-live")
+        live = store.create(_confirmation(user_id, seconds=86400), "token-live")
         assert open_confirmation_work_item(settings, confirmation=live, tool=tool, user={"id": user_id}) == live.id
         with get_connection(settings) as connection, connection.cursor() as cursor:
             row = _work_item(cursor, live.id)

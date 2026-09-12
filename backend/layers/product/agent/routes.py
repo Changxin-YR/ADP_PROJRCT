@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import base64
-import hashlib
 from typing import Any
 from uuid import uuid4
 
-from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, Response, current_app, g, jsonify, request
 
 from backend.config.settings import Settings
@@ -27,42 +24,8 @@ from backend.layers.features.agent.agent_confirmation_work_item import (
     close_expired_confirmation_work_items,
 )
 from backend.layers.features.agent.agent_tool_registry import AgentTool, build_registry
+from backend.layers.features.agent.agent_context import _decode_context_claims, _decode_context_token, _issue_context
 from backend.layers.features.agent.harness_sidecar import HarnessSidecar
-
-
-_AGENT_CONTEXT_TTL_SECONDS = 180
-
-
-def _context_cipher(settings: Settings) -> Fernet:
-    """Derive an authenticated-encryption key dedicated to Agent delegation.
-
-    The delegated context carries the existing web session token only in
-    encrypted form. Because it is self-contained, any Gunicorn worker can
-    validate it without a process-local cache.
-    """
-    material = f"adp-agent-context-v1:{settings.flask_secret_key}".encode("utf-8")
-    key = base64.urlsafe_b64encode(hashlib.sha256(material).digest())
-    return Fernet(key)
-
-
-def _issue_context(settings: Settings, session_token: str) -> str:
-    if not session_token:
-        raise AgentGatewayError("UNAUTHENTICATED", "当前会话不能委托给智能体", 401)
-    return _context_cipher(settings).encrypt(session_token.encode("utf-8")).decode("ascii")
-
-
-def _decode_context_token(settings: Settings, token: str) -> str | None:
-    if not token:
-        return None
-    try:
-        value = _context_cipher(settings).decrypt(
-            token.encode("ascii"),
-            ttl=_AGENT_CONTEXT_TTL_SECONDS,
-        )
-        return value.decode("utf-8")
-    except (InvalidToken, UnicodeDecodeError, UnicodeEncodeError):
-        return None
-
 
 def _context_session_token(settings: Settings) -> str | None:
     token = request.headers.get("X-Agent-Context", "").strip()
@@ -157,7 +120,13 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                         "conversation_id": conversation,
                         "request_id": str(getattr(g, "request_id", "")),
                         "gateway_url": settings.agent_gateway_url or request.host_url.rstrip("/") + "/api/v1/agent",
-                        "context_token": _issue_context(settings, session_token),
+                        "context_token": _issue_context(
+                            settings,
+                            session_token,
+                            raw_instruction=message.strip(),
+                            conversation_id=conversation,
+                            request_id=str(getattr(g, "request_id", "")),
+                        ),
                         # Namespace Harness sessions by the authenticated web
                         # session so two users choosing the same conversation_id
                         # can never share model history.
@@ -171,7 +140,14 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
                 arguments = payload.get("arguments")
                 if not operation or not isinstance(arguments, dict):
                     raise AgentGatewayError("AGENT_UNAVAILABLE", "智能体服务暂时不可用，请稍后重试", 503)
-                result = gateway.prepare_tool(user, operation, arguments, conversation_id=conversation_id(payload), request_id=str(getattr(g, "request_id", "")))
+                result = gateway.prepare_tool(
+                    user,
+                    operation,
+                    arguments,
+                    conversation_id=conversation_id(payload),
+                    request_id=str(getattr(g, "request_id", "")),
+                    idempotency_key=request.headers.get("Idempotency-Key") or None,
+                )
             if isinstance(result, dict):
                 result.setdefault("conversation_id", conversation)
             return jsonify(ok(result))
@@ -204,7 +180,13 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
             "conversation_id": conversation,
             "request_id": str(getattr(g, "request_id", "")),
             "gateway_url": settings.agent_gateway_url or request.host_url.rstrip("/") + "/api/v1/agent",
-            "context_token": _issue_context(settings, session_token),
+            "context_token": _issue_context(
+                settings,
+                session_token,
+                raw_instruction=message.strip(),
+                conversation_id=conversation,
+                request_id=str(getattr(g, "request_id", "")),
+            ),
             "user_namespace": hash_session_token(session_token)[:16],
             "user_brief": build_user_brief(user),
             **turn_prompt_context(payload),
@@ -236,25 +218,43 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
         except (TypeError, ValueError):
             return error_response(AgentGatewayError("VALIDATION_ERROR", "请求参数无效", 400))
 
-    def operation_request(payload: dict[str, Any]) -> tuple[dict[str, Any], str, str]:
+    def operation_request(payload: dict[str, Any], claims: dict[str, str] | None = None) -> tuple[dict[str, Any], str, str]:
         operation = str(payload.get("operation") or payload.get("tool_name") or "").strip()
         arguments = payload.get("arguments")
         if not operation or not isinstance(arguments, dict):
             raise AgentGatewayError("VALIDATION_ERROR", "请提供 operation 和对象类型 arguments", 400)
-        return arguments, operation, conversation_id(payload)
+        safe_arguments = dict(arguments)
+        if claims:
+            raw_instruction = claims.get("raw_instruction")
+            if raw_instruction:
+                safe_arguments["raw_instruction"] = raw_instruction
+        conversation = conversation_id(payload)
+        if claims and claims.get("conversation_id"):
+            conversation = claims["conversation_id"]
+        return safe_arguments, operation, conversation
 
     @blueprint.post("/query")
     def query() -> tuple[Response, int] | Response:
         try:
+            claims = None
             if request.headers.get("X-Agent-Context"):
-                if _context_session_token(settings) is None or request.cookies.get("adp_session"):
+                claims = _decode_context_claims(settings, request.headers.get("X-Agent-Context", "").strip())
+                if not claims or request.cookies.get("adp_session"):
                     raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
             else:
                 require_csrf()
             user = current_user()
             sweep_expired_confirmations(user)
-            arguments, operation, conversation = operation_request(json_object())
-            result = gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))
+            arguments, operation, conversation = operation_request(json_object(), claims)
+            agent_request_id = str((claims or {}).get("request_id") or getattr(g, "request_id", ""))
+            result = gateway.prepare_tool(
+                user,
+                operation,
+                arguments,
+                conversation_id=conversation,
+                request_id=agent_request_id,
+                idempotency_key=request.headers.get("Idempotency-Key") or None,
+            )
             if result.get("kind") != "success":
                 raise AgentGatewayError("TOOL_RISK_INVALID", "查询工具未按只读策略注册", 409)
             return jsonify(ok(result))
@@ -264,13 +264,23 @@ def create_agent_blueprint(settings: Settings, auth_store: Any, gateway: Any | N
     @blueprint.post("/prepare")
     def prepare() -> tuple[Response, int] | Response:
         try:
+            claims = None
             if request.headers.get("X-Agent-Context"):
-                if _context_session_token(settings) is None or request.cookies.get("adp_session"):
+                claims = _decode_context_claims(settings, request.headers.get("X-Agent-Context", "").strip())
+                if not claims or request.cookies.get("adp_session"):
                     raise AgentGatewayError("AGENT_CONTEXT_INVALID", "智能体上下文无效", 401)
             else:
                 require_csrf()
-            user = current_user(); arguments, operation, conversation = operation_request(json_object())
-            return jsonify(ok(gateway.prepare_tool(user, operation, arguments, conversation_id=conversation, request_id=str(getattr(g, "request_id", "")))))
+            user = current_user(); arguments, operation, conversation = operation_request(json_object(), claims)
+            agent_request_id = str((claims or {}).get("request_id") or getattr(g, "request_id", ""))
+            return jsonify(ok(gateway.prepare_tool(
+                user,
+                operation,
+                arguments,
+                conversation_id=conversation,
+                request_id=agent_request_id,
+                idempotency_key=request.headers.get("Idempotency-Key") or None,
+            )))
         except (CsrfError, AuthServiceError, AgentGatewayError, TypeError, ValueError) as error:
             return error_response(error)
 

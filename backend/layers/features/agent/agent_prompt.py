@@ -31,7 +31,7 @@ BEHAVIOUR_RULES = """【行为约定】
 12. 需要用户补充信息时，必须直接调用 adp_ask_user；禁止只在文字里写「让我向用户提问」「请提供…」却不调用工具——那样界面不会弹出输入框。同样禁止在文字里预告工具调用。"""
 
 _QUERY_ONLY_WRITE_RULE = "任何写入都先用 adp_mutation 准备，由用户在界面上点击确认后才会真正执行，你不得声称已经完成写入。"
-_WRITE_DIRECT_RULE = "增删改一律直接调用 adp_mutation，它会按当前登录者的权限立即生效；不要再让用户点一次确认，也不要在文字里说「已准备 / 待确认」。"
+_WRITE_DIRECT_RULE = "普通、可恢复的新增和修改可直接调用 adp_mutation；删除、批量、金额、权限和不可逆状态变更必须等待网关返回 confirmation_required，先向用户展示确认，不得声称已完成。"
 _QUERY_ONLY_ERROR_RULE = "工具返回错误时，如实转述错误原文。"
 _WRITE_DIRECT_ERROR_RULE = "工具返回错误时，如实说明哪一步没做成（保留错误里的原因）；不要谎称已经完成，也不要把失败说成系统故障。"
 
@@ -87,7 +87,7 @@ def instructions_for_mode(mode: str = "direct") -> str:
     direct = mode != "confirm"
     return _AGENT_INSTRUCTIONS_TEMPLATE.format(
         write_rule_short=(
-            "增删改直接调用 adp_mutation，按当前登录者权限立即生效。"
+            "普通、可恢复的新增和修改调用 adp_mutation；删除、批量、金额、权限和不可逆状态变更必须等待 confirmation_required 并停止，只有用户确认后才算落地。"
             if direct
             else "写入必须先 adp_mutation 准备，等用户点击「确认执行」后才算落地。"
         ),

@@ -61,7 +61,9 @@ def open_confirmation_work_item(
     confirmation_id = int(getattr(confirmation, "id", 0) or 0)
     if confirmation_id <= 0:
         return None
-    risk_level = "high" if str(getattr(tool, "path_template", "")).startswith("/api/v1/admin") else "normal"
+    from backend.layers.features.agent.agent_gateway_policy import requires_confirmation
+
+    risk_level = "high" if requires_confirmation(tool) else "normal"
     payload = getattr(confirmation, "payload", None) or {}
     # 待办标题与详情都必须是业务人话：工具名/参数 JSON 会直接渲染在待办队列里。
     action = _action_text(tool, payload)

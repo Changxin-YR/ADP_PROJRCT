@@ -29,6 +29,8 @@ class MySqlProductionStore(PondStockSummaryQueries):
     def __init__(self, settings: Any) -> None:
         self.settings = settings
         self.audit = AuditLogger()
+    def _audit(self, connection: Any, user_id: int, action: str, resource: str, record_id: int, *, before: Any = None, after: Any = None) -> None:
+        self.audit.write(connection, user_id=user_id, action=f"{action}_production", object_type=f"production:{resource}", object_id=record_id, object_ref=f"{resource}:{record_id}", result="success", ip_address=None, module_code="production", before=before, after=after)
     @staticmethod
     def _table(resource: str) -> tuple[str, str | None]:
         return ("production_batches", None) if resource == "batches" else ("production_documents", DOC_TYPES[resource])
@@ -291,7 +293,6 @@ class MySqlProductionStore(PondStockSummaryQueries):
                 raise DomainError("DELETE_NOT_ALLOWED", "仅无引用的未提交草稿可以删除", 409)
             self._audit(connection, user_id, "delete_draft", resource, record_id, before=before)
             return before
-
     def reconcile_batch(self, batch_id: int) -> dict[str, Any]:
         with get_connection(self.settings) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT COALESCE(SUM(quantity_delta),0) AS quantity,COALESCE(SUM(weight_delta_kg),0) AS weight_kg FROM batch_stock_records WHERE batch_id=%s", (batch_id,))

@@ -101,7 +101,7 @@ function apply(ctx, config) {
         }));
         ctx.tools.register(defineTool({
                 name: "adp_mutation",
-                description: "执行 ADP 业务增删改（新增/修改/删除）。按当前登录者权限立即生效；若网关返回 confirmation_required，才需要等用户点击确认。",
+                description: "执行 ADP 业务增删改（新增/修改/删除）。按当前登录者权限执行；若网关返回 confirmation_required，必须等待用户确认。",
                 parameters: {
                         operation: {
                                 type: "string",

@@ -79,7 +79,7 @@ def _one(settings: Any, sql: str, params: tuple[Any, ...] = ()) -> dict[str, Any
 
 
 def test_real_mysql_purchase_receipt_payable_and_payment_chain() -> None:
-    with disposable_database("adp_purchase_test", through=12) as database:
+    with disposable_database("adp_purchase_test", through=34) as database:
         settings = settings_for(database)
         ids = _seed(settings)
         purchase = PurchaseService(MySqlPurchaseStore(settings))

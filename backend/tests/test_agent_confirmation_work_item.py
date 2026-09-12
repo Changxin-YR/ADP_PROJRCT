@@ -135,7 +135,7 @@ def test_open_writes_claimed_work_item_bound_to_the_requester(monkeypatch) -> No
     assert params[0] == 11 and params[10] == 11
     assert params[5] == source_key_of(42) and params[6] == source_key_of(42)
     assert "agent:confirmation:42" in params[5]
-    assert params[9] == "normal"
+    assert params[9] == "high"
 
 
 def test_open_marks_admin_tools_as_high_priority(monkeypatch) -> None:

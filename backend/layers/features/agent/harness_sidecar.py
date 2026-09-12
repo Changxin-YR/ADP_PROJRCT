@@ -3,15 +3,20 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import threading
 import time
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from backend.config.settings import Settings
 from backend.layers.features.agent.agent_gateway_service import AgentGatewayError
-from backend.layers.features.agent.agent_prompt import ensure_instructions, render_prompt
-from backend.layers.features.agent.harness_cache import DEFAULT_LIMIT, HarnessCache
+from backend.layers.features.agent.agent_prompt import (
+    ensure_instructions,
+    render_prompt,
+)
 from backend.layers.features.agent.agent_tool_registry import build_agent_tool_catalog
+from backend.layers.features.agent.harness_cache import DEFAULT_LIMIT, HarnessCache
 
 
 class HarnessSidecar:
@@ -30,6 +35,10 @@ class HarnessSidecar:
 
         patch = self.settings.agent_sidecar_patch.strip()
         patches = (patch,) if patch else ()
+        command = self.settings.agent_sidecar_command.strip()
+        # Node mode is an explicit development carrier selected by the SDK;
+        # passing the installed Windows wrapper would bypass that selection.
+        dsh_bin = None if runtime_env.get("DSH_RUNTIME_MODE") == "node" else (shutil.which(command) or command or None)
         # HarnessClient snapshots os.environ while spawning the child. Keep the
         # temporary setup isolated so unrelated requests cannot leak secrets.
         with _HARNESS_ENV_LOCK:
@@ -40,7 +49,7 @@ class HarnessSidecar:
                 harness = DeepSeekHarness(
                     dsh_home=self.settings.agent_sidecar_home,
                     cwd=self.settings.agent_sidecar_cwd,
-                    dsh_bin=self.settings.agent_sidecar_command or None,
+                    dsh_bin=dsh_bin,
                     profile="sdk",
                     provider=self.settings.agent_model_provider,
                     model=self.settings.agent_model,
@@ -122,9 +131,12 @@ class HarnessSidecar:
             raise
         except Exception as exc:
             name = type(exc).__name__.lower()
+            message = str(exc).lower()
             if "timeout" in name:
                 raise AgentGatewayError("AGENT_TIMEOUT", "智能助手响应超时，请稍后重试", 504) from exc
             self._drop(namespace)  # 坏掉/卡住的子进程不复用，下一轮自动换新的
+            if "deepseek-harness-runtime-bin" in message or "runtime executable" in message:
+                raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
             if any(marker in name for marker in ("protocol", "jsonrpc", "transport")):
                 raise AgentGatewayError("AGENT_PROTOCOL_ERROR", "智能助手通信协议异常", 502) from exc
             raise AgentGatewayError("AGENT_UNAVAILABLE", "智能助手服务暂时不可用，请稍后重试", 503) from exc
@@ -223,7 +235,7 @@ _HARNESS_ENV_LOCK = threading.Lock()
 _ENV_ALLOWLIST = {
     "PATH", "PATHEXT", "COMSPEC", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
     "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "APPDATA", "LOCALAPPDATA",
-    "HOME", "LANG", "LC_ALL", "TZ", "NODE_PATH",
+    "HOME", "LANG", "LC_ALL", "TZ", "NODE_PATH", "DSH_RUNTIME_MODE",
 }
 
 
@@ -253,7 +265,7 @@ def _bounded_query_prompt(prompt: str) -> str:
         }
         return (
             f"{prompt}\n\n"
-            "ADP 提示：这条指令的字段已经齐全，可以直接用 adp_mutation 写入（会按当前登录者权限立即生效）；"
+            "ADP 提示：这条指令的字段已经齐全，可以用 adp_mutation 写入；普通可恢复写入会按当前登录者权限执行，高风险写入会返回 confirmation_required，必须等待用户确认；"
             "operation 建议使用 api.production_create_post_api_v1_production_resource，"
             f"arguments 可用 {json.dumps(arguments, ensure_ascii=False, separators=(',', ':'))}。"
             "若字段或口径不放心，也可以先用 adp_query 核对或 adp_ask_user 与用户确认。"

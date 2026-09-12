@@ -294,8 +294,10 @@ def _run_pond_create(settings: Any, mode: str) -> dict[str, Any]:
 
     registry = build_registry(lambda _tool: lambda arguments, _context: service.create(actor, "ponds", arguments["payload"]))
     gateway = AgentGatewayService(settings, registry=registry, confirmations=_MemoryConfirmationStore())
-    pending = gateway.prepare_tool(actor, "master_data.create_record", {"payload": payload}, conversation_id="equivalence", request_id="request-equivalence")
-    return gateway.confirm(actor, pending["confirmation"]["token"], request_id="request-equivalence-confirm")
+    prepared = gateway.prepare_tool(actor, "master_data.create_record", {"resource": "ponds", "payload": payload}, conversation_id="equivalence", request_id="request-equivalence")
+    if prepared.get("kind") == "executed":
+        return prepared["data"]
+    return gateway.confirm(actor, prepared["confirmation"]["token"], request_id="request-equivalence-confirm")["data"]
 
 
 def test_manual_and_agent_mysql_snapshots_are_business_equivalent() -> None:
@@ -310,7 +312,7 @@ def test_manual_and_agent_mysql_snapshots_are_business_equivalent() -> None:
     with disposable_database("adp_agent_equivalence", through=32) as agent_db:
         agent_settings = settings_for(agent_db)
         agent = _run_pond_create(agent_settings, "agent")
-        assert agent["kind"] == "success"
+        assert agent["code"] == "P-EQUIV"
         agent_snapshot = snapshot_tables(agent_settings, ["areas", "ponds"])
 
         assert compare_snapshots(
@@ -381,7 +383,7 @@ def test_confirmation_business_mutation_and_audit_are_exactly_once(monkeypatch: 
             name="master_data.update_record",
             description="更新主数据",
             method="PATCH",
-            path_template="/api/v1/master-data/{resource}/{record_id}",
+                path_template="/api/v1/master-data/{resource}/{record_id}/status",
             parameters={"payload": {"type": "object", "required": True}},
             required_permission="master_data.manage",
             risk="write",
@@ -442,6 +444,8 @@ def test_confirmation_claim_then_real_business_failure_is_terminal(monkeypatch: 
         settings = settings_for(database)
         _env_for(settings, monkeypatch)
         ids = _seed(settings)
+        with get_connection(settings) as connection, connection.cursor() as cursor:
+            cursor.execute("UPDATE ponds SET status='draft' WHERE id=%s", (ids["pond_id"],))
         actor = _actor(1, area_id=ids["area_id"])
         service = MasterDataService(MySqlMasterDataStore(settings))
         audit = AuditLogger()
@@ -469,7 +473,7 @@ def test_confirmation_claim_then_real_business_failure_is_terminal(monkeypatch: 
             name="master_data.update_record",
             description="更新塘口",
             method="PATCH",
-            path_template="/api/v1/master-data/{resource}/{record_id}",
+                path_template="/api/v1/master-data/{resource}/{record_id}/status",
             parameters={"payload": {"type": "object", "required": True}},
             required_permission="master_data.manage",
             risk="write",
@@ -563,8 +567,8 @@ def test_manual_and_agent_inventory_snapshots_are_equivalent() -> None:
             confirmations=MySqlAgentConfirmationStore(settings),
         )
         pending = gateway.prepare_tool(verifier, tool.name, {"record_id": created["id"], "payload": verification_payload, "raw_instruction": "核验入库"}, conversation_id="inventory-equivalence", request_id="inventory-equivalence-prepare")
-        result = gateway.confirm(verifier, pending["confirmation"]["token"], request_id="inventory-equivalence-confirm")
-        assert result["kind"] == "success"
+        result = pending if pending.get("kind") == "executed" else gateway.confirm(verifier, pending["confirmation"]["token"], request_id="inventory-equivalence-confirm")
+        assert result["kind"] == "executed"
 
     from backend.tests.helpers.db_snapshot import compare_snapshots, snapshot_tables
     tables = ["warehouse_documents", "inventory_ledger", "cost_entries"]
@@ -641,7 +645,7 @@ def test_production_manual_agent_mysql_snapshots_are_equivalent(
             conversation_id=f"equivalence-{resource}",
             request_id=f"equivalence-{resource}-request",
         )
-        return gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"equivalence-{resource}-confirm")
+        return pending if pending.get("kind") == "executed" else gateway.confirm(actor, pending["confirmation"]["token"], request_id=f"equivalence-{resource}-confirm")
 
     from backend.tests.helpers.db_snapshot import compare_snapshots, snapshot_tables
 
@@ -654,7 +658,7 @@ def test_production_manual_agent_mysql_snapshots_are_equivalent(
     with disposable_database(f"adp_equiv_agent_{resource.replace('-', '_')}", through=32) as database:
         agent_settings = settings_for(database)
         agent = run(agent_settings, "agent")
-        assert agent["kind"] == "success"
+        assert agent["kind"] == "executed"
         agent_snapshot = snapshot_tables(agent_settings, ["production_batches", "production_documents", "batch_stock_records"])
 
         assert compare_snapshots(
